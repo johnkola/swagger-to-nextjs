@@ -1,0 +1,375 @@
+{{!-- Error Handling Partial Template --}}
+{{!-- This template provides consistent error handling patterns across all generated files --}}
+
+// Error handling utilities and types
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public statusCode: number = 500,
+    public code?: string,
+    public details?: any
+  ) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
+
+export class ValidationError extends ApiError {
+  constructor(message: string, details?: any) {
+    super(message, 400, 'VALIDATION_ERROR', details);
+    this.name = 'ValidationError';
+  }
+}
+
+export class AuthenticationError extends ApiError {
+  constructor(message: string = 'Authentication required') {
+    super(message, 401, 'AUTHENTICATION_ERROR');
+    this.name = 'AuthenticationError';
+  }
+}
+
+export class AuthorizationError extends ApiError {
+  constructor(message: string = 'Insufficient permissions') {
+    super(message, 403, 'AUTHORIZATION_ERROR');
+    this.name = 'AuthorizationError';
+  }
+}
+
+export class NotFoundError extends ApiError {
+  constructor(resource: string = 'Resource') {
+    super(`${resource} not found`, 404, 'NOT_FOUND_ERROR');
+    this.name = 'NotFoundError';
+  }
+}
+
+export class ConflictError extends ApiError {
+  constructor(message: string = 'Resource already exists') {
+    super(message, 409, 'CONFLICT_ERROR');
+    this.name = 'ConflictError';
+  }
+}
+
+export class RateLimitError extends ApiError {
+  constructor(message: string = 'Rate limit exceeded') {
+    super(message, 429, 'RATE_LIMIT_ERROR');
+    this.name = 'RateLimitError';
+  }
+}
+
+{{#if isServerSide}}
+// Server-side error handling for Next.js API routes
+export function handleApiError(error: unknown): NextResponse {
+  // Log error for debugging
+  console.error('API Error:', {
+    error: error instanceof Error ? error.message : 'Unknown error',
+    stack: error instanceof Error ? error.stack : undefined,
+    timestamp: new Date().toISOString(),
+    operation: '{{operationId}}',
+    path: '{{path}}',
+    method: '{{httpMethod}}'
+  });
+
+  // Handle known error types
+  if (error instanceof ApiError) {
+    return NextResponse.json(
+      {
+        error: error.name,
+        message: error.message,
+        code: error.code,
+        ...(process.env.NODE_ENV === 'development' && { details: error.details })
+      },
+      { status: error.statusCode }
+    );
+  }
+
+  // Handle Zod validation errors
+  if (error instanceof z.ZodError) {
+    return NextResponse.json(
+      {
+        error: 'ValidationError',
+        message: 'Request validation failed',
+        code: 'VALIDATION_ERROR',
+        details: error.errors.map(err => ({
+          field: err.path.join('.'),
+          message: err.message,
+          code: err.code
+        }))
+      },
+      { status: 400 }
+    );
+  }
+
+  // Handle database/Prisma errors
+  if (error?.constructor?.name === 'PrismaClientKnownRequestError') {
+    const prismaError = error as any;
+
+    switch (prismaError.code) {
+      case 'P2002':
+        return NextResponse.json(
+          {
+            error: 'ConflictError',
+            message: 'A record with this information already exists',
+            code: 'UNIQUE_CONSTRAINT_VIOLATION'
+          },
+          { status: 409 }
+        );
+
+      case 'P2025':
+        return NextResponse.json(
+          {
+            error: 'NotFoundError',
+            message: 'Record not found',
+            code: 'RECORD_NOT_FOUND'
+          },
+          { status: 404 }
+        );
+
+      default:
+        console.error('Prisma error:', prismaError);
+        break;
+    }
+  }
+
+  // Handle fetch/network errors
+  if (error instanceof TypeError && error.message.includes('fetch')) {
+    return NextResponse.json(
+      {
+        error: 'NetworkError',
+        message: 'External service unavailable',
+        code: 'EXTERNAL_SERVICE_ERROR'
+      },
+      { status: 503 }
+    );
+  }
+
+  // Generic server error
+  return NextResponse.json(
+    {
+      error: 'InternalServerError',
+      message: process.env.NODE_ENV === 'development'
+        ? (error instanceof Error ? error.message : 'Unknown error occurred')
+        : 'Internal server error',
+      code: 'INTERNAL_SERVER_ERROR',
+      ...(process.env.NODE_ENV === 'development' && {
+        stack: error instanceof Error ? error.stack : undefined
+      })
+    },
+    { status: 500 }
+  );
+}
+
+// Async error wrapper for API handlers
+export function withErrorHandling<T extends any[], R>(
+  handler: (...args: T) => Promise<R>
+) {
+  return async (...args: T): Promise<R | NextResponse> => {
+    try {
+      return await handler(...args);
+    } catch (error) {
+      return handleApiError(error);
+    }
+  };
+}
+
+// Input validation helper
+export function validateInput<T>(schema: z.ZodSchema<T>, data: unknown): T {
+  try {
+    return schema.parse(data);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      throw new ValidationError('Invalid input data', error.errors);
+    }
+    throw error;
+  }
+}
+
+// Path parameter validation
+export function validatePathParams<T extends Record<string, any>>(
+  params: T,
+  validators: Partial<Record<keyof T, (value: any) => boolean>>
+): T {
+  for (const [key, validator] of Object.entries(validators)) {
+    if (key in params && validator && !validator(params[key])) {
+      throw new ValidationError(`Invalid path parameter: ${key}`);
+    }
+  }
+  return params;
+}
+
+{{else}}
+// Client-side error handling for React components
+export function handleClientError(error: unknown): {
+  message: string;
+  type: 'validation' | 'network' | 'auth' | 'server' | 'unknown';
+  details?: any;
+} {
+  console.error('Client Error:', error);
+
+  if (error instanceof ApiError) {
+    return {
+      message: error.message,
+      type: error.statusCode < 500 ? 'validation' : 'server',
+      details: error.details
+    };
+  }
+
+  if (error instanceof TypeError && error.message.includes('fetch')) {
+    return {
+      message: 'Network connection failed. Please check your internet connection.',
+      type: 'network'
+    };
+  }
+
+  if (error?.name === 'AbortError') {
+    return {
+      message: 'Request was cancelled',
+      type: 'network'
+    };
+  }
+
+  return {
+    message: error instanceof Error ? error.message : 'An unexpected error occurred',
+    type: 'unknown',
+    details: error
+  };
+}
+
+// React error boundary helper
+export class ErrorBoundary extends React.Component<
+  { children: React.ReactNode; fallback?: React.ComponentType<{ error: Error }> },
+  { hasError: boolean; error?: Error }
+> {
+  constructor(props: any) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error('Error boundary caught error:', error, errorInfo);
+
+    // Report to error tracking service
+    if (typeof window !== 'undefined' && window.errorTracker) {
+      window.errorTracker.captureException(error, {
+        extra: errorInfo,
+        tags: {
+          component: 'ErrorBoundary',
+          operation: '{{operationId}}'
+        }
+      });
+    }
+  }
+
+  render() {
+    if (this.state.hasError) {
+      const FallbackComponent = this.props.fallback || DefaultErrorFallback;
+      return <FallbackComponent error={this.state.error!} />;
+    }
+
+    return this.props.children;
+  }
+}
+
+function DefaultErrorFallback({ error }: { error: Error }) {
+  return (
+    <div className="error-boundary">
+      <h2>Something went wrong</h2>
+      <p>{error.message}</p>
+      <button onClick={() => window.location.reload()}>
+        Reload page
+      </button>
+    </div>
+  );
+}
+
+// Hook for error handling in components
+export function useErrorHandler() {
+  const [error, setError] = useState<string | null>(null);
+
+  const handleError = useCallback((error: unknown) => {
+    const errorInfo = handleClientError(error);
+    setError(errorInfo.message);
+
+    // Optional: Report to analytics
+    if (typeof window !== 'undefined' && window.analytics) {
+      window.analytics.track('Error Occurred', {
+        error: errorInfo.message,
+        type: errorInfo.type,
+        operation: '{{operationId}}',
+        path: '{{path}}'
+      });
+    }
+  }, []);
+
+  const clearError = useCallback(() => {
+    setError(null);
+  }, []);
+
+  return { error, handleError, clearError };
+}
+{{/if}}
+
+// Common validation helpers
+export const validators = {
+  required: (value: any) => value !== null && value !== undefined && value !== '',
+  email: (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value),
+  phone: (value: string) => /^\+?[\d\s\-\(\)]+$/.test(value),
+  url: (value: string) => {
+    try {
+      new URL(value);
+      return true;
+    } catch {
+      return false;
+    }
+  },
+  uuid: (value: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value),
+  positiveNumber: (value: number) => typeof value === 'number' && value > 0,
+  nonNegativeNumber: (value: number) => typeof value === 'number' && value >= 0,
+  minLength: (min: number) => (value: string) => value && value.length >= min,
+  maxLength: (max: number) => (value: string) => value && value.length <= max,
+  dateString: (value: string) => !isNaN(Date.parse(value)),
+  jsonString: (value: string) => {
+    try {
+      JSON.parse(value);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+};
+
+// Response status helpers
+export const HTTP_STATUS = {
+  OK: 200,
+  CREATED: 201,
+  ACCEPTED: 202,
+  NO_CONTENT: 204,
+  BAD_REQUEST: 400,
+  UNAUTHORIZED: 401,
+  FORBIDDEN: 403,
+  NOT_FOUND: 404,
+  METHOD_NOT_ALLOWED: 405,
+  CONFLICT: 409,
+  UNPROCESSABLE_ENTITY: 422,
+  TOO_MANY_REQUESTS: 429,
+  INTERNAL_SERVER_ERROR: 500,
+  BAD_GATEWAY: 502,
+  SERVICE_UNAVAILABLE: 503,
+  GATEWAY_TIMEOUT: 504
+} as const;
+
+// Error message templates
+export const ERROR_MESSAGES = {
+  VALIDATION_FAILED: 'The provided data is invalid',
+  UNAUTHORIZED: 'Authentication is required to access this resource',
+  FORBIDDEN: 'You do not have permission to access this resource',
+  NOT_FOUND: 'The requested resource could not be found',
+  CONFLICT: 'The resource already exists or conflicts with existing data',
+  RATE_LIMITED: 'Too many requests. Please try again later',
+  SERVER_ERROR: 'An internal server error occurred',
+  NETWORK_ERROR: 'Network connection failed',
+  TIMEOUT_ERROR: 'The request timed out'
+} as const;

@@ -1,0 +1,13 @@
+# ===AI PROMPT ==============================================================
+# FILE: src/templates/files/config/docker.template
+# VERSION: 2025-05-25 13:22:11
+# ============================================================================
+#
+# AI GENERATION PROMPT:
+# Create Docker configuration templates (Dockerfile, docker-compose.yml) for
+# containerizing generated NextJS applications with API integration and
+# production optimization.
+#
+# ---
+#
+# ===PROMPT END ==============================================================

@@ -1,0 +1,158 @@
+{{!-- AI-Generated Code Prompt Template --}}
+{{!-- This template provides context and instructions for AI assistants when modifying generated code --}}
+
+/**
+ * 🤖 AI ASSISTANT CONTEXT
+ *
+ * This file was auto-generated from Swagger/OpenAPI specification.
+ *
+ * OPERATION DETAILS:
+ * - Method: {{httpMethod}}
+ * - Path: {{path}}
+ * - Operation ID: {{operationId}}
+ * - Summary: {{summary}}
+ * {{#if description}}
+ * - Description: {{description}}
+ * {{/if}}
+ *
+ * GENERATED STRUCTURE:
+ * {{#if pathParameters}}
+ * - Path Parameters: {{#each pathParameters}}{{name}}({{type}}){{#unless @last}}, {{/unless}}{{/each}}
+ * {{/if}}
+ * {{#if queryParameters}}
+ * - Query Parameters: {{#each queryParameters}}{{name}}({{type}}){{#unless @last}}, {{/unless}}{{/each}}
+ * {{/if}}
+ * {{#if requestBodySchema}}
+ * - Request Body: Available with validation
+ * {{/if}}
+ * {{#if responseSchema}}
+ * - Response Schema: Validated response structure
+ * {{/if}}
+ *
+ * IMPLEMENTATION GUIDANCE FOR AI ASSISTANTS:
+ *
+ * 1. BUSINESS LOGIC IMPLEMENTATION:
+ *    - Replace TODO comments with actual implementation
+ *    - Connect to your database/service layer
+ *    - Implement proper error handling for business rules
+ *    - Add logging for debugging and monitoring
+ *
+ * 2. AUTHENTICATION & AUTHORIZATION:
+ *    {{#if hasAuthentication}}
+ *    - Authentication is enabled - implement proper token validation
+ *    - Add role-based access control if needed
+ *    - Handle expired tokens and refresh logic
+ *    {{else}}
+ *    - No authentication configured - add if needed for security
+ *    {{/if}}
+ *
+ * 3. VALIDATION ENHANCEMENTS:
+ *    - The generated Zod schemas provide basic validation
+ *    - Add business-specific validation rules
+ *    - Implement cross-field validation if needed
+ *    - Add custom error messages for better UX
+ *
+ * 4. PERFORMANCE CONSIDERATIONS:
+ *    {{#if (eq httpMethod 'GET')}}
+ *    - Consider adding caching for GET requests
+ *    - Implement pagination for large datasets
+ *    - Add database query optimization
+ *    {{else}}
+ *    - Add rate limiting for write operations
+ *    - Implement optimistic updates where appropriate
+ *    - Consider transaction handling for data consistency
+ *    {{/if}}
+ *
+ * 5. ERROR HANDLING IMPROVEMENTS:
+ *    - The template includes basic error handling
+ *    - Add specific error types for your domain
+ *    - Implement proper HTTP status codes
+ *    - Add error logging and monitoring
+ *
+ * 6. TESTING RECOMMENDATIONS:
+ *    - Unit tests for business logic functions
+ *    - Integration tests for API endpoints
+ *    - Validation tests for edge cases
+ *    - Performance tests for high-load scenarios
+ *
+ * 7. SECURITY CONSIDERATIONS:
+ *    - Input sanitization (already handled by Zod validation)
+ *    - SQL injection prevention (use parameterized queries)
+ *    - Rate limiting implementation
+ *    - CORS configuration review
+ *
+ * 8. MONITORING & OBSERVABILITY:
+ *    - Add structured logging
+ *    - Implement metrics collection
+ *    - Add distributed tracing if using microservices
+ *    - Set up alerts for error rates
+ *
+ * EXAMPLE IMPLEMENTATION PATTERNS:
+ *
+ * Database Integration:
+ * ```typescript
+ * // Using Prisma
+ * const result = await prisma.{{tableName}}.{{#if (eq httpMethod 'GET')}}findMany{{else if (eq httpMethod 'POST')}}create{{else if (eq httpMethod 'PUT')}}update{{else if (eq httpMethod 'DELETE')}}delete{{/if}}({
+ *   {{#if (eq httpMethod 'GET')}}
+ *   where: queryParams,
+ *   take: queryParams.limit || 20,
+ *   skip: (queryParams.page - 1) * (queryParams.limit || 20),
+ *   {{else if (eq httpMethod 'POST')}}
+ *   data: requestBody,
+ *   {{else if (eq httpMethod 'PUT')}}
+ *   where: { id: pathParams.id },
+ *   data: requestBody,
+ *   {{else if (eq httpMethod 'DELETE')}}
+ *   where: { id: pathParams.id },
+ *   {{/if}}
+ * });
+ * ```
+ *
+ * Service Layer Pattern:
+ * ```typescript
+ * // services/{{camelCaseOperationId}}Service.ts
+ * export class {{pascalCaseOperationId}}Service {
+ *   async {{camelCaseOperationId}}(params: ServiceParams) {
+ *     // Business logic here
+ *     return result;
+ *   }
+ * }
+ * ```
+ *
+ * Error Handling Pattern:
+ * ```typescript
+ * try {
+ *   const result = await service.{{camelCaseOperationId}}(params);
+ *   return NextResponse.json(result);
+ * } catch (error) {
+ *   if (error instanceof ValidationError) {
+ *     return NextResponse.json({ error: error.message }, { status: 400 });
+ *   }
+ *   if (error instanceof NotFoundError) {
+ *     return NextResponse.json({ error: 'Resource not found' }, { status: 404 });
+ *   }
+ *   throw error; // Let global handler catch unexpected errors
+ * }
+ * ```
+ *
+ * REGENERATION NOTICE:
+ * If you regenerate this file from the Swagger spec:
+ * - Your custom business logic will be lost
+ * - Consider using the --preserve-custom flag if available
+ * - Backup custom implementations before regenerating
+ * - Use service layer pattern to separate generated and custom code
+ *
+ * NEXT STEPS FOR IMPLEMENTATION:
+ * 1. Replace placeholder functions with real implementations
+ * 2. Set up database connections and models
+ * 3. Implement authentication middleware if needed
+ * 4. Add comprehensive error handling
+ * 5. Write tests for your implementations
+ * 6. Set up monitoring and logging
+ * 7. Review security considerations
+ * 8. Optimize for performance
+ *
+ * Generated at: {{generatedAt}}
+ * Generator version: {{generatorVersion}}
+ * Swagger spec: {{swaggerSpecUrl}}
+ */

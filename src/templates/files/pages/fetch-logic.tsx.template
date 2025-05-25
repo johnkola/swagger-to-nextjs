@@ -1,0 +1,552 @@
+'use client';
+
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { z } from 'zod';
+{{#if hasAuthentication}}
+import { useAuth } from '@/hooks/useAuth';
+{{/if}}
+{{#if hasCaching}}
+import { useQueryCache } from '@/hooks/useQueryCache';
+{{/if}}
+
+{{#if requestBodySchema}}
+// Request body schema and type
+const {{camelCaseOperationId}}RequestSchema = z.object({
+{{#each requestBodyProperties}}
+  {{name}}: {{zodType}}{{#if required}}{{else}}.optional(){{/if}},
+{{/each}}
+});
+
+export type {{pascalCaseOperationId}}Request = z.infer<typeof {{camelCaseOperationId}}RequestSchema>;
+{{/if}}
+
+{{#if responseSchema}}
+// Response schema and type
+const {{camelCaseOperationId}}ResponseSchema = z.object({
+{{#each responseProperties}}
+  {{name}}: {{zodType}}{{#if required}}{{else}}.optional(){{/if}},
+{{/each}}
+});
+
+export type {{pascalCaseOperationId}}Response = z.infer<typeof {{camelCaseOperationId}}ResponseSchema>;
+{{/if}}
+
+{{#if pathParameters}}
+// Path parameters type
+export interface {{pascalCaseOperationId}}PathParams {
+{{#each pathParameters}}
+  {{name}}: {{tsType}};
+{{/each}}
+}
+{{/if}}
+
+{{#if queryParameters}}
+// Query parameters type
+export interface {{pascalCaseOperationId}}QueryParams {
+{{#each queryParameters}}
+  {{name}}{{#unless required}}?{{/unless}}: {{tsType}};
+{{/each}}
+}
+{{/if}}
+
+// API function options
+export interface {{pascalCaseOperationId}}Options {
+  {{#if pathParameters}}pathParams: {{pascalCaseOperationId}}PathParams;{{/if}}
+  {{#if queryParameters}}queryParams?: {{pascalCaseOperationId}}QueryParams;{{/if}}
+  {{#if requestBodySchema}}requestBody?: {{pascalCaseOperationId}}Request;{{/if}}
+  signal?: AbortSignal;
+  timeout?: number;
+}
+
+// Hook state interface
+export interface Use{{pascalCaseOperationId}}State {
+  {{#if responseSchema}}data: {{pascalCaseOperationId}}Response | null;{{else}}data: any;{{/if}}
+  loading: boolean;
+  error: string | null;
+  {{#unless (eq httpMethod 'GET')}}
+  execute: (options{{#if (or pathParameters requestBodySchema)}}: {{pascalCaseOperationId}}Options{{/if}}) => Promise<void>;
+  {{/unless}}
+  refetch: () => Promise<void>;
+  reset: () => void;
+}
+
+// Error types
+export class {{pascalCaseOperationId}}Error extends Error {
+  constructor(
+    message: string,
+    public status?: number,
+    public details?: any
+  ) {
+    super(message);
+    this.name = '{{pascalCaseOperationId}}Error';
+  }
+}
+
+// Build URL helper function
+function build{{pascalCaseOperationId}}Url(
+  {{#if pathParameters}}pathParams: {{pascalCaseOperationId}}PathParams{{/if}}
+  {{#if (and pathParameters queryParameters)}},{{/if}}
+  {{#if queryParameters}}queryParams?: {{pascalCaseOperationId}}QueryParams{{/if}}
+): string {
+  {{#if pathParameters}}
+  // Replace path parameters
+  let url = '{{path}}';
+  {{#each pathParameters}}
+  url = url.replace('{{{name}}}', encodeURIComponent(String(pathParams.{{name}})));
+  {{/each}}
+  {{else}}
+  let url = '{{path}}';
+  {{/if}}
+
+  {{#if queryParameters}}
+  // Add query parameters
+  if (queryParams) {
+    const searchParams = new URLSearchParams();
+    {{#each queryParameters}}
+    if (queryParams.{{name}} !== undefined && queryParams.{{name}} !== null) {
+      searchParams.append('{{name}}', String(queryParams.{{name}}));
+    }
+    {{/each}}
+
+    const queryString = searchParams.toString();
+    if (queryString) {
+      url += `?${queryString}`;
+    }
+  }
+  {{/if}}
+
+  return url;
+}
+
+// Core API function
+export async function {{camelCaseOperationId}}(
+  options: {{pascalCaseOperationId}}Options
+): Promise<{{#if responseSchema}}{{pascalCaseOperationId}}Response{{else}}any{{/if}}> {
+  const {
+    {{#if pathParameters}}pathParams,{{/if}}
+    {{#if queryParameters}}queryParams,{{/if}}
+    {{#if requestBodySchema}}requestBody,{{/if}}
+    signal,
+    timeout = 30000
+  } = options;
+
+  {{#if requestBodySchema}}
+  // Validate request body if provided
+  if (requestBody) {
+    try {
+      {{camelCaseOperationId}}RequestSchema.parse(requestBody);
+    } catch (error) {
+      throw new {{pascalCaseOperationId}}Error(
+        'Invalid request body',
+        400,
+        error instanceof z.ZodError ? error.errors : error
+      );
+    }
+  }
+  {{/if}}
+
+  // Build URL
+  const url = build{{pascalCaseOperationId}}Url(
+    {{#if pathParameters}}pathParams{{/if}}
+    {{#if (and pathParameters queryParameters)}},{{/if}}
+    {{#if queryParameters}}queryParams{{/if}}
+  );
+
+  // Create abort controller for timeout
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+  // Combine signals
+  const combinedSignal = signal ?
+    (() => {
+      const combined = new AbortController();
+      const abortHandler = () => combined.abort();
+      signal.addEventListener('abort', abortHandler);
+      controller.signal.addEventListener('abort', abortHandler);
+      return combined.signal;
+    })() : controller.signal;
+
+  try {
+    {{#if hasAuthentication}}
+    // Get auth token
+    const token = await getAuthToken();
+    {{/if}}
+
+    // Make the request
+    const response = await fetch(url, {
+      method: '{{httpMethod}}',
+      headers: {
+        'Content-Type': 'application/json',
+        {{#if hasAuthentication}}
+        ...(token && { Authorization: `Bearer ${token}` }),
+        {{/if}}
+        {{#each customHeaders}}
+        '{{name}}': '{{value}}',
+        {{/each}}
+      },
+      {{#if requestBodySchema}}
+      {{#unless (eq httpMethod 'GET')}}
+      body: requestBody ? JSON.stringify(requestBody) : undefined,
+      {{/unless}}
+      {{/if}}
+      signal: combinedSignal,
+    });
+
+    clearTimeout(timeoutId);
+
+    // Handle non-2xx responses
+    if (!response.ok) {
+      let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+      let errorDetails;
+
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.message || errorData.error || errorMessage;
+        errorDetails = errorData;
+      } catch {
+        // Response might not be JSON
+      }
+
+      throw new {{pascalCaseOperationId}}Error(errorMessage, response.status, errorDetails);
+    }
+
+    // Parse response
+    {{#if (eq httpMethod 'DELETE')}}
+    // DELETE typically returns no content
+    if (response.status === 204) {
+      return null;
+    }
+    {{/if}}
+
+    const data = await response.json();
+
+    {{#if responseSchema}}
+    // Validate response
+    try {
+      return {{camelCaseOperationId}}ResponseSchema.parse(data);
+    } catch (error) {
+      console.warn('Response validation failed:', error);
+      return data; // Return raw data if validation fails
+    }
+    {{else}}
+    return data;
+    {{/if}}
+
+  } catch (error) {
+    clearTimeout(timeoutId);
+
+    if (error instanceof {{pascalCaseOperationId}}Error) {
+      throw error;
+    }
+
+    if (error.name === 'AbortError') {
+      throw new {{pascalCaseOperationId}}Error('Request was cancelled', 0);
+    }
+
+    throw new {{pascalCaseOperationId}}Error(
+      error.message || 'Network error occurred',
+      0,
+      error
+    );
+  }
+}
+
+{{#if (eq httpMethod 'GET')}}
+// React hook for GET requests (auto-fetch)
+export function use{{pascalCaseOperationId}}(
+  {{#if pathParameters}}pathParams: {{pascalCaseOperationId}}PathParams{{/if}}
+  {{#if (and pathParameters queryParameters)}},{{/if}}
+  {{#if queryParameters}}queryParams?: {{pascalCaseOperationId}}QueryParams{{/if}}
+  {{#if (or pathParameters queryParameters)}},{{/if}}
+  options?: {
+    enabled?: boolean;
+    refetchInterval?: number;
+    onSuccess?: (data: {{#if responseSchema}}{{pascalCaseOperationId}}Response{{else}}any{{/if}}) => void;
+    onError?: (error: {{pascalCaseOperationId}}Error) => void;
+  }
+): Use{{pascalCaseOperationId}}State {
+  const [data, setData] = useState<{{#if responseSchema}}{{pascalCaseOperationId}}Response{{else}}any{{/if}} | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  {{#if hasAuthentication}}
+  const { isAuthenticated } = useAuth();
+  {{/if}}
+
+  {{#if hasCaching}}
+  const { getCachedData, setCachedData } = useQueryCache();
+  {{/if}}
+
+  const { enabled = true, refetchInterval, onSuccess, onError } = options || {};
+
+  // Create cache key
+  const cacheKey = useMemo(() => {
+    return JSON.stringify({
+      operation: '{{operationId}}',
+      {{#if pathParameters}}pathParams,{{/if}}
+      {{#if queryParameters}}queryParams,{{/if}}
+    });
+  }, [
+    {{#if pathParameters}}{{#each pathParameters}}pathParams.{{name}},{{/each}}{{/if}}
+    {{#if queryParameters}}{{#each queryParameters}}queryParams?.{{name}},{{/each}}{{/if}}
+  ]);
+
+  const fetchData = useCallback(async () => {
+    if (!enabled) return;
+    {{#if hasAuthentication}}
+    if (!isAuthenticated) return;
+    {{/if}}
+
+    try {
+      setLoading(true);
+      setError(null);
+
+      {{#if hasCaching}}
+      // Check cache first
+      const cachedData = getCachedData(cacheKey);
+      if (cachedData) {
+        setData(cachedData);
+        setLoading(false);
+        return;
+      }
+      {{/if}}
+
+      const result = await {{camelCaseOperationId}}({
+        {{#if pathParameters}}pathParams,{{/if}}
+        {{#if queryParameters}}queryParams,{{/if}}
+      });
+
+      setData(result);
+      {{#if hasCaching}}
+      setCachedData(cacheKey, result);
+      {{/if}}
+      onSuccess?.(result);
+
+    } catch (err) {
+      const apiError = err instanceof {{pascalCaseOperationId}}Error ? err :
+        new {{pascalCaseOperationId}}Error(err.message || 'Unknown error');
+
+      setError(apiError.message);
+      onError?.(apiError);
+    } finally {
+      setLoading(false);
+    }
+  }, [
+    enabled,
+    {{#if hasAuthentication}}isAuthenticated,{{/if}}
+    cacheKey,
+    {{#if pathParameters}}{{#each pathParameters}}pathParams.{{name}},{{/each}}{{/if}}
+    {{#if queryParameters}}{{#each queryParameters}}queryParams?.{{name}},{{/each}}{{/if}}
+    onSuccess,
+    onError,
+    {{#if hasCaching}}getCachedData, setCachedData,{{/if}}
+  ]);
+
+  // Initial fetch
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  // Refetch interval
+  useEffect(() => {
+    if (!refetchInterval || !enabled) return;
+
+    const interval = setInterval(fetchData, refetchInterval);
+    return () => clearInterval(interval);
+  }, [fetchData, refetchInterval, enabled]);
+
+  const reset = useCallback(() => {
+    setData(null);
+    setError(null);
+    setLoading(false);
+  }, []);
+
+  return {
+    data,
+    loading,
+    error,
+    refetch: fetchData,
+    reset,
+  };
+}
+{{else}}
+// React hook for non-GET requests (manual execution)
+export function use{{pascalCaseOperationId}}(
+  options?: {
+    onSuccess?: (data: {{#if responseSchema}}{{pascalCaseOperationId}}Response{{else}}any{{/if}}) => void;
+    onError?: (error: {{pascalCaseOperationId}}Error) => void;
+  }
+): Use{{pascalCaseOperationId}}State {
+  const [data, setData] = useState<{{#if responseSchema}}{{pascalCaseOperationId}}Response{{else}}any{{/if}} | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const { onSuccess, onError } = options || {};
+
+  const execute = useCallback(async (
+    executeOptions{{#if (or pathParameters requestBodySchema)}}: {{pascalCaseOperationId}}Options{{/if}}
+  ) => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const result = await {{camelCaseOperationId}}(executeOptions);
+
+      setData(result);
+      onSuccess?.(result);
+
+    } catch (err) {
+      const apiError = err instanceof {{pascalCaseOperationId}}Error ? err :
+        new {{pascalCaseOperationId}}Error(err.message || 'Unknown error');
+
+      setError(apiError.message);
+      onError?.(apiError);
+    } finally {
+      setLoading(false);
+    }
+  }, [onSuccess, onError]);
+
+  const refetch = useCallback(async () => {
+    // For non-GET methods, refetch doesn't make sense
+    // This is here for interface consistency
+    console.warn('Refetch called on {{httpMethod}} operation - this may not be intended');
+  }, []);
+
+  const reset = useCallback(() => {
+    setData(null);
+    setError(null);
+    setLoading(false);
+  }, []);
+
+  return {
+    data,
+    loading,
+    error,
+    execute,
+    refetch,
+    reset,
+  };
+}
+{{/if}}
+
+{{#if hasCaching}}
+// Cache management utilities
+export const {{camelCaseOperationId}}Cache = {
+  key: (
+    {{#if pathParameters}}pathParams: {{pascalCaseOperationId}}PathParams{{/if}}
+    {{#if (and pathParameters queryParameters)}},{{/if}}
+    {{#if queryParameters}}queryParams?: {{pascalCaseOperationId}}QueryParams{{/if}}
+  ) => JSON.stringify({
+    operation: '{{operationId}}',
+    {{#if pathParameters}}pathParams,{{/if}}
+    {{#if queryParameters}}queryParams,{{/if}}
+  }),
+
+  invalidate: (
+    {{#if pathParameters}}pathParams?: {{pascalCaseOperationId}}PathParams{{/if}}
+    {{#if (and pathParameters queryParameters)}},{{/if}}
+    {{#if queryParameters}}queryParams?: {{pascalCaseOperationId}}QueryParams{{/if}}
+  ) => {
+    // Implementation depends on your cache system
+    const pattern = pathParams || queryParams ?
+      {{camelCaseOperationId}}Cache.key(
+        {{#if pathParameters}}pathParams!{{/if}}
+        {{#if (and pathParameters queryParameters)}},{{/if}}
+        {{#if queryParameters}}queryParams{{/if}}
+      ) :
+      '{{operationId}}';
+
+    // Clear matching cache entries
+    if (typeof window !== 'undefined' && window.cacheManager) {
+      window.cacheManager.invalidate(pattern);
+    }
+  }
+};
+{{/if}}
+
+{{#if hasAuthentication}}
+// Auth helper function (implement based on your auth system)
+async function getAuthToken(): Promise<string | null> {
+  // TODO: Implement your auth token retrieval logic
+  // Example implementations:
+
+  // For localStorage:
+  // return localStorage.getItem('auth_token');
+
+  // For cookies:
+  // return document.cookie.split(';').find(c => c.trim().startsWith('token='))?.split('=')[1] || null;
+
+  // For context/provider:
+  // const { getToken } = useAuth();
+  // return await getToken();
+
+  return null;
+}
+{{/if}}
+
+// Type exports for convenience
+export type {
+  {{#if pathParameters}}{{pascalCaseOperationId}}PathParams,{{/if}}
+  {{#if queryParameters}}{{pascalCaseOperationId}}QueryParams,{{/if}}
+  {{#if requestBodySchema}}{{pascalCaseOperationId}}Request,{{/if}}
+  {{#if responseSchema}}{{pascalCaseOperationId}}Response,{{/if}}
+  {{pascalCaseOperationId}}Options,
+  Use{{pascalCaseOperationId}}State,
+};
+
+// Example usage in components:
+/*
+{{#if (eq httpMethod 'GET')}}
+// GET request example:
+function MyComponent() {
+  const { data, loading, error, refetch } = use{{pascalCaseOperationId}}(
+    {{#if pathParameters}}{ {{#each pathParameters}}{{name}}: '{{example}}'{{#unless @last}}, {{/unless}}{{/each}} }{{/if}}
+    {{#if (and pathParameters queryParameters)}},{{/if}}
+    {{#if queryParameters}}{ {{#each queryParameters}}{{name}}: {{#if (eq type 'string')}}'{{example}}'{{else}}{{example}}{{/if}}{{#unless @last}}, {{/unless}}{{/each}} }{{/if}}
+    {{#if (or pathParameters queryParameters)}},{{/if}}
+    {
+      enabled: true,
+      refetchInterval: 30000, // Refetch every 30 seconds
+      onSuccess: (data) => console.log('Success:', data),
+      onError: (error) => console.error('Error:', error.message),
+    }
+  );
+
+  if (loading) return <div>Loading...</div>;
+  if (error) return <div>Error: {error}</div>;
+  if (!data) return <div>No data</div>;
+
+  return (
+    <div>
+      <pre>{JSON.stringify(data, null, 2)}</pre>
+      <button onClick={refetch}>Refresh</button>
+    </div>
+  );
+}
+{{else}}
+// {{httpMethod}} request example:
+function MyComponent() {
+  const { data, loading, error, execute } = use{{pascalCaseOperationId}}({
+    onSuccess: (data) => console.log('Success:', data),
+    onError: (error) => console.error('Error:', error.message),
+  });
+
+  const handleSubmit = async () => {
+    await execute({
+      {{#if pathParameters}}pathParams: { {{#each pathParameters}}{{name}}: '{{example}}'{{#unless @last}}, {{/unless}}{{/each}} },{{/if}}
+      {{#if requestBodySchema}}requestBody: { {{#each requestBodyProperties}}{{name}}: {{#if (eq type 'string')}}'{{example}}'{{else}}{{example}}{{/if}}{{#unless @last}}, {{/unless}}{{/each}} },{{/if}}
+    });
+  };
+
+  return (
+    <div>
+      <button onClick={handleSubmit} disabled={loading}>
+        {loading ? 'Processing...' : '{{httpMethod}} {{path}}'}
+      </button>
+      {error && <div>Error: {error}</div>}
+      {data && <pre>{JSON.stringify(data, null, 2)}</pre>}
+    </div>
+  );
+}
+{{/if}}
+*/

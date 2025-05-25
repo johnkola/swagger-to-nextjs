@@ -1,0 +1,62 @@
+{
+  "name": "@yourapp/swagger-to-nextjs",
+  "version": "1.0.0",
+  "description": "Generate Next.js applications from Swagger/OpenAPI specifications",
+  "main": "src/index.js",
+  "bin": {
+    "swagger-to-nextjs": "bin/swagger-to-nextjs"
+  },
+  "scripts": {
+    "test": "jest",
+    "dev": "node src/cli.js",
+    "lint": "eslint src/",
+    "generate": "node src/cli.js",
+    "help": "node src/cli.js --help"
+  },
+  "keywords": [
+    "swagger",
+    "openapi",
+    "nextjs",
+    "code-generation",
+    "api",
+    "typescript",
+    "react"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "dependencies": {
+    "axios": "^1.9.0",
+    "chalk": "^5.4.1",
+    "commander": "^9.5.0",
+    "fs-extra": "^11.3.0",
+    "handlebars": "^4.7.8",
+    "js-yaml": "^4.1.0"
+  },
+  "devDependencies": {
+    "eslint": "^8.57.1",
+    "jest": "^29.7.0",
+    "nodemon": "^3.1.10"
+  },
+  "files": [
+    "bin/",
+    "src/",
+    "README.md",
+    "package.json"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yourusername/swagger-to-nextjs.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yourusername/swagger-to-nextjs/issues"
+  },
+  "homepage": "https://github.com/yourusername/swagger-to-nextjs#readme",
+  "directories": {
+    "example": "examples",
+    "test": "tests"
+  },
+  "type": "commonjs"
+}

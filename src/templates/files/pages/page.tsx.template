@@ -1,0 +1,245 @@
+# ===AI PROMPT ==============================================================
+# FILE: src/templates/files/pages/page.tsx.template
+# VERSION: 2025-05-25 13:22:11
+# ============================================================================
+#
+# AI GENERATION PROMPT:
+# Create a React TypeScript template for NextJS pages with data fetching,
+# loading states, error boundaries, and responsive design components.
+#
+# ---
+#
+# ===PROMPT END ==============================================================
+/**
+ * AI PROMPT FOR REACT COMPONENT GENERATION:
+ * =========================================
+ *
+ * You are a React/Next.js frontend developer. Generate a complete, production-ready React component.
+ *
+ * COMPONENT INFORMATION:
+ * - Route: {{routePath}}
+ * - API Endpoint: /api{{routePath}}
+ * - Available HTTP Methods: {{methods.join(', ')}}
+ * - Framework: Next.js 13+ with App Router
+ * - TypeScript: Yes
+ * - Styling: Tailwind CSS
+ *
+{{#if aiPromptData.getEndpointDetails}}
+ * GET ENDPOINT DETAILS:
+ * - Summary: {{aiPromptData.getEndpointDetails.summary}}
+ * - Description: {{aiPromptData.getEndpointDetails.description}}
+{{#if aiPromptData.getEndpointDetails.parameters}}
+ * - Parameters:
+{{#each aiPromptData.getEndpointDetails.parameters}}
+ *   * {{this.name}} ({{this.location}}): {{this.type}} - {{this.description}}
+{{/each}}
+{{/if}}
+{{#if aiPromptData.getEndpointDetails.responses}}
+ * - Response Schema:
+{{#each aiPromptData.getEndpointDetails.responses}}
+ *   * {{this.code}} Response: {{this.description}}
+{{/each}}
+{{/if}}
+{{/if}}
+ *
+ * ALL AVAILABLE OPERATIONS:
+{{#each aiPromptData.allOperations}}
+ * {{this.method}} Operation:
+ * - Summary: {{this.summary}}
+ * - Description: {{this.description}}
+{{#if this.hasRequestBody}}
+ * - Requires Request Body: Yes
+ * - Body Description: {{this.bodyDescription}}
+{{/if}}
+ *
+{{/each}}
+ * UI REQUIREMENTS:
+ * 1. Create a modern, responsive React component
+ * 2. Use TypeScript with proper type definitions
+ * 3. Implement state management with React hooks
+ * 4. Add loading states and error handling
+ * 5. Use Tailwind CSS for styling
+ * 6. Follow React best practices and patterns
+ * 7. Add proper accessibility features
+ * 8. Implement form validation if applicable
+ * 9. Add user feedback (success/error messages)
+ * 10. Make it mobile-responsive
+ *
+ * COMPONENT FEATURES TO IMPLEMENT:
+{{#each aiPromptData.componentFeatures}}
+ * - {{this}}
+{{/each}}
+ *
+ * STYLING GUIDELINES:
+{{#each aiPromptData.stylingGuidelines}}
+ * - {{this}}
+{{/each}}
+ *
+ * ERROR HANDLING:
+{{#each aiPromptData.errorHandling}}
+ * - {{this}}
+{{/each}}
+ *
+ * PERFORMANCE CONSIDERATIONS:
+{{#each aiPromptData.performanceConsiderations}}
+ * - {{this}}
+{{/each}}
+ *
+ * GENERATE: A complete, functional React component with all necessary features, proper TypeScript types, and professional UI/UX.
+ */
+
+// Page Component: {{routePath}}
+// Generated from Swagger/OpenAPI specification
+// Associated API methods: {{methods.join(', ')}}
+// TODO: Remove this comment block after AI implementation
+
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import { useParams, useSearchParams } from 'next/navigation';
+
+/**
+ * {{componentName}}
+ * Route: {{routePath}}
+ * Description: Page component for {{routePath}} endpoint
+{{#if aiPromptData.getEndpointDetails.summary}}
+ * API Summary: {{aiPromptData.getEndpointDetails.summary}}
+{{/if}}
+ */
+export default function {{componentName}}() {
+{{#if pathParams}}
+  const params = useParams();
+{{#each pathParams}}
+  const {{this}} = params.{{this}} as string;
+{{/each}}
+
+{{/if}}
+{{#if queryParams}}
+  const searchParams = useSearchParams();
+
+{{/if}}
+  // State management
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+{{#if hasGetMethod}}
+  // Fetch data on component mount
+  useEffect(() => {
+{{#if pathParams}}
+    if ({{pathParams.join(' && ')}}) {
+      fetchData();
+    }
+{{else}}
+    fetchData();
+{{/if}}
+  }, [{{pathParams.join(', ')}}]);
+
+  // Function to fetch data from API
+  const fetchData = async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const response = await fetch(`{{apiUrl}}`);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      const result = await response.json();
+      setData(result);
+    } catch (err: any) {
+      setError(err.message || 'Failed to fetch data');
+      console.error('Error fetching data:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+{{/if}}
+  return (
+    <div className="container mx-auto p-6 max-w-4xl">
+      <div className="bg-white rounded-lg shadow-lg p-6">
+        <h1 className="text-3xl font-bold text-gray-800 mb-6">
+          {{pageTitle}}
+        </h1>
+
+{{#if pathParams}}
+        {/* Path Parameters */}
+        <div className="bg-gray-50 p-4 rounded-lg mb-6">
+          <h3 className="text-sm font-semibold text-gray-600 mb-2">Parameters:</h3>
+{{#each pathParams}}
+          <div className="text-sm text-gray-700">
+            <span className="font-medium">{{this}}:</span> <code className="bg-gray-200 px-2 py-1 rounded">{{{this}}}</code>
+          </div>
+{{/each}}
+        </div>
+
+{{/if}}
+{{#if hasGetMethod}}
+        {/* Loading State */}
+        {loading && (
+          <div className="flex items-center justify-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            <span className="ml-3 text-gray-600">Loading...</span>
+          </div>
+        )}
+
+        {/* Error State */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+            <div className="flex items-center">
+              <div className="text-red-600 mr-3">⚠️</div>
+              <div>
+                <h3 className="text-red-800 font-semibold">Error</h3>
+                <p className="text-red-700">{error}</p>
+                <button
+                  onClick={fetchData}
+                  className="mt-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded text-sm font-medium transition-colors"
+                >
+                  Try Again
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Success State */}
+        {data && !loading && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-semibold text-gray-800">Data</h2>
+              <button
+                onClick={fetchData}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm font-medium transition-colors"
+              >
+                Refresh
+              </button>
+            </div>
+
+            <div className="bg-gray-50 rounded-lg p-4 overflow-auto">
+              <pre className="text-sm text-gray-800 whitespace-pre-wrap">
+                {JSON.stringify(data, null, 2)}
+              </pre>
+            </div>
+          </div>
+        )}
+
+{{/if}}
+        {/* API Information */}
+        <div className="mt-8 pt-6 border-t border-gray-200">
+          <h3 className="text-lg font-semibold text-gray-800 mb-3">API Information</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+            <div>
+              <span className="text-gray-600">Endpoint:</span>
+              <code className="ml-2 bg-gray-100 px-2 py-1 rounded">{{routePath}}</code>
+            </div>
+            <div>
+              <span className="text-gray-600">Methods:</span>
+              <span className="ml-2 font-medium text-blue-600">{{methods.join(', ')}}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

@@ -1,0 +1,246 @@
+/**
+ * ===AI PROMPT ==============================================================
+ * FILE: src/cli.js
+ * VERSION: 2025-05-25 13:22:11
+ * ============================================================================
+ *
+ * AI GENERATION PROMPT:
+ * Create a comprehensive CLI interface for the Swagger-to-NextJS generator
+ * using Commander.js. The CLI should serve as the user-facing entry point
+ * that provides an intuitive command-line experience for generating Next.js
+ * applications from OpenAPI specifications.
+ *
+ * ---
+ *
+ * ===PROMPT END ==============================================================
+ */
+/**
+/**
+ * FILE: src/cli.js
+ *
+ * AI PROMPT FOR CODE REVIEW/ENHANCEMENT:
+ * =====================================
+ *
+ * You are reviewing a CLI interface for a Swagger-to-NextJS code generator.
+ * This file provides command-line access to the generation toolkit with proper argument parsing,
+ * validation, and user-friendly help messages.
+ *
+ * RESPONSIBILITIES:
+ * - Parse command-line arguments and options
+ * - Validate user input and provide helpful error messages
+ * - Support multiple input formats (files, URLs, config files)
+ * - Provide interactive help and usage examples
+ * - Handle different output directory configurations
+ * - Support both standalone and config-driven workflows
+ *
+ * CLI FEATURES:
+ * - Main generation command with input validation
+ * - Init command for project scaffolding
+ * - Flexible output directory configuration
+ * - OpenAPI config file support
+ * - Comprehensive help system with examples
+ *
+ * REVIEW FOCUS:
+ * - Argument validation completeness
+ * - Error message clarity and helpfulness
+ * - Cross-platform path handling
+ * - Input sanitization and security
+ * - User experience and documentation quality
+ */
+
+const {Command} = require('commander');
+const path = require('path');
+const fs = require('fs');
+const SwaggerToNextJSGenerator = require('./index');
+
+const program = new Command();
+
+program
+    .name('swagger-to-nextjs')
+    .description('Generate Next.js applications from Swagger/OpenAPI specifications')
+    .version('1.0.0');
+
+program
+    .argument('<input>', 'Swagger/OpenAPI spec file, URL, or config file')
+    .option('-o, --output <dir>', 'Output directory', './generated')
+    .option('-c, --client <path>', 'API client path (relative to output)')
+    .option('--config <file>', 'OpenAPI generator config file')
+    .option('--debug', 'Enable debug logging')
+    .action(async (input, options) => {
+        try {
+            // Set debug mode
+            if (options.debug) {
+                process.env.DEBUG = 'true';
+            }
+
+            // Validate input
+            if (!input) {
+                console.error('❌ Error: Input source is required');
+                process.exit(1);
+            }
+
+            // Check if input is a file and exists (for local files)
+            const isUrl = input.startsWith('http://') || input.startsWith('https://');
+            if (!isUrl && !fs.existsSync(input)) {
+                console.error(`❌ Error: Input file not found: ${input}`);
+                process.exit(1);
+            }
+
+            // Resolve output directory
+            const outputDir = path.resolve(process.cwd(), options.output);
+
+            console.log('🔧 Configuration:');
+            console.log(`├── Input: ${input} ${isUrl ? '(URL)' : '(File)'}`);
+            console.log(`├── Output: ${outputDir}`);
+            if (options.client) {
+                console.log(`├── API Client: ${options.client}`);
+            }
+            if (options.config) {
+                console.log(`└── Config File: ${options.config}`);
+            }
+            console.log('');
+
+            // Create generator and run
+            const generator = new SwaggerToNextJSGenerator(input, outputDir, options.client);
+            await generator.run();
+
+        } catch (error) {
+            console.error('❌ Generation failed:', error.message);
+            if (options.debug) {
+                console.error(error.stack);
+            }
+            process.exit(1);
+        }
+    });
+
+program
+    .command('init')
+    .description('Initialize a new project with example configuration')
+    .option('-n, --name <name>', 'Project name', 'my-api-app')
+    .option('-d, --dir <directory>', 'Target directory', '.')
+    .action((options) => {
+        try {
+            console.log(`🚀 Initializing ${options.name}...`);
+
+            const targetDir = path.resolve(process.cwd(), options.dir);
+            const projectDir = path.join(targetDir, options.name);
+
+            // Create project directory
+            if (!fs.existsSync(projectDir)) {
+                fs.mkdirSync(projectDir, {recursive: true});
+            }
+
+            // Create example openapi-config.yaml
+            const configContent = `# OpenAPI Generator Configuration
+# Generated by swagger-to-nextjs init
+
+inputSpec: http://localhost:8090/v3/api-docs
+outputDir: ./src/lib/api-client
+generatorName: typescript-axios
+skipValidateSpec: false
+
+additionalProperties:
+  supportsES6: true
+  withInterfaces: true
+  useSingleRequestParameter: true
+  modelPropertyNaming: camelCase
+  withSeparateModelsAndApi: true
+  apiPackage: api
+  modelPackage: model
+  stringEnums: true
+
+# Custom script settings
+scriptSettings:
+  generatePages: true
+  generateTests: false
+  outputDir: ./generated
+`;
+
+            const configPath = path.join(projectDir, 'openapi-config.yaml');
+            fs.writeFileSync(configPath, configContent);
+
+            // Create example README
+            const readmeContent = `# ${options.name}
+
+Generated Next.js application from OpenAPI specification.
+
+## Setup
+
+1. Install dependencies:
+\`\`\`bash
+npm install
+\`\`\`
+
+2. Generate API client:
+\`\`\`bash
+npx @openapitools/openapi-generator-cli generate -c openapi-config.yaml
+\`\`\`
+
+3. Generate Next.js routes:
+\`\`\`bash
+swagger-to-nextjs openapi-config.yaml
+\`\`\`
+
+## Development
+
+\`\`\`bash
+npm run dev
+\`\`\`
+`;
+
+            const readmePath = path.join(projectDir, 'README.md');
+            fs.writeFileSync(readmePath, readmeContent);
+
+            console.log('✅ Project initialized successfully!');
+            console.log(`📁 Created: ${projectDir}`);
+            console.log(`├── openapi-config.yaml`);
+            console.log(`└── README.md`);
+            console.log('');
+            console.log('Next steps:');
+            console.log(`1. cd ${options.name}`);
+            console.log('2. Edit openapi-config.yaml with your API specification');
+            console.log('3. Run: swagger-to-nextjs openapi-config.yaml');
+
+        } catch (error) {
+            console.error('❌ Initialization failed:', error.message);
+            process.exit(1);
+        }
+    });
+
+program
+    .command('version')
+    .description('Show version information')
+    .action(() => {
+        console.log('Swagger-to-NextJS Generator v1.0.0');
+        console.log('Generate Next.js applications from OpenAPI specifications');
+    });
+
+// Custom help
+program.on('--help', () => {
+    console.log('');
+    console.log('Examples:');
+    console.log('  $ swagger-to-nextjs http://localhost:8090/v3/api-docs');
+    console.log('  $ swagger-to-nextjs ./api-spec.yaml --output ./my-app');
+    console.log('  $ swagger-to-nextjs openapi-config.yaml --client ./custom/api-client');
+    console.log('  $ swagger-to-nextjs init --name my-project');
+    console.log('');
+    console.log('Supported formats:');
+    console.log('  - JSON files (.json)');
+    console.log('  - YAML files (.yaml, .yml)');
+    console.log('  - HTTP/HTTPS URLs');
+    console.log('  - OpenAPI config files');
+});
+
+// Parse arguments and handle CLI
+if (require.main === module) {
+    // Parse arguments
+    program.parse();
+
+    // If no arguments provided, show help
+    if (!process.argv.slice(2).length) {
+        program.outputHelp();
+        process.exit(0);
+    }
+}
+
+module.exports = program;

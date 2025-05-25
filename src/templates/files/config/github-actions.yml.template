@@ -1,0 +1,12 @@
+# ===AI PROMPT ==============================================================
+# FILE: src/templates/files/config/github-actions.yml.template
+# VERSION: 2025-05-25 13:22:11
+# ============================================================================
+#
+# AI GENERATION PROMPT:
+# Generate GitHub Actions workflow templates for CI/CD of generated
+# applications, including testing, building, and deployment automation.
+#
+# ---
+#
+# ===PROMPT END ==============================================================

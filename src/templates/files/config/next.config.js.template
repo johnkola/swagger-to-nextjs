@@ -1,0 +1,13 @@
+# ===AI PROMPT ==============================================================
+# FILE: src/templates/files/config/next.config.js.template
+# VERSION: 2025-05-25 13:22:11
+# ============================================================================
+#
+# AI GENERATION PROMPT:
+# Generate a NextJS configuration template with optimized settings for API
+# integration, TypeScript support, environment variables, and build
+# optimizations for generated applications.
+#
+# ---
+#
+# ===PROMPT END ==============================================================

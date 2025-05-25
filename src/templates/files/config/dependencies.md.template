@@ -1,0 +1,226 @@
+# ===AI PROMPT ==============================================================
+# FILE: src/templates/files/config/dependencies.md.template
+# VERSION: 2025-05-25 13:22:11
+# ============================================================================
+#
+# AI GENERATION PROMPT:
+# Generate a markdown template listing required npm dependencies, optional
+# packages, and installation instructions for the generated NextJS
+# application.
+#
+# ---
+#
+# ===PROMPT END ==============================================================
+# {{appTitle}} - Dependencies & Setup Guide
+
+Generated on **{{timestamp}}** from **{{swaggerSource}}**
+
+## Required Dependencies
+
+Install these dependencies for the generated Next.js app:
+
+```bash
+# Core Next.js dependencies
+npm install next@latest react@latest react-dom@latest
+
+# TypeScript support
+npm install typescript @types/react @types/node @types/react-dom
+
+# Validation library
+npm install zod
+
+# Styling
+npm install tailwindcss postcss autoprefixer
+
+# Development dependencies
+npm install -D eslint eslint-config-next
+```
+
+## OpenAPI Generator Integration
+
+### 1. Generate API Client (do this first):
+
+```bash
+npx @openapitools/openapi-generator-cli generate -c openapi-config.yaml
+```
+
+### 2. Then generate Next.js routes:
+
+```bash
+node swagger-to-nextjs.js <swagger-source> <output-directory> {{apiClientPath}}
+```
+
+### 3. Example openapi-config.yaml for your project:
+
+```yaml
+inputSpec: http://localhost:8090/v3/api-docs
+outputDir: {{apiClientPath}}
+generatorName: typescript-axios
+skipValidateSpec: true
+additionalProperties:
+  supportsES6: true
+  withInterfaces: true
+  useSingleRequestParameter: true
+  modelPropertyNaming: camelCase
+  withSeparateModelsAndApi: true
+  apiPackage: api
+  modelPackage: model
+  stringEnums: true
+  enumNameSuffix: ""
+  modelFileSuffix: ""
+  withoutPrefixEnums: true
+```
+
+## Initialize Tailwind CSS
+
+```bash
+npx tailwindcss init -p
+```
+
+Update your `tailwind.config.js`:
+
+```javascript
+/** @type {import('tailwindcss').Config} */
+module.exports = {
+  content: [
+    './src/pages/**/*.{js,ts,jsx,tsx,mdx}',
+    './src/components/**/*.{js,ts,jsx,tsx,mdx}',
+    './src/app/**/*.{js,ts,jsx,tsx,mdx}',
+  ],
+  theme: {
+    extend: {
+      colors: {
+        primary: {
+          50: '#eff6ff',
+          500: '#3b82f6',
+          600: '#2563eb',
+          700: '#1d4ed8',
+        },
+      },
+    },
+  },
+  plugins: [],
+}
+```
+
+## Environment Variables
+
+Create a `.env.local` file in your project root:
+
+```bash
+# API Configuration
+API_BASE_URL=http://localhost:8090
+NEXT_PUBLIC_API_URL=http://localhost:8090
+
+# Authentication (if needed)
+# API_KEY=your-api-key-here
+# JWT_SECRET=your-jwt-secret-here
+
+# Database (if needed)
+# DATABASE_URL=your-database-url-here
+```
+
+## Project Structure
+
+Your generated project structure:
+
+```
+{{appTitle}}/
+├── src/
+│   ├── app/                    # Next.js 13+ App Router
+│   │   ├── api/               # API route handlers
+│   │   ├── layout.tsx         # Root layout
+│   │   ├── page.tsx           # Home page
+│   │   └── globals.css        # Global styles
+│   ├── lib/
+│   │   └── api-client/        # OpenAPI generated client
+│   │       ├── api/           # API classes
+│   │       └── model/         # Type definitions
+│   ├── components/            # React components
+│   └── utils/                 # Utility functions
+├── public/                    # Static assets
+├── package.json
+├── tsconfig.json
+├── tailwind.config.js
+├── next.config.js
+└── README.md
+```
+
+## Generated Features
+
+- **API Routes**: Use OpenAPI generated models and client
+- **Models**: Imported from `{{apiClientPath}}/model`
+- **API Client**: Imported from `{{apiClientPath}}/api`
+- **Type Safety**: Full TypeScript integration with your OpenAPI spec
+- **Validation**: Zod schemas generated from OpenAPI parameters
+- **UI Components**: Responsive React components with Tailwind CSS
+- **Error Handling**: Comprehensive error handling and user feedback
+
+## Development Commands
+
+```bash
+# Install dependencies
+npm install
+
+# Generate API client (run this first!)
+npx @openapitools/openapi-generator-cli generate -c openapi-config.yaml
+
+# Start development server
+npm run dev
+
+# Build for production
+npm run build
+
+# Start production server
+npm run start
+
+# Run linting
+npm run lint
+
+# Type checking
+npx tsc --noEmit
+```
+
+## Next Steps
+
+1. **Review generated files**: Check the API routes and page components
+2. **Customize templates**: Modify the generated code to match your needs
+3. **Update API client calls**: Replace placeholder API calls with actual methods
+4. **Configure environment**: Set up your `.env.local` file
+5. **Test endpoints**: Verify each API route works correctly
+6. **Customize styling**: Update Tailwind config and component styles
+7. **Add authentication**: Implement auth if your API requires it
+8. **Add tests**: Write unit and integration tests
+9. **Deploy**: Deploy to Vercel, Netlify, or your preferred platform
+
+## Tips & Best Practices
+
+- **API Client Integration**: The generated routes are ready to use your OpenAPI-generated types and client
+- **Type Safety**: Use TypeScript types from the generated API client
+- **Error Handling**: Customize error messages and handling in the API routes
+- **Validation**: Update Zod schemas based on your specific validation needs
+- **Performance**: Consider implementing caching for frequently accessed data
+- **Security**: Always validate and sanitize user input
+- **Monitoring**: Add logging and monitoring to track API usage
+
+## Troubleshooting
+
+### Common Issues:
+
+1. **Import errors**: Make sure the API client is generated before running the app
+2. **Type errors**: Check that TypeScript paths are configured correctly
+3. **API connection**: Verify the `API_BASE_URL` environment variable
+4. **CORS issues**: Configure CORS headers in your API routes if needed
+
+### Getting Help:
+
+- Check the generated code comments for specific implementation guidance
+- Review the OpenAPI specification for endpoint details
+- Consult Next.js documentation for App Router specifics
+- Use TypeScript compiler errors to identify type mismatches
+
+---
+
+**Generated by Swagger-to-NextJS Generator**
+**{{appTitle}} v{{version}}**
+**{{timestamp}}**

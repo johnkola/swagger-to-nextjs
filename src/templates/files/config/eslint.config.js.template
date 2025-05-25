@@ -1,0 +1,13 @@
+# ===AI PROMPT ==============================================================
+# FILE: src/templates/files/config/eslint.config.js.template
+# VERSION: 2025-05-25 13:22:11
+# ============================================================================
+#
+# AI GENERATION PROMPT:
+# Create an ESLint configuration template optimized for generated NextJS
+# applications with API integration, TypeScript support, and security-focused
+# rules.
+#
+# ---
+#
+# ===PROMPT END ==============================================================

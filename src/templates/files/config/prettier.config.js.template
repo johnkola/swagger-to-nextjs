@@ -1,0 +1,13 @@
+# ===AI PROMPT ==============================================================
+# FILE: src/templates/files/config/prettier.config.js.template
+# VERSION: 2025-05-25 13:22:11
+# ============================================================================
+#
+# AI GENERATION PROMPT:
+# Generate a Prettier configuration template that ensures consistent code
+# formatting across generated files with NextJS and API-specific formatting
+# rules.
+#
+# ---
+#
+# ===PROMPT END ==============================================================

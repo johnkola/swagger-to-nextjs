@@ -1,0 +1,64 @@
+# ===AI PROMPT ==============================================================
+# FILE: src/templates/files/api/validation.ts.template
+# VERSION: 2025-05-25 13:22:11
+# ============================================================================
+#
+# AI GENERATION PROMPT:
+# Generate a TypeScript template for API request validation using Zod or
+# similar. Create schemas from OpenAPI parameter and body definitions.
+#
+# ---
+#
+# ===PROMPT END ==============================================================
+// Validation Schemas
+// Generated from OpenAPI specification for {{routePath}}
+// This file contains Zod validation schemas for request parameters and bodies
+
+import { z } from 'zod';
+
+{{#each validationSchemas}}
+// {{this.name}} - {{this.type}} parameter validation
+export const {{this.name}} = z.object({
+{{#each this.fields}}
+  {{this.name}}: {{this.zodType}}{{#unless this.optional}}.optional(){{/unless}}{{#if this.description}}, // {{this.description}}{{/if}}
+{{/each}}
+});
+
+export type {{this.name}}Type = z.infer<typeof {{this.name}}>;
+
+{{/each}}
+
+// Combined validation schemas export
+export const ValidationSchemas = {
+{{#each validationSchemas}}
+  {{this.name}},
+{{/each}}
+};
+
+// Validation helper functions
+export function validateQueryParams(params: any, schema: z.ZodSchema) {
+  try {
+    return {
+      success: true,
+      data: schema.parse(params),
+      errors: null
+    };
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return {
+        success: false,
+        data: null,
+        errors: error.errors.map(e => `${e.path.join('.')}: ${e.message}`)
+      };
+    }
+    return {
+      success: false,
+      data: null,
+      errors: ['Unknown validation error']
+    };
+  }
+}
+
+export function validateRequestBody(body: any, schema: z.ZodSchema) {
+  return validateQueryParams(body, schema);
+}

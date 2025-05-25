@@ -1,0 +1,12 @@
+# ===AI PROMPT ==============================================================
+# FILE: tests/fixtures/configurations/basic-config.yaml
+# VERSION: 2025-05-25 13:22:11
+# ============================================================================
+#
+# AI GENERATION PROMPT:
+# Create a basic configuration file for the generator with standard settings
+# for output directory, template options, and generation preferences.
+#
+# ---
+#
+# ===PROMPT END ==============================================================

@@ -1,0 +1,325 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
+{{#if hasAuthentication}}
+import { verifyAuth } from '@/lib/auth';
+{{/if}}
+{{#if hasValidation}}
+import { validate{{pascalCaseOperationId}}Request } from './validation';
+{{/if}}
+
+{{#if requestBodySchema}}
+// Request body schema
+const {{camelCaseOperationId}}RequestSchema = z.object({
+{{#each requestBodyProperties}}
+  {{name}}: {{zodType}}{{#if required}}{{else}}.optional(){{/if}},
+{{/each}}
+});
+
+type {{pascalCaseOperationId}}RequestBody = z.infer<typeof {{camelCaseOperationId}}RequestSchema>;
+{{/if}}
+
+{{#if responseSchema}}
+// Response schema
+const {{camelCaseOperationId}}ResponseSchema = z.object({
+{{#each responseProperties}}
+  {{name}}: {{zodType}}{{#if required}}{{else}}.optional(){{/if}},
+{{/each}}
+});
+
+type {{pascalCaseOperationId}}Response = z.infer<typeof {{camelCaseOperationId}}ResponseSchema>;
+{{/if}}
+
+{{#if pathParameters}}
+// Path parameters interface
+interface {{pascalCaseOperationId}}PathParams {
+{{#each pathParameters}}
+  {{name}}: {{tsType}};
+{{/each}}
+}
+{{/if}}
+
+{{#if queryParameters}}
+// Query parameters interface
+interface {{pascalCaseOperationId}}QueryParams {
+{{#each queryParameters}}
+  {{name}}{{#unless required}}?{{/unless}}: {{tsType}};
+{{/each}}
+}
+{{/if}}
+
+/**
+ * {{summary}}
+ * {{#if description}}
+ * {{description}}
+ * {{/if}}
+ *
+ * @param request - Next.js request object
+ * @returns Promise<NextResponse>
+ */
+export async function {{httpMethod}}(
+  request: NextRequest,
+  { params }: { params: {{#if pathParameters}}{{pascalCaseOperationId}}PathParams{{else}}Record<string, never>{{/if}} }
+): Promise<NextResponse> {
+  try {
+    {{#if hasAuthentication}}
+    // Authentication check
+    const authResult = await verifyAuth(request);
+    if (!authResult.success) {
+      return NextResponse.json(
+        { error: 'Unauthorized', message: authResult.error },
+        { status: 401 }
+      );
+    }
+    {{/if}}
+
+    {{#if pathParameters}}
+    // Extract and validate path parameters
+    const pathParams: {{pascalCaseOperationId}}PathParams = {
+    {{#each pathParameters}}
+      {{name}}: {{#if (eq type 'number')}}Number(params.{{name}}){{else}}params.{{name}}{{/if}},
+    {{/each}}
+    };
+
+    {{#each pathParameters}}
+    {{#if (eq type 'number')}}
+    if (isNaN(pathParams.{{name}})) {
+      return NextResponse.json(
+        { error: 'Invalid parameter', message: '{{name}} must be a valid number' },
+        { status: 400 }
+      );
+    }
+    {{/if}}
+    {{/each}}
+    {{/if}}
+
+    {{#if queryParameters}}
+    // Extract and validate query parameters
+    const url = new URL(request.url);
+    const queryParams: {{pascalCaseOperationId}}QueryParams = {
+    {{#each queryParameters}}
+      {{#if required}}
+      {{name}}: {{#if (eq type 'number')}}Number(url.searchParams.get('{{name}}')){{else}}url.searchParams.get('{{name}}')!{{/if}},
+      {{else}}
+      {{name}}: url.searchParams.get('{{name}}') ? {{#if (eq type 'number')}}Number(url.searchParams.get('{{name}}')){{else}}url.searchParams.get('{{name}}'){{/if}} : undefined,
+      {{/if}}
+    {{/each}}
+    };
+
+    {{#each queryParameters}}
+    {{#if required}}
+    if ({{#if (eq type 'number')}}isNaN(queryParams.{{name}}){{else}}!queryParams.{{name}}{{/if}}) {
+      return NextResponse.json(
+        { error: 'Missing required parameter', message: '{{name}} is required' },
+        { status: 400 }
+      );
+    }
+    {{/if}}
+    {{/each}}
+    {{/if}}
+
+    {{#if requestBodySchema}}
+    // Parse and validate request body
+    let requestBody: {{pascalCaseOperationId}}RequestBody;
+    try {
+      const rawBody = await request.json();
+      requestBody = {{camelCaseOperationId}}RequestSchema.parse(rawBody);
+    } catch (error) {
+      return NextResponse.json(
+        {
+          error: 'Invalid request body',
+          message: error instanceof z.ZodError ? error.errors : 'Request body validation failed'
+        },
+        { status: 400 }
+      );
+    }
+    {{/if}}
+
+    {{#if hasValidation}}
+    // Additional custom validation
+    const validationResult = await validate{{pascalCaseOperationId}}Request({
+      {{#if pathParameters}}pathParams,{{/if}}
+      {{#if queryParameters}}queryParams,{{/if}}
+      {{#if requestBodySchema}}requestBody,{{/if}}
+    });
+
+    if (!validationResult.isValid) {
+      return NextResponse.json(
+        { error: 'Validation failed', message: validationResult.error },
+        { status: 400 }
+      );
+    }
+    {{/if}}
+
+    // TODO: Implement your business logic here
+    // This is where you would typically:
+    // 1. Call your service layer or database
+    // 2. Process the request
+    // 3. Format the response
+
+    {{#if (eq httpMethod 'GET')}}
+    // Example GET implementation
+    const result = await get{{pascalCaseOperationId}}Data({
+      {{#if pathParameters}}...pathParams,{{/if}}
+      {{#if queryParameters}}...queryParams,{{/if}}
+    });
+    {{else if (eq httpMethod 'POST')}}
+    // Example POST implementation
+    const result = await create{{pascalCaseOperationId}}({
+      {{#if pathParameters}}...pathParams,{{/if}}
+      {{#if requestBodySchema}}...requestBody,{{/if}}
+    });
+    {{else if (eq httpMethod 'PUT')}}
+    // Example PUT implementation
+    const result = await update{{pascalCaseOperationId}}({
+      {{#if pathParameters}}...pathParams,{{/if}}
+      {{#if requestBodySchema}}...requestBody,{{/if}}
+    });
+    {{else if (eq httpMethod 'DELETE')}}
+    // Example DELETE implementation
+    const result = await delete{{pascalCaseOperationId}}({
+      {{#if pathParameters}}...pathParams,{{/if}}
+    });
+    {{else}}
+    // Generic implementation
+    const result = await handle{{pascalCaseOperationId}}({
+      {{#if pathParameters}}...pathParams,{{/if}}
+      {{#if queryParameters}}...queryParams,{{/if}}
+      {{#if requestBodySchema}}...requestBody,{{/if}}
+    });
+    {{/if}}
+
+    {{#if responseSchema}}
+    // Validate response before sending
+    const validatedResponse = {{camelCaseOperationId}}ResponseSchema.parse(result);
+    {{/if}}
+
+    return NextResponse.json(
+      {{#if responseSchema}}validatedResponse{{else}}result{{/if}},
+      {
+        status: {{#if (eq httpMethod 'POST')}}201{{else if (eq httpMethod 'DELETE')}}204{{else}}200{{/if}},
+        headers: {
+          'Content-Type': 'application/json',
+          {{#if corsEnabled}}
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': '{{httpMethod}}, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+          {{/if}}
+        }
+      }
+    );
+
+  } catch (error) {
+    console.error(`Error in {{httpMethod}} {{path}}:`, error);
+
+    // Handle specific error types
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        { error: 'Validation error', details: error.errors },
+        { status: 400 }
+      );
+    }
+
+    {{#if hasCustomErrorHandling}}
+    // Custom error handling
+    if (error instanceof CustomError) {
+      return NextResponse.json(
+        { error: error.name, message: error.message },
+        { status: error.statusCode }
+      );
+    }
+    {{/if}}
+
+    // Generic error response
+    return NextResponse.json(
+      {
+        error: 'Internal server error',
+        message: process.env.NODE_ENV === 'development' ? error.message : 'Something went wrong'
+      },
+      { status: 500 }
+    );
+  }
+}
+
+{{#if (eq httpMethod 'GET')}}
+// Placeholder function - implement your data retrieval logic
+async function get{{pascalCaseOperationId}}Data(params: {
+  {{#if pathParameters}}{{#each pathParameters}}{{name}}: {{tsType}};{{/each}}{{/if}}
+  {{#if queryParameters}}{{#each queryParameters}}{{name}}{{#unless required}}?{{/unless}}: {{tsType}};{{/each}}{{/if}}
+}) {
+  // TODO: Implement data retrieval
+  // Example: return await db.{{tableName}}.findMany({ where: params });
+
+  return {
+    message: 'GET {{path}} - Implementation needed',
+    receivedParams: params,
+  };
+}
+{{else if (eq httpMethod 'POST')}}
+// Placeholder function - implement your creation logic
+async function create{{pascalCaseOperationId}}(data: {
+  {{#if pathParameters}}{{#each pathParameters}}{{name}}: {{tsType}};{{/each}}{{/if}}
+  {{#if requestBodySchema}}{{#each requestBodyProperties}}{{name}}{{#unless required}}?{{/unless}}: {{tsType}};{{/each}}{{/if}}
+}) {
+  // TODO: Implement creation logic
+  // Example: return await db.{{tableName}}.create({ data });
+
+  return {
+    message: 'POST {{path}} - Implementation needed',
+    receivedData: data,
+    id: Math.random().toString(36).substr(2, 9), // Mock ID
+  };
+}
+{{else if (eq httpMethod 'PUT')}}
+// Placeholder function - implement your update logic
+async function update{{pascalCaseOperationId}}(data: {
+  {{#if pathParameters}}{{#each pathParameters}}{{name}}: {{tsType}};{{/each}}{{/if}}
+  {{#if requestBodySchema}}{{#each requestBodyProperties}}{{name}}{{#unless required}}?{{/unless}}: {{tsType}};{{/each}}{{/if}}
+}) {
+  // TODO: Implement update logic
+  // Example: return await db.{{tableName}}.update({ where: { id: data.id }, data });
+
+  return {
+    message: 'PUT {{path}} - Implementation needed',
+    updatedData: data,
+  };
+}
+{{else if (eq httpMethod 'DELETE')}}
+// Placeholder function - implement your deletion logic
+async function delete{{pascalCaseOperationId}}(params: {
+  {{#if pathParameters}}{{#each pathParameters}}{{name}}: {{tsType}};{{/each}}{{/if}}
+}) {
+  // TODO: Implement deletion logic
+  // Example: await db.{{tableName}}.delete({ where: params });
+
+  console.log('DELETE {{path}} - Implementation needed', params);
+  return { success: true };
+}
+{{else}}
+// Placeholder function - implement your custom logic
+async function handle{{pascalCaseOperationId}}(data: {
+  {{#if pathParameters}}{{#each pathParameters}}{{name}}: {{tsType}};{{/each}}{{/if}}
+  {{#if queryParameters}}{{#each queryParameters}}{{name}}{{#unless required}}?{{/unless}}: {{tsType}};{{/each}}{{/if}}
+  {{#if requestBodySchema}}{{#each requestBodyProperties}}{{name}}{{#unless required}}?{{/unless}}: {{tsType}};{{/each}}{{/if}}
+}) {
+  // TODO: Implement {{httpMethod}} logic
+
+  return {
+    message: '{{httpMethod}} {{path}} - Implementation needed',
+    receivedData: data,
+  };
+}
+{{/if}}
+
+{{#if corsEnabled}}
+// Handle CORS preflight requests
+export async function OPTIONS(request: NextRequest) {
+  return new NextResponse(null, {
+    status: 200,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': '{{httpMethod}}, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    },
+  });
+}
+{{/if}}
