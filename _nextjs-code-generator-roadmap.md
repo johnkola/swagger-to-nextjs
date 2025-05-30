@@ -1,9 +1,9 @@
-# Complete Swagger-to-NextJS Generator - Comprehensive Development Guide
+# Complete Swagger-to-Next.js Generator - Enhanced Development Guide
 
-## 📁 Enhanced Directory Structure
+## 📁 Project Structure
 
 ```
-scripts/
+
 ├── swagger-to-nextjs/
 │   ├── package.json
 │   ├── README.md
@@ -98,98 +98,6 @@ scripts/
 │   │       ├── StringUtils.js
 │   │       ├── TypeScriptUtils.js
 │   │       └── ValidationUtils.js
-│   ├── tests/
-│   │   ├── unit/
-│   │   │   ├── cli.test.js
-│   │   │   ├── analytics/
-│   │   │   │   └── UsageTracker.test.js
-│   │   │   ├── cache/
-│   │   │   │   ├── SpecCache.test.js
-│   │   │   │   └── TemplateCache.test.js
-│   │   │   ├── cli/
-│   │   │   │   ├── ConfigGenerator.test.js
-│   │   │   │   ├── DiffMode.test.js
-│   │   │   │   ├── InteractiveMode.test.js
-│   │   │   │   └── WatchMode.test.js
-│   │   │   ├── config/
-│   │   │   │   ├── ConfigMerger.test.js
-│   │   │   │   ├── ConfigValidator.test.js
-│   │   │   │   └── EnvironmentConfig.test.js
-│   │   │   ├── core/
-│   │   │   │   ├── SwaggerLoader.test.js
-│   │   │   │   ├── SwaggerValidator.test.js
-│   │   │   │   └── DirectoryManager.test.js
-│   │   │   ├── errors/
-│   │   │   │   ├── ErrorHandler.test.js
-│   │   │   │   ├── FileSystemError.test.js
-│   │   │   │   ├── GeneratorError.test.js
-│   │   │   │   ├── NetworkError.test.js
-│   │   │   │   ├── TemplateError.test.js
-│   │   │   │   └── ValidationError.test.js
-│   │   │   ├── generators/
-│   │   │   │   ├── BaseGenerator.test.js
-│   │   │   │   ├── ApiRouteGenerator.test.js
-│   │   │   │   ├── PageComponentGenerator.test.js
-│   │   │   │   └── ConfigFileGenerator.test.js
-│   │   │   ├── hooks/
-│   │   │   │   └── HookSystem.test.js
-│   │   │   ├── logging/
-│   │   │   │   ├── Logger.test.js
-│   │   │   │   ├── LogFormatter.test.js
-│   │   │   │   └── ProgressReporter.test.js
-│   │   │   ├── migration/
-│   │   │   │   ├── BackupManager.test.js
-│   │   │   │   ├── CodeMigrator.test.js
-│   │   │   │   └── SpecComparator.test.js
-│   │   │   ├── monitoring/
-│   │   │   │   └── HealthChecker.test.js
-│   │   │   ├── performance/
-│   │   │   │   └── GenerationOptimizer.test.js
-│   │   │   ├── plugins/
-│   │   │   │   ├── BasePlugin.test.js
-│   │   │   │   ├── PluginManager.test.js
-│   │   │   │   └── PluginRegistry.test.js
-│   │   │   ├── security/
-│   │   │   │   ├── CodeValidator.test.js
-│   │   │   │   └── SpecSanitizer.test.js
-│   │   │   ├── templates/
-│   │   │   │   ├── ConditionalGenerator.test.js
-│   │   │   │   ├── CustomHelpers.test.js
-│   │   │   │   ├── TemplateEngine.test.js
-│   │   │   │   ├── TemplateInheritance.test.js
-│   │   │   │   ├── TemplateLoader.test.js
-│   │   │   │   └── TemplateValidator.test.js
-│   │   │   └── utils/
-│   │   │       ├── CodeFormatter.test.js
-│   │   │       ├── DependencyAnalyzer.test.js
-│   │   │       ├── OpenApiUtils.test.js
-│   │   │       ├── PathUtils.test.js
-│   │   │       ├── SchemaUtils.test.js
-│   │   │       ├── StringUtils.test.js
-│   │   │       ├── TypeScriptUtils.test.js
-│   │   │       └── ValidationUtils.test.js
-│   │   ├── integration/
-│   │   │   ├── cli-commands.test.js
-│   │   │   ├── error-scenarios.test.js
-│   │   │   ├── full-generation.test.js
-│   │   │   └── plugin-system.test.js
-│   │   ├── performance/
-│   │   │   └── generation-performance.test.js
-│   │   ├── snapshot/
-│   │   │   └── code-generation.test.js
-│   │   ├── e2e/
-│   │   │   └── full-workflow.test.js
-│   │   └── fixtures/
-│   │       ├── openapi-specs/
-│   │       │   ├── petstore.yaml
-│   │       │   ├── simple-crud.yaml
-│   │       │   └── invalid-spec.yaml
-│   │       ├── expected-outputs/
-│   │       │   ├── petstore-expected/
-│   │       │   └── simple-crud-expected/
-│   │       └── configurations/
-│   │           ├── basic-config.yaml
-│   │           └── advanced-config.yaml
 │   └── examples/
 │       ├── petstore-config/
 │       │   ├── openapi-config.yaml
@@ -216,43 +124,87 @@ scripts/
 
 #### `package.json`
 
-**Prompt:** Create a Node.js package.json for a Swagger-to-NextJS generator CLI tool. Include dependencies for YAML
-parsing, command-line interface, file system operations, and template engine. Add scripts for testing, linting, and
-development.
+**Prompt:** Create a comprehensive Node.js package.json for a professional Swagger-to-Next.js generator CLI tool. Include:
+- Core dependencies: js-yaml, commander, handlebars, axios, fs-extra, chalk, ora, inquirer, chokidar
+- Development dependencies: jest, eslint, prettier, nodemon, @types/node
+- NPM scripts for development, testing, linting, formatting, and building
+- Package metadata with proper keywords, repository info, and engines specification (Node 16+)
+- Bin configuration pointing to the CLI executable
 
 #### `README.md`
 
-**Prompt:** Write comprehensive documentation for a Swagger-to-NextJS generator tool. Include installation, usage
-examples, configuration options, CLI commands, and troubleshooting guide.
+**Prompt:** Write professional documentation for a Swagger-to-Next.js generator tool that includes:
+- Clear project description and key features
+- Prerequisites and system requirements
+- Installation instructions (npm, yarn, global/local)
+- Quick start guide with common use cases
+- Comprehensive CLI command reference with examples
+- Configuration file format and options
+- Template customization guide
+- Plugin development documentation
+- Troubleshooting section with common issues
+- Contributing guidelines and code of conduct
+- License information and credits
 
 ### 🚀 CLI Executable
 
 #### `bin/swagger-to-nextjs.js`
 
-**Prompt:** Create a Node.js CLI executable script that sets up the working directory context and launches the main CLI
-interface for the Swagger-to-NextJS generator.
+**Prompt:** Create a Node.js CLI executable script that:
+- Uses proper shebang for cross-platform compatibility
+- Handles process arguments gracefully
+- Sets up proper error handling for uncaught exceptions
+- Configures the working directory context
+- Imports and launches the main CLI interface
+- Handles signals (SIGINT, SIGTERM) for graceful shutdown
+- Provides helpful error messages for common issues
 
 ### ⚙️ Core Configuration
 
 #### `config/defaults.js`
 
-**Prompt:** Create a default configuration module that exports default settings for the Swagger-to-NextJS generator.
-Include default output paths, template preferences, code generation options, file naming conventions, and generator
-behavior settings that can be overridden by user configuration.
+**Prompt:** Create a comprehensive default configuration module that exports:
+- Output directory settings with intelligent defaults
+- Template engine preferences and options
+- Code generation settings (TypeScript strictness, formatting rules)
+- File naming conventions (kebab-case, camelCase options)
+- API client configuration (fetch, axios preferences)
+- Authentication handling defaults
+- Component generation preferences (UI library, styling approach)
+- Build tool configuration (webpack, vite compatibility)
+- Environment-specific overrides
+- Feature flags for experimental functionality
 
 ### 🎯 Main Entry Points
 
 #### `src/index.js`
 
-**Prompt:** Build the main orchestrator class for Swagger-to-NextJS generator. Should coordinate SwaggerLoader,
-DirectoryManager, and various code generators (API routes, pages, configs). Include proper error handling and progress
-logging.
+**Prompt:** Build a robust main orchestrator class that:
+- Implements a clean architecture with dependency injection
+- Coordinates all major components (loader, validator, generators)
+- Provides a fluent API for programmatic usage
+- Implements proper lifecycle management (init, generate, cleanup)
+- Handles concurrent operations safely
+- Provides hooks for extensions and plugins
+- Implements comprehensive error recovery
+- Emits events for monitoring and logging
+- Supports both CLI and programmatic usage patterns
 
 #### `src/cli.js`
 
-**Prompt:** Create a comprehensive CLI interface for the Swagger-to-NextJS generator using Commander.js. The CLI should
-serve as the user-facing entry point that provides an intuitive command-line experience for generating Next.js
-applications from OpenAPI specifications.
+**Prompt:** Create an advanced CLI interface using Commander.js that provides:
+- Intuitive command structure with subcommands
+- Comprehensive help system with examples
+- Interactive mode with guided workflows
+- Progress indicators and spinner animations
+- Colored output for better readability
+- Verbose and quiet modes
+- Debug output capabilities
+- Configuration file support (YAML, JSON)
+- Environment variable integration
+- Validation of inputs with helpful error messages
+- Support for multiple OpenAPI spec inputs
+- Plugin command integration
 
 ---
 
@@ -262,67 +214,176 @@ applications from OpenAPI specifications.
 
 #### `src/core/SwaggerLoader.js`
 
-**Prompt:** Create a SwaggerLoader class that can load OpenAPI/Swagger specifications from URLs or local files. Support
-JSON and YAML formats with proper validation and error handling.
+**Prompt:** Create an advanced SwaggerLoader class that:
+- Loads OpenAPI/Swagger specs from multiple sources (URL, file, stdin)
+- Supports authentication for protected endpoints (Bearer, API key, Basic)
+- Implements smart caching with ETags and cache invalidation
+- Handles large specifications with streaming support
+- Resolves external references ($ref) recursively
+- Supports both JSON and YAML with automatic detection
+- Implements retry logic with exponential backoff
+- Provides progress callbacks for large downloads
+- Validates a spec format before processing
+- Supports OpenAPI 3.0, 3.1, and Swagger 2.0
 
 #### `src/core/SwaggerValidator.js`
 
-**Prompt:** Build a validator class for OpenAPI specifications. Validate schema structure, required fields, and generate
-warnings for missing or deprecated properties.
+**Prompt:** Build a comprehensive validator class that:
+- Validates against official OpenAPI schemas
+- Provides detailed error messages with line numbers
+- Suggests fixes for common mistakes
+- Warns about deprecated features
+- Checks for security best practices
+- Validates example data against schemas
+- Ensures referential integrity
+- Checks for naming convention compliance
+- Provides severity levels (error, warning, info)
+- Generates validation reports in multiple formats
 
 #### `src/core/DirectoryManager.js`
 
-**Prompt:** Create a DirectoryManager class for managing output directories, creating folder structures, and handling
-file path resolution for generated NextJS code.
+**Prompt:** Create an intelligent DirectoryManager class that:
+- Creates nested directory structures efficiently
+- Handles platform-specific path separators
+- Implements atomic file operations
+- Provides rollback capabilities
+- Checks available disk space
+- Manages file permissions appropriately
+- Implements safe overwrites with backups
+- Provides dry-run capabilities
+- Tracks created files for cleanup
+- Supports symbolic links and junctions
+- Implements file locking for concurrent access
 
 ### 🚨 Error Handling System
 
 #### `src/errors/GeneratorError.js`
 
-**Prompt:** Create a base GeneratorError class that extends Error with additional properties for error codes, context
-data, and user-friendly messages. Include methods for error serialization and logging integration.
+**Prompt:** Create a sophisticated GeneratorError base class that:
+- Extends Error with rich metadata
+- Implements error codes and categories
+- Provides structured error context
+- Supports error chaining and causation
+- Implements serialization for different outputs
+- Provides user-friendly messages
+- Includes recovery suggestions
+- Supports internationalization
+- Integrates with logging systems
+- Implements error fingerprinting for tracking
 
 #### `src/errors/ValidationError.js`
 
-**Prompt:** Build a ValidationError class for OpenAPI specification validation failures. Include field-level error
-details, suggestion messages, and methods to format validation reports for CLI output.
+**Prompt:** Build a specialized ValidationError class that:
+- Captures field-level validation failures
+- Provides JSON Pointer references to error locations
+- Includes schema snippets for context
+- Suggests corrections for common patterns
+- Groups related errors intelligently
+- Formats errors for CLI and JSON output
+- Implements error severity levels
+- Provides links to documentation
+- Supports custom validation rules
+- Integrates with IDE error formats
 
 #### `src/errors/NetworkError.js`
 
-**Prompt:** Create a NetworkError class for handling remote OpenAPI spec loading failures. Include retry logic
-parameters, timeout information, and network-specific error context.
+**Prompt:** Create a robust NetworkError class that:
+- Handles various network failure scenarios
+- Captures HTTP status codes and headers
+- Implements retry recommendations
+- Provides timeout context
+- Includes proxy configuration hints
+- Handles DNS resolution failures
+- Provides offline mode suggestions
+- Captures request/response details
+- Implements circuit breaker patterns
+- Provides network diagnostics
 
 #### `src/errors/FileSystemError.js`
 
-**Prompt:** Build a FileSystemError class for file operation failures. Include file path context, permission details,
-and suggestions for resolving common file system issues.
+**Prompt:** Build a comprehensive FileSystemError class that:
+- Handles permission denied scenarios
+- Provides platform-specific solutions
+- Includes disk space warnings
+- Handles path length limitations
+- Provides file lock information
+- Suggests alternative locations
+- Implements recovery strategies
+- Handles symbolic link issues
+- Provides cleanup instructions
+- Integrates with OS-specific error codes
 
 #### `src/errors/TemplateError.js`
 
-**Prompt:** Create a TemplateError class for template processing failures. Include template name, line numbers, variable
-context, and debugging information for template authors.
+**Prompt:** Create a detailed TemplateError class that:
+- Pinpoints exact error location in templates
+- Provides syntax highlighting for error context
+- Includes variable scope information
+- Shows a template inheritance chain
+- Provides helper function documentation
+- Suggests common fixes
+- Validates template syntax
+- Checks for undefined variables
+- Provides template debugging tips
+- Integrates with template engine errors
 
 #### `src/errors/ErrorHandler.js`
 
-**Prompt:** Build a centralized error handler that processes different error types, formats them for different outputs (
-CLI, logs, JSON), and provides recovery suggestions. Include error reporting and analytics hooks.
+**Prompt:** Build a centralized error handler that:
+- Implements error classification and routing
+- Provides multiple output formatters (CLI, JSON, HTML)
+- Implements error aggregation for bulk operations
+- Provides contextual error grouping
+- Implements error recovery strategies
+- Integrates with monitoring services
+- Provides error statistics and analytics
+- Implements rate limiting for error reporting
+- Supports custom error handlers
+- Provides debug mode with stack traces
 
 ### 📊 Logging System
 
 #### `src/logging/Logger.js`
 
-**Prompt:** Create a flexible logging system with multiple log levels (DEBUG, INFO, WARN, ERROR), different output
-formats (console, file, JSON), and filtering capabilities. Support structured logging with context data.
+**Prompt:** Create an enterprise-grade logging system that:
+- Implements multiple log levels with filtering
+- Supports structured logging with metadata
+- Provides multiple transports (console, file, syslog)
+- Implements log rotation and archiving
+- Supports async logging for performance
+- Provides contextual logging with correlation IDs
+- Implements redaction for sensitive data
+- Supports custom formatters and filters
+- Integrates with log aggregation services
+- Provides performance metrics logging
 
 #### `src/logging/ProgressReporter.js`
 
-**Prompt:** Build a progress reporting system for long-running operations like code generation. Include progress bars,
-step tracking, time estimation, and cancellation support for CLI environments.
+**Prompt:** Build an advanced progress reporting system that:
+- Implements multiple progress bar styles
+- Supports nested progress tracking
+- Provides ETA calculations
+- Implements smooth animations
+- Supports concurrent progress bars
+- Provides detailed step descriptions
+- Implements progress persistence
+- Supports headless mode for CI/CD
+- Provides progress webhooks
+- Implements adaptive update rates
 
 #### `src/logging/LogFormatter.js`
 
-**Prompt:** Create log formatters for different output types: colorized console output, structured JSON logs, and
-file-based logging with timestamps and context information.
+**Prompt:** Create flexible log formatters that:
+- Implement colorized console output with themes
+- Provide structured JSON formatting
+- Support for custom timestamp formats
+- Implement log level indicators
+- Provide stack trace formatting
+- Support multi-line log entries
+- Implement context highlighting
+- Provide compact and verbose modes
+- Support emoji indicators
+- Implement platform-specific formatting
 
 ---
 
@@ -332,57 +393,281 @@ file-based logging with timestamps and context information.
 
 #### `src/generators/BaseGenerator.js`
 
-**Prompt:** Create an abstract base class for code generators with common functionality: template loading, file writing,
-variable substitution, and logging utilities.
+**Prompt:** Create a sophisticated abstract base generator class that:
+- Implements a template method pattern for generation workflow
+- Provides lifecycle hooks (before, during, after generation)
+- Implements dependency injection for services
+- Provides template variable resolution
+- Implements file conflict resolution strategies
+- Supports incremental generation
+- Provides rollback capabilities
+- Implements generation metrics
+- Supports dry-run mode
+- Provides extension points for customization
 
 #### `src/generators/ApiRouteGenerator.js`
 
-**Prompt:** Build a generator class that creates NextJS App Router API routes from OpenAPI paths. Generate route
-handlers with proper TypeScript types, validation middleware, and error handling.
+**Prompt:** Build an intelligent API route generator that:
+- Generates Next.js 13+ App Router API routes
+- Implements proper TypeScript typing from OpenAPI schemas
+- Generates request/response validation using Zod
+- Implements error handling middleware
+- Generates authentication guards
+- Supports file upload handling
+- Implements rate limiting
+- Generates API documentation
+- Supports WebSocket endpoints
+- Implements request/response logging
 
 #### `src/generators/PageComponentGenerator.js`
 
-**Prompt:** Create a generator for NextJS page components and UI elements based on OpenAPI operations. Generate forms,
-data tables, and navigation components with TypeScript support.
+**Prompt:** Create a smart page component generator that:
+- Generates type-safe React components
+- Implements data fetching with SWR/React Query
+- Generates forms with validation
+- Creates responsive data tables
+- Implements loading and error states
+- Generates modal and drawer components
+- Supports internationalization
+- Implements accessibility standards
+- Generates Storybook stories
+- Creates component tests
 
 #### `src/generators/ConfigFileGenerator.js`
 
-**Prompt:** Build a generator for NextJS configuration files: tsconfig.json, next.config.js, layout components, and
-global styles based on the API specification.
+**Prompt:** Create the main ConfigFileGenerator class that orchestrates the generation of configuration files for Next.js projects. This class should:
+- Extend BaseGenerator with configuration-specific options
+- Initialize configuration options (typescript, eslint, prettier, docker, etc.)
+- Load and manage templates
+- Implement the main generation workflow (doValidate, doPrepare, doGenerate)
+- Delegate specific file generation to specialized generator classes
+- Handle error cases and provide comprehensive logging
+
+### 📄 Configuration Generators (Submodules)
+
+#### `src/generators/config/NextConfigGenerator.js`
+
+**Prompt:** Create a specialized generator for Next.js configuration that:
+- Generates next.config.js with optimization settings
+- Configures image optimization with proper domains and formats
+- Sets up internationalization if detected in the API spec
+- Implements security headers and CSP policies
+- Configures experimental features and build optimizations
+- Handles environment variables for client-side usage
+- Sets up redirects, rewrites, and custom headers
+- Supports different deployment targets (standalone for Docker, etc.)
+
+#### `src/generators/config/TypeScriptConfigGenerator.js`
+
+**Prompt:** Build a TypeScript configuration generator that:
+- Creates tsconfig.json with strict type checking enabled
+- Configures path aliases for clean imports (@/components, @/lib, etc.)
+- Sets up appropriate compiler options for Next.js 14+
+- Enables all strict checks and additional safety options
+- Configures module resolution for the bundler
+- Sets up incremental compilation for faster builds
+- Includes proper lib references for DOM and ESNext features
+
+#### `src/generators/config/LintingConfigGenerator.js`
+
+**Prompt:** Create a comprehensive linting configuration generator that handles both ESLint and Prettier:
+- Generates ESLint configuration with TypeScript support
+- Implements API-specific linting rules
+- Configures import ordering and sorting
+- Sets up security-focused linting rules
+- Creates Prettier configuration with team-friendly defaults
+- Ensures ESLint and Prettier work together without conflicts
+- Adds accessibility and React-specific rules
+- Supports different style guides based on project preferences
+
+#### `src/generators/config/DockerConfigGenerator.js`
+
+**Prompt:** Build a Docker configuration generator that creates:
+- Multi-stage Dockerfile with security best practices
+- Optimized Node.js Alpine-based images
+- Docker Compose configuration with service orchestration
+- Health check implementations
+- Non-root user setup for security
+- Efficient layer caching strategies
+- Volume management for development and production
+- Network configuration for microservices
+- .dockerignore file with appropriate exclusions
+
+#### `src/generators/config/CICDConfigGenerator.js`
+
+**Prompt:** Create a CI/CD configuration generator that produces:
+- GitHub Actions workflows for testing, building, and deployment
+- Multi-job pipelines with proper dependencies
+- Security scanning integration (Snyk, CodeQL)
+- Automated testing across multiple Node versions
+- Build artifact management
+- Deployment jobs for different platforms (Vercel, AWS, Docker)
+- Dependabot configuration for dependency updates
+- PR and issue templates for better collaboration
+- Branch protection and merge strategies
+
+#### `src/generators/config/EnvironmentConfigGenerator.js`
+
+**Prompt:** Build an environment configuration generator that:
+- Creates .env.example with documented variables
+- Generates .env.local with secure random secrets
+- Implements type-safe environment validation using Zod
+- Creates TypeScript definitions for process.env
+- Extracts environment variables from OpenAPI security schemes
+- Separates public and private environment variables
+- Handles database URLs and authentication secrets
+- Provides environment-specific configurations
+
+#### `src/generators/config/PackageConfigGenerator.js`
+
+**Prompt:** Create a package configuration generator that:
+- Generates package.json with analyzed dependencies
+- Adds appropriate scripts for development, testing, and deployment
+- Configures package manager specific settings
+- Includes engine requirements and peer dependencies
+- Sets up pre-commit hooks with Husky and lint-staged
+- Adds database-specific scripts (Prisma migrations, etc.)
+- Configures test runners and coverage settings
+- Includes proper metadata and licensing information
+
+#### `src/generators/config/DocumentationGenerator.js`
+
+**Prompt:** Build a documentation generator that creates:
+- Comprehensive README.md with project overview
+- API endpoint documentation extracted from OpenAPI
+- Quick start guides with package manager specific commands
+- Tech stack documentation
+- Environment variable documentation
+- Project structure visualization
+- Contributing guidelines
+- Development workflow documentation
+- Deployment instructions for each platform
+- Troubleshooting guides
+
+#### `src/generators/config/EditorConfigGenerator.js`
+
+**Prompt:** Create an editor configuration generator that produces:
+- .editorconfig for consistent coding styles
+- VS Code settings with recommended extensions
+- VS Code launch configurations for debugging
+- Git configuration files (.gitignore)
+- Team-specific editor preferences
+- Code formatting rules
+- File associations and language-specific settings
+- Workspace recommendations
+
+#### `src/generators/config/DeploymentConfigGenerator.js`
+
+**Prompt:** Build a deployment configuration generator that creates platform-specific configs:
+- Vercel configuration with build settings and environment variables
+- AWS deployment configuration (serverless.yml placeholder)
+- Custom deployment scripts
+- Platform-specific optimizations
+- CDN and caching configurations
+- Domain and SSL settings
+- Scaling and performance configurations
+
+#### `src/generators/config/ConfigHelpers.js`
+
+**Prompt:** Create a utility module with shared helper methods:
+- Template helper registration (Handlebars helpers)
+- Project name extraction and sanitization
+- API feature analysis from OpenAPI spec
+- Environment variable extraction
+- Build configuration preparation
+- Security configuration setup
+- Image domain extraction
+- Package manager command helpers
+- Secret generation utilities
+- YAML/JSON stringification helpers
 
 ### 📄 Template System
 
 #### `src/templates/TemplateEngine.js`
 
-**Prompt:** Create a template engine class for processing template files with variable substitution, conditional blocks,
-and loop constructs. Support custom helpers and filters.
+**Prompt:** Create a powerful template engine that:
+- Extends Handlebars with custom functionality
+- Implements template caching and precompilation
+- Supports multiple template languages
+- Provides async helper support
+- Implements template composition
+- Supports conditional compilation
+- Provides debugging capabilities
+- Implements security sandboxing
+- Supports custom delimiters
+- Provides performance optimization
 
 #### `src/templates/TemplateLoader.js`
 
-**Prompt:** Build a template loader that manages template file discovery, caching, and dependency resolution from the
-templates/files directory.
+**Prompt:** Build an intelligent template loader that:
+- Implements template discovery and indexing
+- Supports multiple template sources
+- Provides template versioning
+- Implements hot reloading in development
+- Supports template packages
+- Provides dependency resolution
+- Implements template validation
+- Supports remote template loading
+- Provides template metadata
+- Implements efficient caching
 
 ### 🛠️ Utility Functions
 
 #### `src/utils/PathUtils.js`
 
-**Prompt:** Create utility functions for path manipulation: converting OpenAPI paths to NextJS routes, handling dynamic
-segments, and sanitizing file names.
+**Prompt:** Create comprehensive path utilities that:
+- Convert OpenAPI paths to Next.js dynamic routes
+- Handle complex parameter patterns
+- Implement path normalization
+- Support catch-all routes
+- Handle optional parameters
+- Implement path validation
+- Generate route matching functions
+- Support internationalized routes
+- Handle special characters
+- Implement path security checks
 
 #### `src/utils/SchemaUtils.js`
 
-**Prompt:** Build utilities for OpenAPI schema processing: converting schemas to TypeScript types, handling references,
-and generating validation rules.
+**Prompt:** Build advanced schema utilities that:
+- Convert OpenAPI schemas to TypeScript interfaces
+- Handle complex schema compositions (allOf, oneOf, anyOf)
+- Implement circular reference resolution
+- Generate Zod validation schemas
+- Support for custom format handlers
+- Implement schema simplification
+- Generate mock data from schemas
+- Support schema extensions
+- Handle discriminated unions
+- Implement schema documentation extraction
 
 #### `src/utils/ValidationUtils.js`
 
-**Prompt:** Create validation utilities for input sanitization, parameter validation, and schema compliance checking
-with detailed error messages.
+**Prompt:** Create robust validation utilities that:
+- Implement comprehensive input sanitization
+- Generate validation functions from schemas
+- Support custom validation rules
+- Implement async validation
+- Provide detailed error messages
+- Support conditional validation
+- Implement security validation
+- Generate validation documentation
+- Support validation composition
+- Implement performance optimization
 
 #### `src/utils/StringUtils.js`
 
-**Prompt:** Generate string manipulation utilities: camelCase conversion, pluralization, template variable replacement,
-and code formatting helpers.
+**Prompt:** Generate versatile string utilities that:
+- Implement smart case conversions
+- Support multiple naming conventions
+- Implement pluralization/singularization
+- Provide template literal processing
+- Support internationalization
+- Implement string sanitization
+- Provide natural language processing
+- Support emoji handling
+- Implement text truncation
+- Provide string similarity algorithms
 
 ---
 
@@ -392,52 +677,133 @@ and code formatting helpers.
 
 #### `src/templates/files/api/route.ts.template`
 
-**Prompt:** Create a TypeScript template for NextJS App Router API route handlers. Include parameter validation,
-request/response typing, error handling, and OpenAPI operation mapping.
+**Prompt:** Create a production-ready TypeScript template for Next.js App Router API routes that includes:
+- Comprehensive request method handling (GET, POST, PUT, DELETE, PATCH)
+- Type-safe parameter extraction and validation
+- Request body parsing with Zod schemas
+- Authentication and authorization middleware
+- Error handling with proper status codes
+- Request/response logging
+- Rate-limiting implementation
+- CORS configuration
+- File upload support
+- Response caching strategies
 
 #### `src/templates/files/api/validation.ts.template`
 
-**Prompt:** Generate a TypeScript template for API request validation using Zod or similar. Create schemas from OpenAPI
-parameter and body definitions.
+**Prompt:** Generate an advanced validation template that:
+- Creates Zod schemas from OpenAPI definitions
+- Implements nested object validation
+- Supports array validation with constraints
+- Handles union types and discriminated unions
+- Implements custom validation messages
+- Supports async validation rules
+- Generates TypeScript types from schemas
+- Implements validation middleware
+- Supports partial validation
+- Handles file validation
 
 ### 🎨 Page Template Files
 
 #### `src/templates/files/pages/page.tsx.template`
 
-**Prompt:** Create a React TypeScript template for NextJS pages with data fetching, loading states, error boundaries,
-and responsive design components.
+**Prompt:** Create a modern React TypeScript page template that includes:
+- Server-side rendering with Next.js 13+ features
+- Type-safe data fetching with error boundaries
+- Responsive layout with CSS modules/Tailwind
+- Loading skeletons and suspense boundaries
+- SEO optimization with metadata
+- Accessibility features (ARIA labels, keyboard navigation)
+- Performance optimization (lazy loading, code splitting)
+- State management integration
+- Internationalization support
+- Analytics integration
 
 #### `src/templates/files/pages/components.tsx.template`
 
-**Prompt:** Generate React component templates for forms, data tables, modals, and navigation elements based on OpenAPI
-schemas and operations.
+**Prompt:** Generate reusable component templates that include:
+- Type-safe form components with validation
+- Data table with sorting, filtering, and pagination
+- Modal and drawer components
+- File upload components with progress
+- Search and filter components
+- Navigation breadcrumbs
+- Alert and notification components
+- Loading spinners and skeletons
+- Error boundary components
+- Accessibility-compliant components
 
 ### ⚙️ Configuration Template Files
 
 #### `src/templates/files/config/layout.tsx.template`
 
-**Prompt:** Create a NextJS layout component template with navigation, authentication, theme provider, and error
-boundary setup.
+**Prompt:** Create a Next.js root layout template that includes:
+- Global providers setup (Theme, Auth, i18n)
+- Navigation component with a dynamic menu
+- Authentication state management
+- Global error boundaries
+- Loading states management
+- SEO meta tags configuration
+- Analytics initialization
+- Font and icon setup
+- CSS reset and global styles
+- Accessibility features
 
 #### `src/templates/files/config/globals.css.template`
 
-**Prompt:** Generate a global CSS template with modern CSS reset, utility classes, responsive design variables, and dark
-mode support.
+**Prompt:** Generate a modern CSS template that includes:
+- CSS custom properties for theming
+- Responsive design utilities
+- Dark mode support with CSS variables
+- Animation utilities
+- Typography scale system
+- Spacing and sizing system
+- Component-specific styles
+- Accessibility utilities
+- Print styles
+- Performance optimizations
 
 #### `src/templates/files/config/tsconfig.json.template`
 
-**Prompt:** Create a TypeScript configuration template optimized for NextJS with proper path mapping, strict type
-checking, and API client imports.
+**Prompt:** Create an optimized TypeScript configuration that includes:
+- Strict type-checking settings
+- Path aliasing for clean imports
+- Next.js specific configurations
+- Module resolution settings
+- Compiler optimizations
+- Declaration file generation
+- Source map configuration
+- Environment-specific settings
+- Plugin configurations
+- Build output settings
 
 #### `src/templates/files/config/next.config.js.template`
 
-**Prompt:** Generate a NextJS configuration template with optimized settings for API integration, TypeScript support,
-environment variables, and build optimizations for generated applications.
+**Prompt:** Generate an advanced Next.js configuration that includes:
+- Image optimization settings
+- API route configuration
+- Environment variable validation
+- Security headers
+- Performance optimizations
+- Internationalization setup
+- Custom webpack configuration
+- Build-time optimizations
+- Deployment target settings
+- Analytics and monitoring setup
 
 #### `src/templates/files/config/dependencies.md.template`
 
-**Prompt:** Generate a markdown template listing required npm dependencies, optional packages, and installation
-instructions for the generated NextJS application.
+**Prompt:** Create a comprehensive dependencies document that includes:
+- Core dependencies with version ranges
+- Development dependencies
+- Optional dependencies by feature
+- Peer dependency requirements
+- Installation commands for different package managers
+- Dependency update strategies
+- Security audit recommendations
+- Performance impact analysis
+- Alternative package suggestions
+- Troubleshooting common issues
 
 ---
 
@@ -447,18 +813,45 @@ instructions for the generated NextJS application.
 
 #### `src/config/ConfigValidator.js`
 
-**Prompt:** Build a configuration validator using JSON Schema or Zod to validate user configuration files. Include
-detailed error messages, default value injection, and migration support for config schema changes.
+**Prompt:** Build an advanced configuration validator that:
+- Uses JSON Schema for validation with custom keywords
+- Provides intelligent error messages with fix suggestions
+- Implements configuration migration between versions
+- Validates interdependent configuration options
+- Supports environment-specific validation rules
+- Implements type coercion with warnings
+- Provides configuration linting
+- Generates configuration documentation
+- Supports dynamic validation rules
+- Implements performance profiling
 
 #### `src/config/ConfigMerger.js`
 
-**Prompt:** Create a configuration merger that combines default settings, user config files, environment variables, and
-CLI arguments with proper precedence rules and conflict resolution.
+**Prompt:** Create a sophisticated configuration merger that:
+- Implements deep merging with conflict resolution
+- Supports multiple configuration sources with priorities
+- Handles environment variable interpolation
+- Implements conditional configuration blocks
+- Supports configuration inheritance
+- Provides merge conflict reporting
+- Implements array merging strategies
+- Supports configuration overlays
+- Handles circular references
+- Provides configuration diffing
 
 #### `src/config/EnvironmentConfig.js`
 
-**Prompt:** Build an environment-specific configuration loader that handles different environments (dev, staging, prod)
-with config inheritance, variable substitution, and validation.
+**Prompt:** Build an environment configuration system that:
+- Supports multiple environment definitions
+- Implements secure secret management
+- Provides environment variable validation
+- Supports dynamic environment detection
+- Implements configuration encryption
+- Provides environment parity checking
+- Supports remote configuration loading
+- Implements configuration hot-reloading
+- Provides environment migration tools
+- Supports configuration templating
 
 ---
 
@@ -468,814 +861,576 @@ with config inheritance, variable substitution, and validation.
 
 #### `src/cache/SpecCache.js`
 
-**Prompt:** Create a caching system for OpenAPI specifications with TTL support, cache invalidation, file-based
-persistence, and memory management. Include cache warming and background refresh capabilities.
+**Prompt:** Create an intelligent caching system for OpenAPI specs that:
+- Implements LRU cache with configurable size limits
+- Supports persistent disk caching with compression
+- Implements cache warming strategies
+- Provides cache invalidation with granularity
+- Supports distributed caching for teams
+- Implements intelligent TTL calculation
+- Provides cache hit/miss analytics
+- Supports partial cache updates
+- Implements cache versioning
+- Provides cache import/export functionality
 
 #### `src/cache/TemplateCache.js`
 
-**Prompt:** Build a template caching system that precompiles and caches templates for faster generation. Include cache
-invalidation on template changes and memory-efficient storage.
+**Prompt:** Build a high-performance template caching system that:
+- Precompiled templates for faster rendering
+- Implements memory-efficient storage
+- Supports hot module replacement
+- Provides template dependency tracking
+- Implements cache compression
+- Supports distributed template caching
+- Provides cache performance metrics
+- Implements intelligent eviction policies
+- Supports template versioning
+- Provides cache debugging tools
 
 #### `src/performance/GenerationOptimizer.js`
 
-**Prompt:** Create an optimizer that analyzes OpenAPI specs to determine optimal generation strategies, identifies
-unchanged components for incremental updates, and manages parallel processing of independent generators.
+**Prompt:** Create a generation optimization system that:
+- Analyzes OpenAPI specs for optimization opportunities
+- Implements parallel generation strategies
+- Provides incremental generation with checksums
+- Implements intelligent work distribution
+- Supports generation profiling
+- Provides optimization recommendations
+- Implements resource usage monitoring
+- Supports generation cancellation
+- Provides performance regression detection
+- Implements adaptive optimization strategies
 
----
+# Missing Files and Prompts for Swagger-to-NextJS Generator
 
-## 🏗️ PHASE 7: Extensibility & Plugin System
-
-### 🔌 Plugin Architecture
-
-#### `src/plugins/PluginManager.js`
-
-**Prompt:** Build a plugin system that allows users to register custom generators, template processors, and validation
-rules. Include plugin discovery, lifecycle management, and dependency resolution.
-
-#### `src/plugins/BasePlugin.js`
-
-**Prompt:** Create an abstract base class for plugins with standard lifecycle hooks (initialize, beforeGeneration,
-afterGeneration, cleanup), configuration injection, and error handling patterns.
-
-#### `src/plugins/PluginRegistry.js`
-
-**Prompt:** Build a plugin registry that manages plugin installation, versioning, compatibility checking, and provides a
-marketplace-like interface for discovering available plugins.
-
-#### `src/hooks/HookSystem.js`
-
-**Prompt:** Create a hook system that allows plugins and users to inject custom logic at various points in the
-generation process. Include async hook support, error handling, and hook priority management.
-
----
-
-## 🏗️ PHASE 8: Schema Evolution & Migration
-
-### 🔄 Migration System
-
-#### `src/migration/SpecComparator.js`
-
-**Prompt:** Build a comparator that analyzes differences between OpenAPI specification versions, identifies breaking
-changes, and generates migration reports with impact analysis.
-
-#### `src/migration/CodeMigrator.js`
-
-**Prompt:** Create a code migration system that can update generated code when OpenAPI specs change, preserving custom
-modifications and handling breaking changes gracefully.
-
-#### `src/migration/BackupManager.js`
-
-**Prompt:** Build a backup system that creates snapshots before code generation, enables rollback functionality, and
-manages backup retention policies.
-
----
-
-## 🏗️ PHASE 9: Enhanced Utilities & CLI Features
-
-### 🛠️ Enhanced Utilities
-
-#### `src/utils/TypeScriptUtils.js`
-
-**Prompt:** Create advanced TypeScript utilities for complex type generation, interface merging, generic type handling,
-and TypeScript AST manipulation for precise code generation.
-
-#### `src/utils/OpenApiUtils.js`
-
-**Prompt:** Build utilities for advanced OpenAPI specification manipulation: reference resolution, schema flattening,
-operation grouping, and spec optimization for better code generation.
-
-#### `src/utils/CodeFormatter.js`
-
-**Prompt:** Create a code formatter that applies consistent styling to generated code using Prettier, ESLint rules, and
-custom formatting rules. Include support for different coding standards.
-
-#### `src/utils/DependencyAnalyzer.js`
-
-**Prompt:** Build a dependency analyzer that examines OpenAPI specs to determine required npm packages, version
-constraints, and peer dependencies for generated applications.
-
-### 🔧 Enhanced CLI Features
-
-#### `src/cli/InteractiveMode.js`
-
-**Prompt:** Create an interactive CLI mode with prompts for configuration setup, guided generation workflows, and
-real-time validation feedback using inquirer.js or similar.
-
-#### `src/cli/WatchMode.js`
-
-**Prompt:** Build a watch mode that monitors OpenAPI spec files for changes and automatically regenerates code with
-incremental updates and change notifications.
-
-#### `src/cli/DiffMode.js`
-
-**Prompt:** Create a diff mode that shows what files would be created, modified, or deleted before actual generation,
-with colorized output and impact analysis.
-
-#### `src/cli/ConfigGenerator.js`
-
-**Prompt:** Build a configuration file generator that creates starter config files based on OpenAPI spec analysis, with
-interactive customization options and best practice recommendations.
-
----
-
-## 🏗️ PHASE 10: Advanced Template System
-
-### 🎨 Enhanced Template System
-
-#### `src/templates/TemplateInheritance.js`
-
-**Prompt:** Create a template inheritance system that allows templates to extend base templates, override specific
-blocks, and share common layouts with proper resolution chains.
-
-#### `src/templates/CustomHelpers.js`
-
-**Prompt:** Build a system for registering and using custom Handlebars helpers, including helper validation,
-documentation generation, and a standard library of common helpers.
-
-#### `src/templates/ConditionalGenerator.js`
-
-**Prompt:** Create a conditional generation system that can skip or modify file generation based on OpenAPI spec
-features, user preferences, and environmental conditions.
-
-#### `src/templates/TemplateValidator.js`
-
-**Prompt:** Build a template validator that checks template syntax, validates variable usage, detects unused templates,
-and ensures template compatibility with different OpenAPI spec versions.
-
-### 📋 Additional Configuration Templates
-
-#### `src/templates/files/config/eslint.config.js.template`
-
-**Prompt:** Create an ESLint configuration template optimized for generated NextJS applications with API integration,
-TypeScript support, and security-focused rules.
-
-#### `src/templates/files/config/prettier.config.js.template`
-
-**Prompt:** Generate a Prettier configuration template that ensures consistent code formatting across generated files
-with NextJS and API-specific formatting rules.
-
-#### `src/templates/files/config/docker.template`
-
-**Prompt:** Create Docker configuration templates (Dockerfile, docker-compose.yml) for containerizing generated NextJS
-applications with API integration and production optimization.
-
-#### `src/templates/files/config/github-actions.yml.template`
-
-**Prompt:** Generate GitHub Actions workflow templates for CI/CD of generated applications, including testing, building,
-and deployment automation.
-
----
-
-## 🏗️ PHASE 11: Monitoring & Security
-
-### 📈 Monitoring & Analytics
+## 📈 Analytics
 
 #### `src/analytics/UsageTracker.js`
 
-**Prompt:** Create an optional usage analytics system that tracks generation patterns, performance metrics, and error
-frequencies to improve the tool. Include privacy controls and opt-out mechanisms.
+**Prompt:** Create a privacy-conscious analytics system that:
+- Implements opt-in telemetry collection
+- Provides anonymous usage statistics
+- Tracks generation patterns and errors
+- Implements data aggregation
+- Provides usage dashboards
+- Supports custom metrics
+- Implements data retention policies
+- Provides export capabilities
+- Supports GDPR compliance
+- Implements performance tracking
+
+## 🔧 CLI Components
+
+#### `src/cli/ConfigGenerator.js`
+
+**Prompt:** Build an intelligent configuration generator that:
+- Analyzes OpenAPI specs for optimal settings
+- Implements configuration templates
+- Provides interactive configuration building
+- Supports configuration validation
+- Implements best practice recommendations
+- Provides configuration examples
+- Supports team configuration sharing
+- Implements configuration versioning
+- Provides configuration migration
+- Supports configuration inheritance
+
+#### `src/cli/DiffMode.js`
+
+**Prompt:** Create an advanced diff mode that:
+- Implements syntax-aware diffing
+- Provides multiple diff formats
+- Supports three-way merging
+- Implements conflict highlighting
+- Provides diff statistics
+- Supports diff filtering
+- Implements side-by-side view
+- Provides diff export options
+- Supports custom diff algorithms
+- Implements diff-based workflows
+
+#### `src/cli/InteractiveMode.js`
+
+**Prompt:** Create an advanced interactive CLI mode that:
+- Implements intelligent prompting based on context
+- Provides autocomplete for all options
+- Supports configuration wizards
+- Implements validation during input
+- Provides contextual help
+- Supports prompt templates
+- Implements multistep workflows
+- Provides undo/redo functionality
+- Supports prompt history
+- Implements accessibility features
+
+#### `src/cli/WatchMode.js`
+
+**Prompt:** Build a sophisticated watch mode that:
+- Implements intelligent file watching with patterns
+- Supports debouncing and throttling
+- Provides incremental regeneration
+- Implements dependency tracking
+- Supports watch mode plugins
+- Provides performance optimization
+- Implements error recovery
+- Supports multiple watch targets
+- Provides watch statistics
+- Implements watch mode debugging
+
+## 🪝 Hooks System
+
+#### `src/hooks/HookSystem.js`
+
+**Prompt:** Create an advanced hook system that:
+- Implements priority-based hook execution
+- Supports async hook chains
+- Provides hook context passing
+- Implements hook cancellation
+- Supports conditional hook execution
+- Provides hook performance monitoring
+- Implements hook error boundaries
+- Supports dynamic hook registration
+- Provides hook debugging tools
+- Implements hook documentation generation
+
+## 🔄 Migration System
+
+#### `src/migration/BackupManager.js`
+
+**Prompt:** Build a comprehensive backup system that:
+- Implements versioned backup creation
+- Supports incremental backups
+- Provides backup compression and encryption
+- Implements backup rotation policies
+- Supports cloud backup storage
+- Provides backup integrity verification
+- Implements selective restoration
+- Supports backup scheduling
+- Provides backup size optimization
+- Implements backup metadata management
+
+#### `src/migration/CodeMigrator.js`
+
+**Prompt:** Create an intelligent code migration system that:
+- Analyzes existing generated code for modifications
+- Implements AST-based code transformation
+- Preserves custom code sections
+- Provides conflict resolution strategies
+- Implements rollback capabilities
+- Supports incremental migrations
+- Provides migration testing
+- Implements migration scheduling
+- Supports custom migration rules
+- Provides migration analytics
+
+#### `src/migration/SpecComparator.js`
+
+**Prompt:** Build a specification comparison system that:
+- Implements deep structural comparison of OpenAPI specs
+- Identifies breaking vs. non-breaking changes
+- Generates detailed change reports
+- Provides semantic versioning recommendations
+- Implements change categorization
+- Supports custom comparison rules
+- Provides visual diff generation
+- Implements change impact analysis
+- Supports batch comparisons
+- Provides migration path suggestions
+
+## 📊 Monitoring
 
 #### `src/monitoring/HealthChecker.js`
 
-**Prompt:** Build a health checking system that validates the integrity of generated code, checks for common issues, and
-provides suggestions for optimization.
+**Prompt:** Build a comprehensive health checking system that:
+- Validates generated code integrity
+- Implements runtime health checks
+- Provides dependency health monitoring
+- Implements security vulnerability scanning
+- Supports custom health checks
+- Provides health dashboards
+- Implements alerting capabilities
+- Supports health check scheduling
+- Provides remediation suggestions
+- Implements health trends analysis
 
-### 🔐 Security Enhancements
+## 🔌 Plugin System
 
-#### `src/security/SpecSanitizer.js`
+#### `src/plugins/BasePlugin.js`
 
-**Prompt:** Build a security-focused OpenAPI spec sanitizer that removes sensitive information, validates external
-references, and prevents code injection through spec manipulation.
+**Prompt:** Create a robust base plugin class that:
+- Defines standard plugin interface and lifecycle
+- Implements plugin metadata structure
+- Provides access to generator APIs
+- Implements event subscription system
+- Supports plugin configuration schema
+- Provides plugin logging integration
+- Implements resource cleanup
+- Supports plugin versioning
+- Provides plugin testing utilities
+- Implements plugin documentation generation
+
+#### `src/plugins/PluginManager.js`
+
+**Prompt:** Build a comprehensive plugin management system that:
+- Implements plugin discovery from multiple sources
+- Provides plugin dependency resolution
+- Implements semantic versioning compatibility
+- Supports plugin isolation and sandboxing
+- Provides plugin lifecycle management
+- Implements plugin configuration validation
+- Supports hot plugin loading/unloading
+- Provides plugin marketplace integration
+- Implements plugin security scanning
+- Supports plugin bundling and distribution
+
+#### `src/plugins/PluginRegistry.js`
+
+**Prompt:** Build a plugin registry system that:
+- Manages plugin installation and updates
+- Implements plugin search and discovery
+- Provides plugin rating and reviews
+- Implements plugin security verification
+- Supports private plugin registries
+- Provides plugin compatibility matrix
+- Implements plugin telemetry
+- Supports plugin categories and tags
+- Provides plugin showcase
+- Implements plugin submission workflow
+
+## 🔐 Security
 
 #### `src/security/CodeValidator.js`
 
-**Prompt:** Create a security validator for generated code that checks for common vulnerabilities, validates input
-sanitization, and ensures secure coding practices in templates.
-
----
-
-## 🧪 TESTING STRATEGY
-
-### 🧪 Unit Tests
-
-#### Core Tests
-
-- `tests/unit/cli.test.js` - **Prompt:** Create comprehensive unit tests for the CLI interface. Test command parsing,
-  argument validation, help system, init command functionality, error handling, and integration with the main generator
-  class. Include tests for different input formats (files, URLs), output directory handling, and user experience
-  scenarios.
-
-#### Component Tests (Following same pattern for all modules)
-
-- `tests/unit/core/SwaggerLoader.test.js` - **Prompt:** Create comprehensive unit tests for SwaggerLoader class. Test
-  loading from URLs, local files, YAML/JSON parsing, error handling, and caching functionality.
-- `tests/unit/core/SwaggerValidator.test.js` - **Prompt:** Write unit tests for SwaggerValidator class. Test OpenAPI
-  spec validation, schema compliance, error reporting, and warning generation for deprecated features.
-- `tests/unit/core/DirectoryManager.test.js` - **Prompt:** Create unit tests for DirectoryManager class. Test directory
-  creation, path resolution, file permissions, and cleanup operations.
-
-### 🧪 Integration Tests
-
-#### `tests/integration/full-generation.test.js`
-
-**Prompt:** Create integration tests for complete code generation workflow. Test end-to-end generation from OpenAPI spec
-to working NextJS application with multiple endpoints.
-
-#### `tests/integration/cli-commands.test.js`
-
-**Prompt:** Write integration tests for CLI commands. Test command-line argument parsing, file input/output,
-configuration loading, and exit codes.
-
-#### `tests/integration/error-scenarios.test.js`
-
-**Prompt:** Create integration tests for error scenarios. Test invalid OpenAPI specs, missing files, permission errors,
-and graceful failure handling.
-
-#### `tests/integration/plugin-system.test.js`
-
-**Prompt:** Create integration tests for the plugin system, testing plugin loading, lifecycle management, hook
-execution, and plugin interaction scenarios.
-
-### 🧪 Advanced Testing
-
-#### `tests/performance/generation-performance.test.js`
-
-**Prompt:** Create performance tests that measure generation speed for different spec sizes, memory usage patterns, and
-identify performance regressions across versions.
-
-#### `tests/snapshot/code-generation.test.js`
-
-**Prompt:** Build snapshot tests that ensure generated code consistency across versions, detect unintended changes, and
-validate code quality metrics.
-
-#### `tests/e2e/full-workflow.test.js`
-
-**Prompt:** Build end-to-end tests that simulate complete user workflows from spec input to working NextJS application,
-including deployment and runtime validation.
-
----
-
-## 📁 TEST FIXTURES & EXAMPLES
-
-### 📁 Test Fixtures
-
-#### OpenAPI Specifications
-
-- `tests/fixtures/openapi-specs/petstore.yaml` - **Prompt:** Create a sample OpenAPI specification for a pet store API
-  with CRUD operations, authentication, file uploads, and complex data models for testing.
-- `tests/fixtures/openapi-specs/simple-crud.yaml` - **Prompt:** Generate a simple OpenAPI specification with basic CRUD
-  operations for testing fundamental generation features.
-- `tests/fixtures/openapi-specs/invalid-spec.yaml` - **Prompt:** Create an intentionally invalid OpenAPI specification
-  with missing required fields, invalid references, and malformed schemas for error testing.
-
-#### Configuration Files
-
-- `tests/fixtures/configurations/basic-config.yaml` - **Prompt:** Create a basic configuration file for the generator
-  with standard settings for output directory, template options, and generation preferences.
-- `tests/fixtures/configurations/advanced-config.yaml` - **Prompt:** Generate an advanced configuration file with custom
-  template paths, complex generation rules, authentication settings, and optimization options.
-
-### 📖 Examples
-
-#### Basic Examples
-
-- `examples/petstore-config/` - **Prompt:** Create a configuration file for generating a pet store application with
-  specific settings for authentication, styling, and component preferences.
-- `examples/simple-api-config/` - **Prompt:** Create a configuration file for a simple API example with minimal settings
-  suitable for beginners.
-
-#### Advanced Examples
-
-- `examples/enterprise-config/` - **Prompt:** Create an enterprise-level example configuration with advanced features:
-  custom authentication, complex validation rules, plugin usage, and production deployment settings.
-- `examples/microservices-config/` - **Prompt:** Build an example for microservices architecture with multiple OpenAPI
-  specs, service discovery integration, and distributed system patterns.
-- `examples/plugin-development/` - **Prompt:** Create a complete example showing how to develop custom plugins,
-  including plugin structure, testing patterns, and distribution guidelines.
-
----
-
-## 🚀 IMPLEMENTATION STRATEGY
-
-### **Development Workflow**
-
-#### 1. Initial Setup
-
-```bash
-# Create enhanced directory structure
-mkdir -p swagger-to-nextjs/{bin,config,src/{analytics,cache,cli,config,core,errors,generators,hooks,logging,migration,monitoring,performance,plugins,security,templates/files/{api,pages,config},utils},tests/{unit/{analytics,cache,cli,config,core,errors,generators,hooks,logging,migration,monitoring,performance,plugins,security,templates,utils},integration,performance,snapshot,e2e,fixtures/{openapi-specs,expected-outputs,configurations}},examples/{petstore-config,simple-api-config,enterprise-config,microservices-config,plugin-development}}
-
-cd swagger-to-nextjs
-npm init -y
-
-# Install core dependencies
-npm install js-yaml commander handlebars axios fs-extra chalk inquirer chokidar prettier eslint
-
-# Install development dependencies
-npm install --save-dev jest eslint nodemon @types/jest
-```
-
-#### 2. Phase-by-Phase Development
-
-**Phase 1: Foundation (Days 1-3)**
-
-```bash
-# Build core foundation
-# 1. package.json, README.md, defaults.js
-# 2. src/index.js, src/cli.js, bin/swagger-to-nextjs.js
-# 3. Error handling system (src/errors/)
-# 4. Logging system (src/logging/)
-
-# Test foundation
-npm test
-chmod +x bin/swagger-to-nextjs.js
-./bin/swagger-to-nextjs.js --help
-```
-
-**Phase 2: Core Infrastructure (Days 4-6)**
-
-```bash
-# Build core components
-# 1. src/core/ (SwaggerLoader, SwaggerValidator, DirectoryManager)
-# 2. Enhanced configuration (src/config/)
-# 3. Basic utilities (src/utils/)
-
-# Test core functionality
-npm run test:unit
-```
-
-**Phase 3: Generation Engine (Days 7-10)**
-
-```bash
-# Build generation system
-# 1. src/generators/ (BaseGenerator, ApiRouteGenerator, etc.)
-# 2. src/templates/ (TemplateEngine, TemplateLoader)
-# 3. Template files (src/templates/files/)
-
-# Test generation
-npm run test:integration
-```
-
-**Phase 4: Performance & Optimization (Days 11-13)**
-
-```bash
-# Add performance features
-# 1. src/cache/ (SpecCache, TemplateCache)
-# 2. src/performance/ (GenerationOptimizer)
-# 3. Enhanced configuration merging
-
-# Performance testing
-npm run test:performance
-```
-
-**Phase 5: Extensibility (Days 14-17)**
-
-```bash
-# Add plugin system
-# 1. src/plugins/ (PluginManager, BasePlugin, PluginRegistry)
-# 2. src/hooks/ (HookSystem)
-# 3. src/migration/ (SpecComparator, CodeMigrator, BackupManager)
-
-# Plugin testing
-npm run test:plugins
-```
-
-**Phase 6: Enhanced UX (Days 18-20)**
-
-```bash
-# Advanced CLI features
-# 1. src/cli/ (InteractiveMode, WatchMode, DiffMode, ConfigGenerator)
-# 2. Enhanced template system
-# 3. Monitoring and analytics
-
-# End-to-end testing
-npm run test:e2e
-```
-
-**Phase 7: Production Ready (Days 21-23)**
-
-```bash
-# Security and deployment
-# 1. src/security/ (SpecSanitizer, CodeValidator)
-# 2. Additional templates (Docker, CI/CD)
-# 3. Advanced examples and documentation
-
-# Security and snapshot testing
-npm run security:scan
-npm run test:snapshot
-```
-
----
-
-## 🚀 USAGE GUIDE
-
-### **Basic Usage Commands**
-
-#### Installation & Setup
-
-```bash
-# From your project root directory
-git clone <your-repo>/swagger-to-nextjs
-cd swagger-to-nextjs
-npm install
-chmod +x bin/swagger-to-nextjs.js
-
-# Link globally (optional)
-npm link
-```
-
-#### Simple Generation
-
-```bash
-# Basic generation from local file
-./bin/swagger-to-nextjs.js ./api-spec.yaml
-
-# Generation from remote URL
-./bin/swagger-to-nextjs.js http://localhost:8090/v3/api-docs
-
-# Specify output directory
-./bin/swagger-to-nextjs.js ./api-spec.yaml --output ./src/generated
-```
-
-#### Interactive Mode
-
-```bash
-# Guided setup with prompts
-./bin/swagger-to-nextjs.js --interactive
-
-# Generate config file
-./bin/swagger-to-nextjs.js --init-config
-
-# Preview changes without writing files
-./bin/swagger-to-nextjs.js ./api-spec.yaml --diff
-```
-
-#### Watch Mode
-
-```bash
-# Auto-regenerate on spec changes
-./bin/swagger-to-nextjs.js ./api-spec.yaml --watch
-
-# Watch with specific output
-./bin/swagger-to-nextjs.js ./api-spec.yaml --watch --output ./src/api
-```
-
-### **Advanced Usage Commands**
-
-#### Plugin Management
-
-```bash
-# List available plugins
-./bin/swagger-to-nextjs.js --plugin list
-
-# Install plugin
-./bin/swagger-to-nextjs.js --plugin install custom-validator
-
-# Use custom config
-./bin/swagger-to-nextjs.js ./api-spec.yaml --config ./custom-config.yaml
-```
-
-#### Development & Debugging
-
-```bash
-# Enable verbose logging
-DEBUG=swagger-to-nextjs ./bin/swagger-to-nextjs.js ./api-spec.yaml
-
-# Validate spec only
-./bin/swagger-to-nextjs.js ./api-spec.yaml --validate-only
-
-# Dry run (no file writes)
-./bin/swagger-to-nextjs.js ./api-spec.yaml --dry-run
-```
-
-#### Performance Options
-
-```bash
-# Enable caching
-./bin/swagger-to-nextjs.js ./api-spec.yaml --cache
-
-# Parallel generation
-./bin/swagger-to-nextjs.js ./api-spec.yaml --parallel
-
-# Incremental updates
-./bin/swagger-to-nextjs.js ./api-spec.yaml --incremental
-```
-
-### **NPM Scripts Integration**
-
-Add to your main project's `package.json`:
-
-```json
-{
-  "scripts": {
-    "generate:api": "swagger-to-nextjs/bin/swagger-to-nextjs.js",
-    "generate:dev": "swagger-to-nextjs/bin/swagger-to-nextjs.js http://localhost:8090/v3/api-docs --output ./src/generated --watch",
-    "generate:prod": "swagger-to-nextjs/bin/swagger-to-nextjs.js https://api.prod.com/v3/api-docs --output ./src/generated",
-    "generate:config": "swagger-to-nextjs/bin/swagger-to-nextjs.js --init-config",
-    "generate:diff": "swagger-to-nextjs/bin/swagger-to-nextjs.js ./api-spec.yaml --diff"
-  }
-}
-```
-
-Then use:
-
-```bash
-npm run generate:dev
-npm run generate:prod
-npm run generate:config
-npm run generate:diff
-```
-
----
-
-## 🧪 TESTING COMMANDS
-
-### **Development Testing**
-
-#### Unit Testing
-
-```bash
-# Run all unit tests
-npm run test:unit
-
-# Test specific module
-npm run test:unit -- --testPathPattern=core
-
-# Test with coverage
-npm run test:unit -- --coverage
-
-# Watch mode for development
-npm run test:unit -- --watch
-```
-
-#### Integration Testing
-
-```bash
-# Full integration test suite
-npm run test:integration
-
-# CLI command testing
-npm run test:integration -- --testPathPattern=cli-commands
-
-# Error scenario testing
-npm run test:integration -- --testPathPattern=error-scenarios
-```
-
-#### Performance Testing
-
-```bash
-# Performance benchmarks
-npm run test:performance
-
-# Memory usage analysis
-npm run test:performance -- --analyze-memory
-
-# Generation speed testing
-npm run test:performance -- --speed-only
-```
-
-#### Advanced Testing
-
-```bash
-# Snapshot testing
-npm run test:snapshot
-
-# End-to-end workflow testing
-npm run test:e2e
-
-# Plugin system testing
-npm run test:plugins
-
-# Security validation
-npm run security:scan
-```
-
-### **Generated Code Testing**
-
-#### Validate Generated Output
-
-```bash
-# Test generated NextJS app
-cd generated
-npm install
-npm run build  # Should compile without errors
-npm run lint   # Should pass linting
-npm test       # Run generated tests
-
-# Type checking
-npm run type-check
-
-# Production build validation
-npm run build && npm start
-```
-
----
-
-## 🔧 DEVELOPMENT COMMANDS
-
-### **Generator Development**
-
-#### Development Mode
-
-```bash
-cd swagger-to-nextjs
-
-# Watch mode during development
-npm run dev
-
-# Run with debugging
-DEBUG=swagger-to-nextjs node src/index.js ./test-spec.yaml
-
-# Lint code
-npm run lint
-
-# Format code
-npm run format
-```
-
-#### Testing During Development
-
-```bash
-# Quick test cycle
-npm run test:quick
-
-# Test specific component
-npm test src/core/SwaggerLoader.test.js
-
-# Integration test with real specs
-npm run test:integration -- --testPathPattern=full-generation
-```
-
-### **Plugin Development**
-
-#### Create Custom Plugin
-
-```bash
-# Generate plugin boilerplate
-./bin/swagger-to-nextjs.js --create-plugin my-custom-plugin
-
-# Test plugin locally
-npm run plugin:dev ./my-custom-plugin
-
-# Validate plugin structure
-npm run plugin:validate ./my-custom-plugin
-```
-
-#### Plugin Testing
-
-```bash
-# Test plugin installation
-./bin/swagger-to-nextjs.js --plugin install ./my-custom-plugin
-
-# Test plugin functionality
-./bin/swagger-to-nextjs.js ./api-spec.yaml --use-plugin my-custom-plugin
-
-# Debug plugin execution
-DEBUG=plugin:* ./bin/swagger-to-nextjs.js ./api-spec.yaml --use-plugin my-custom-plugin
-```
-
----
-
-## 🚨 TROUBLESHOOTING
-
-### **Common Issues & Solutions**
-
-#### Permission Issues
-
-```bash
-# Fix CLI executable permissions
-chmod +x swagger-to-nextjs/bin/swagger-to-nextjs.js
-
-# Fix generated file permissions
-chmod -R 755 generated/
-```
-
-#### Module Resolution Issues
-
-```bash
-# Reinstall dependencies
-cd swagger-to-nextjs && rm -rf node_modules && npm install
-
-# Clear npm cache
-npm cache clean --force
-
-# Check Node.js version (requires Node 16+)
-node --version
-```
-
-#### Generation Issues
-
-```bash
-# Validate OpenAPI spec
-./bin/swagger-to-nextjs.js ./api-spec.yaml --validate-only
-
-# Debug generation process
-DEBUG=* ./bin/swagger-to-nextjs.js ./api-spec.yaml --verbose
-
-# Check generated file structure
-find generated/ -type f -name "*.ts" -o -name "*.tsx" | head -20
-```
-
-#### Performance Issues
-
-```bash
-# Enable caching for large specs
-./bin/swagger-to-nextjs.js ./api-spec.yaml --cache --parallel
-
-# Monitor memory usage
-node --max-old-space-size=4096 bin/swagger-to-nextjs.js ./large-spec.yaml
-
-# Profile generation performance
-node --prof bin/swagger-to-nextjs.js ./api-spec.yaml
-```
-
-### **Debug Mode Options**
-
-#### Verbose Logging
-
-```bash
-# Enable all debug output
-DEBUG=* ./bin/swagger-to-nextjs.js ./api-spec.yaml
-
-# Specific module debugging
-DEBUG=swagger-to-nextjs:core ./bin/swagger-to-nextjs.js ./api-spec.yaml
-DEBUG=swagger-to-nextjs:templates ./bin/swagger-to-nextjs.js ./api-spec.yaml
-DEBUG=swagger-to-nextjs:generators ./bin/swagger-to-nextjs.js ./api-spec.yaml
-```
-
-#### Dry Run Analysis
-
-```bash
-# Preview without writing files
-./bin/swagger-to-nextjs.js ./api-spec.yaml --dry-run --verbose
-
-# Show file diff preview
-./bin/swagger-to-nextjs.js ./api-spec.yaml --diff --detailed
-
-# Analyze spec structure
-./bin/swagger-to-nextjs.js ./api-spec.yaml --analyze-only
-```
-
----
-
-## 📈 MONITORING & MAINTENANCE
-
-### **Health Checks**
-
-#### System Health
-
-```bash
-# Validate generator integrity
-npm run health:check
-
-# Check template consistency
-npm run health:templates
-
-# Validate plugin system
-npm run health:plugins
-```
-
-#### Performance Monitoring
-
-```bash
-# Generation performance metrics
-npm run metrics:performance
-
-# Memory usage analysis
-npm run metrics:memory
-
-# Cache efficiency stats
-npm run metrics:cache
-```
-
-### **Maintenance Tasks**
-
-#### Cache Management
-
-```bash
-# Clear all caches
-npm run cache:clear
-
-# Rebuild template cache
-npm run cache:rebuild
-
-# Cache statistics
-npm run cache:stats
-```
-
-#### Updates & Migration
-
-```bash
-# Check for spec changes
-./bin/swagger-to-nextjs.js ./api-spec.yaml --check-changes
-
-# Migrate generated code
-./bin/swagger-to-nextjs.js ./api-spec.yaml --migrate
-
-# Backup before generation
-./bin/swagger-to-nextjs.js ./api-spec.yaml --backup
-```
-
-This comprehensive roadmap provides a complete development guide for building a professional-grade Swagger-to-NextJS
-generator with enterprise-level features, extensive testing, and robust error handling. The phased approach ensures
-systematic development while the detailed commands provide practical guidance for both development and usage scenarios.
+**Prompt:** Create a security code validator that:
+- Scans for OWASP Top 10 vulnerabilities
+- Implements static code analysis
+- Provides secure coding recommendations
+- Implements dependency vulnerability checking
+- Supports custom security rules
+- Provides fix suggestions
+- Implements security scoring
+- Supports CI/CD integration
+- Provides security reporting
+- Implements security trend analysis
+
+#### `src/security/SpecSanitizer.js`
+
+**Prompt:** Build a security-focused spec sanitizer that:
+- Removes sensitive data patterns
+- Validates external references
+- Implements injection prevention
+- Provides security recommendations
+- Supports custom sanitization rules
+- Implements allowlist/blocklist
+- Provides sanitization reports
+- Supports reversible sanitization
+- Implements compliance checking
+- Provides security audit trails
+
+## 🎨 Template System Components
+
+#### `src/templates/ConditionalGenerator.js`
+
+**Prompt:** Create a conditional generation system that:
+- Implements complex condition evaluation
+- Supports feature flag integration
+- Provides condition debugging
+- Implements condition composition
+- Supports dynamic conditions
+- Provides condition validation
+- Implements condition optimization
+- Supports external condition sources
+- Provides condition documentation
+- Implements condition testing
+
+#### `src/templates/CustomHelpers.js`
+
+**Prompt:** Build a custom helper system that:
+- Provides a rich standard library of helpers
+- Implements helper composition
+- Supports async helpers
+- Provides helper parameter validation
+- Implements helper documentation generation
+- Supports helper versioning
+- Provides helper testing framework
+- Implements helper performance monitoring
+- Supports helper marketplace
+- Provides helper debugging tools
+
+#### `src/templates/TemplateInheritance.js`
+
+**Prompt:** Create a template inheritance system that:
+- Implements multi-level inheritance chains
+- Supports block overriding with fallbacks
+- Provides a mixin functionality
+- Implements dynamic inheritance
+- Supports conditional inheritance
+- Provides inheritance debugging
+- Implements inheritance validation
+- Supports cross-template references
+- Provides inheritance visualization
+- Implements inheritance optimization
+
+#### `src/templates/TemplateValidator.js`
+
+**Prompt:** Build a template validation system that:
+- Implements syntax validation with error recovery
+- Provides semantic validation
+- Supports custom validation rules
+- Implements variable usage tracking
+- Provides compatibility checking
+- Supports validation caching
+- Implements validation reporting
+- Provides fix suggestions
+- Supports batch validation
+- Implements validation performance optimization
+
+## 📋 Configuration Templates
+
+#### `src/templates/files/config/docker.template`
+
+**Prompt:** Create Docker templates that include:
+- Multi-stage production Dockerfile
+- Development docker-compose configuration
+- Optimized layer caching
+- Security best practices
+- Health check implementation
+- Volume optimization
+- Network configuration
+- Environment management
+- Logging configuration
+- Monitoring integration
+
+#### `src/templates/files/config/eslint.config.js.template`
+
+**Prompt:** Create an ESLint configuration template that:
+- Implements Next.js specific rules
+- Provides TypeScript integration
+- Supports custom rule sets
+- Implements security-focused rules
+- Provides accessibility linting
+- Supports import sorting
+- Implements performance rules
+- Provides API-specific rules
+- Supports team standards
+- Implements auto-fixing capabilities
+
+#### `src/templates/files/config/github-actions.yml.template`
+
+**Prompt:** Generate GitHub Actions workflow that includes:
+- Multi-environment deployment pipelines
+- Automated testing strategies
+- Security scanning integration
+- Performance testing
+- Dependency updates automation
+- Release management
+- Documentation generation
+- Code coverage reporting
+- Artifact management
+- Notification integration
+
+#### `src/templates/files/config/prettier.config.js.template`
+
+**Prompt:** Generate a Prettier configuration that:
+- Aligns with Next.js conventions
+- Supports TypeScript formatting
+- Implements import sorting
+- Provides team-specific overrides
+- Supports file-specific rules
+- Implements JSX formatting
+- Provides CSS/SCSS formatting
+- Supports Markdown formatting
+- Implements ignore patterns
+- Provides editor integration
+
+## 🛠️ Advanced Utilities
+
+#### `src/utils/CodeFormatter.js`
+
+**Prompt:** Create an intelligent code formatter that:
+- Integrates multiple formatting tools
+- Implements language-specific formatting
+- Supports custom formatting rules
+- Provides formatting conflict resolution
+- Implements incremental formatting
+- Supports team formatting standards
+- Provides formatting performance optimization
+- Implements format-on-save integration
+- Supports formatting profiles
+- Provides formatting analytics
+
+#### `src/utils/DependencyAnalyzer.js`
+
+**Prompt:** Build a smart dependency analyzer that:
+- Analyzes OpenAPI specs for package requirements
+- Implements version conflict resolution
+- Provides dependency security scanning
+- Implements peer dependency handling
+- Supports optional dependency detection
+- Provides bundle size estimation
+- Implements dependency update strategies
+- Supports monorepo configurations
+- Provides license compatibility checking
+- Implements dependency documentation
+
+#### `src/utils/OpenApiUtils.js`
+
+**Prompt:** Build comprehensive OpenAPI utilities that:
+- Implement spec merging and splitting
+- Support vendor extensions handling
+- Provide spec optimization algorithms
+- Implement security scheme resolution
+- Support discriminator handling
+- Provide operation deduplication
+- Implement tag organization
+- Support example generation
+- Provide spec statistics
+- Implement compatibility checking
+
+#### `src/utils/TypeScriptUtils.js`
+
+**Prompt:** Create advanced TypeScript utilities that:
+- Implement complex generic type generation
+- Support for conditional types and mapped types
+- Handle recursive type definitions
+- Implement type guard generation
+- Support for branded types creation
+- Provide type inference helpers
+- Implement AST manipulation for precise control
+- Support module augmentation
+- Generate utility types
+- Implement type documentation extraction
+
+## 📖 Example Files
+
+#### `examples/petstore-config/openapi-config.yaml`
+
+**Prompt:** Create a comprehensive OpenAPI 3.0 specification for a pet store API that demonstrates:
+- Complete CRUD operations for pets, users, and orders
+- Multiple authentication schemes (API Key, JWT Bearer)
+- Request/response examples with realistic data
+- Error response definitions with problem details
+- File upload endpoints for pet images
+- Pagination parameters for list endpoints
+- Search and filtering capabilities
+- Webhook definitions for order notifications
+- Reusable components and schemas
+- OpenAPI extensions for custom metadata
+
+#### `examples/petstore-config/README.md`
+
+**Prompt:** Write a detailed README for the pet store example that includes:
+- Project overview and architecture diagram
+- Prerequisites and setup instructions
+- Step-by-step generation guide with screenshots
+- Configuration options explanation
+- Generated code structure walkthrough
+- Customization examples (UI themes, auth providers)
+- Database setup (PostgreSQL, MongoDB options)
+- Testing strategies and examples
+- Deployment guides (Vercel, AWS, Docker)
+- Troubleshooting common issues
+
+#### `examples/simple-api-config/openapi-config.yaml`
+
+**Prompt:** Create a minimal OpenAPI specification for beginners that includes:
+- Simple todo list API with basic CRUD
+- Clear, educational comments throughout
+- Only essential endpoints (list, create, update, delete)
+- Basic data types without complex schemas
+- Simple authentication (API key)
+- Minimal but complete examples
+- No advanced features to avoid confusion
+- Focus on clarity over completeness
+- Standard HTTP status codes
+- Beginner-friendly naming conventions
+
+#### `examples/simple-api-config/README.md`
+
+**Prompt:** Write a beginner-friendly README that includes:
+- What this example demonstrates
+- Zero-to-hero quick start guide
+- Visual diagrams of the API flow
+- Explanation of each configuration option
+- Common modifications and how to make them
+- Learning resources and next steps
+- Glossary of terms
+- FAQ for common beginner questions
+- Links to video tutorials
+- Community support channels
+
+#### `examples/enterprise-config/openapi-config.yaml`
+
+**Prompt:** Create an enterprise-grade OpenAPI specification that demonstrates:
+- Microservices architecture with multiple API definitions
+- OAuth2 flows with refresh tokens and scopes
+- Complex data models with inheritance and polymorphism
+- Versioning strategies (URL, header, content negotiation)
+- Rate limiting and quota specifications
+- Multi-tenant support with tenant isolation
+- Event-driven endpoints for real-time updates
+- GraphQL integration examples
+- Comprehensive security schemes
+- Performance hints and caching directives
+
+#### `examples/enterprise-config/README.md`
+
+**Prompt:** Write an enterprise deployment guide that includes:
+- Architecture overview with component diagrams
+- Security-hardening checklist
+- High-availability setup guide
+- Performance tuning recommendations
+- Monitoring and observability setup
+- CI/CD pipeline configuration
+- Compliance considerations (GDPR, SOC2)
+- Disaster recovery procedures
+- Team collaboration workflows
+- Enterprise support escalation paths
+
+#### `examples/microservices-config/openapi-config.yaml`
+
+**Prompt:** Create a microservices OpenAPI specification that includes:
+- Multiple service definitions (user, product, order, payment)
+- Service discovery annotations
+- Inter-service communication patterns
+- Distributed tracing headers
+- Circuit breaker configurations
+- Event sourcing endpoints
+- CQRS pattern implementation
+- Saga orchestration endpoints
+- Service mesh integration
+- API gateway routing rules
+
+#### `examples/microservices-config/README.md`
+
+**Prompt:** Write a microservices architecture guide that includes:
+- Service topology visualization
+- Communication patterns (sync, async, event-driven)
+- Development environment setup with Docker Compose
+- Service discovery and registration
+- Distributed logging and tracing setup
+- Testing strategies (unit, integration, contract)
+- Deployment strategies (blue-green, canary)
+- Service mesh configuration (Istio, Linkerd)
+- Monitoring dashboard setup
+- Troubleshooting distributed systems
+
+#### `examples/plugin-development/README.md`
+
+
+**Prompt:** Create a comprehensive plugin development guide that includes:
+- Plugin architecture overview
+- Development environment setup
+- Plugin boilerplate walkthrough
+- Hook system documentation
+- API reference for plugin methods
+- Testing your plugin
+- Publishing to the plugin registry
+- Versioning and compatibility
+- Best practices and anti-patterns
+- Example plugins with source code
+- Debugging techniques
+- Performance optimization tips
+- Security considerations
+- Community contribution guidelines
+- Plugin marketplace submission process

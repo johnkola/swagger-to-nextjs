@@ -1,12 +1,24 @@
-# ===AI PROMPT ==============================================================
+################################################################################
+# SWAGGER-TO-NEXTJS GENERATOR - AI PROMPT
+################################################################################
 # FILE: examples/simple-api-config/openapi-config.yaml
-# VERSION: 2025-05-25 13:22:11
-# ============================================================================
+# VERSION: 2025-05-28 15:14:56
+# PHASE: PHASE 6: Performance & Optimization
+# CATEGORY: 🚀 Caching System
+################################################################################
 #
 # AI GENERATION PROMPT:
-# Create a configuration file for a simple API example with minimal settings
-# suitable for beginners.
 #
-# ---
+# Create a minimal OpenAPI specification for beginners that includes:
+# - Simple todo list API with basic CRUD 
+# - Clear, educational comments throughout 
+# - Only essential endpoints (list, create, update, delete) 
+# - Basic data types without complex schemas 
+# - Simple authentication (API key) 
+# - Minimal but complete examples 
+# - No advanced features to avoid confusion 
+# - Focus on clarity over completeness 
+# - Standard HTTP status codes 
+# - Beginner-friendly naming conventions
 #
-# ===PROMPT END ==============================================================
+################################################################################

@@ -1,15 +1,26 @@
 /**
- * ===AI PROMPT ==============================================================
+ * ============================================================================
+ * SWAGGER-TO-NEXTJS GENERATOR - AI PROMPT
+ * ============================================================================
  * FILE: src/cache/TemplateCache.js
- * VERSION: 2025-05-25 13:22:11
+ * VERSION: 2025-05-28 15:14:56
+ * PHASE: PHASE 6: Performance & Optimization
+ * CATEGORY: 🚀 Caching System
  * ============================================================================
  *
  * AI GENERATION PROMPT:
- * Build a template caching system that precompiles and caches templates for
- * faster generation. Include cache invalidation on template changes and
- * memory-efficient storage.
  *
- * ---
+ * Build a high-performance template caching system that:
+ * - Precompiled templates for faster rendering 
+ * - Implements memory-efficient storage 
+ * - Supports hot module replacement 
+ * - Provides template dependency tracking 
+ * - Implements cache compression 
+ * - Supports distributed template caching 
+ * - Provides cache performance metrics 
+ * - Implements intelligent eviction policies 
+ * - Supports template versioning 
+ * - Provides cache debugging tools
  *
- * ===PROMPT END ==============================================================
+ * ============================================================================
  */

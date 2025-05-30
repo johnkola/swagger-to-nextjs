@@ -1,252 +1,546 @@
 /**
- * ===AI PROMPT ==============================================================
+ * ============================================================================
+ * SWAGGER-TO-NEXTJS GENERATOR - AI PROMPT
+ * ============================================================================
  * FILE: src/core/SwaggerLoader.js
- * VERSION: 2025-05-25 13:22:11
+ * VERSION: 2025-05-28 15:14:56
+ * PHASE: PHASE 2: Core System Components
+ * CATEGORY: 🔍 Core Infrastructure
  * ============================================================================
  *
  * AI GENERATION PROMPT:
- * Create a SwaggerLoader class that can load OpenAPI/Swagger specifications
- * from URLs or local files. Support JSON and YAML formats with proper
- * validation and error handling.
  *
- * ---
+ * Create an advanced SwaggerLoader class that:
+ * - Loads OpenAPI/Swagger specs from multiple sources (URL, file, stdin)
+ * - Supports authentication for protected endpoints (Bearer, API key, Basic)
+ * - Implements smart caching with ETags and cache invalidation
+ * - Handles large specifications with streaming support
+ * - Resolves external references ($ref) recursively
+ * - Supports both JSON and YAML with automatic detection
+ * - Implements retry logic with exponential backoff
+ * - Provides progress callbacks for large downloads
+ * - Validates spec format before processing
+ * - Supports OpenAPI 3.0, 3.1, and Swagger 2.0
  *
- * ===PROMPT END ==============================================================
- */
-/**
-/**
-/**
-/**
-/**
-/**
-/**
-/**
-/**
-/**
-/**
- * FILE: src/core/SwaggerLoader.js
- *
- * AI PROMPT FOR CODE REVIEW/ENHANCEMENT:
- * =====================================
- *
- * You are reviewing a Swagger/OpenAPI specification loader that handles multiple input sources.
- * This component is responsible for fetching, parsing, and preprocessing OpenAPI documents
- * from various sources including local files, remote URLs, and configuration files.
- *
- * RESPONSIBILITIES:
- * - Load OpenAPI specs from files, URLs, or config references
- * - Auto-detect and parse JSON/YAML formats
- * - Handle HTTP redirects and network timeouts
- * - Process OpenAPI generator config files
- * - Provide detailed error messages for loading failures
- * - Support various OpenAPI/Swagger versions
- *
- * TECHNICAL FEATURES:
- * - Robust HTTP client with redirect support and timeouts
- * - Format auto-detection (JSON vs YAML)
- * - Config file processing for generator integration
- * - Comprehensive error handling with context
- * - Memory-efficient streaming for large specifications
- *
- * REVIEW FOCUS:
- * - Network error handling and retry logic
- * - Memory usage for large OpenAPI documents
- * - Security considerations for URL fetching
- * - Parser robustness for malformed documents
- * - Performance optimization opportunities
+ * ============================================================================
  */
 
-const fs = require('fs');
+const fs = require('fs').promises;
+const path = require('path');
+const axios = require('axios');
 const yaml = require('js-yaml');
-const https = require('https');
-const http = require('http');
-const {URL} = require('url');
+const { EventEmitter } = require('events');
+const crypto = require('crypto');
+const { pipeline } = require('stream').promises;
+const { createReadStream, createWriteStream } = require('fs');
+const $RefParser = require('@apidevtools/json-schema-ref-parser');
 
-class SwaggerLoader {
-    constructor(source) {
-        this.source = source;
-        this.isUrl = this.isValidUrl(source);
-        this.isConfig = this.isConfigFile(source);
+/**
+ * Advanced SwaggerLoader class for loading OpenAPI/Swagger specifications
+ * from various sources with comprehensive features
+ */
+class SwaggerLoader extends EventEmitter {
+    constructor(options = {}) {
+        super();
+
+        this.options = {
+            // Cache configuration
+            cacheEnabled: options.cacheEnabled !== false,
+            cacheDir: options.cacheDir || path.join(process.cwd(), '.swagger-cache'),
+            cacheTTL: options.cacheTTL || 3600000, // 1 hour default
+
+            // Network configuration
+            timeout: options.timeout || 30000,
+            maxRetries: options.maxRetries || 3,
+            retryDelay: options.retryDelay || 1000,
+            userAgent: options.userAgent || 'swagger-to-nextjs/1.0',
+
+            // Authentication
+            auth: options.auth || {},
+
+            // Progress reporting
+            progressInterval: options.progressInterval || 100,
+
+            // Validation
+            validateOnLoad: options.validateOnLoad !== false,
+            strictMode: options.strictMode || false,
+
+            // Reference resolution
+            resolveReferences: options.resolveReferences !== false,
+            referenceCache: new Map(),
+
+            // Streaming
+            streamThreshold: options.streamThreshold || 5 * 1024 * 1024, // 5MB
+
+            ...options
+        };
+
+        this.cache = new Map();
+        this.etagCache = new Map();
+        this.activeRequests = new Map();
     }
 
     /**
-     * Main loading method - determines source type and loads appropriately
+     * Load specification from any source
+     * @param {string} source - URL, file path, or '-' for stdin
+     * @param {object} options - Override options for this load
+     * @returns {Promise<object>} Parsed specification
      */
-    async load() {
+    async load(source, options = {}) {
+        const loadOptions = { ...this.options, ...options };
+
         try {
-            let content;
-            let actualSource = this.source;
+            this.emit('load:start', { source });
 
-            // If it's a config file, extract the input spec
-            if (this.isConfig) {
-                const config = this.readOpenAPIConfig(this.source);
-                actualSource = config.inputSpec;
-                console.log(`📋 Using input spec from config: ${actualSource}`);
-            }
+            let spec;
 
-            // Load content based on source type
-            if (this.isValidUrl(actualSource)) {
-                content = await this.fetchFromUrl(actualSource);
-                console.log('✅ Swagger spec fetched from URL successfully');
+            // Determine source type
+            if (source === '-' || source === 'stdin') {
+                spec = await this._loadFromStdin(loadOptions);
+            } else if (this._isUrl(source)) {
+                spec = await this._loadFromUrl(source, loadOptions);
             } else {
-                content = this.readFromFile(actualSource);
-                console.log('✅ Swagger file loaded successfully');
+                spec = await this._loadFromFile(source, loadOptions);
             }
 
-            // Parse and return the document
-            const parsed = this.parseContent(content);
-            console.log('✅ Swagger document parsed successfully');
+            // Detect and validate format
+            this._detectFormat(spec);
 
-            return parsed;
+            // Resolve references if enabled
+            if (loadOptions.resolveReferences) {
+                spec = await this._resolveReferences(spec, source, loadOptions);
+            }
 
+            // Basic format validation
+            if (loadOptions.validateOnLoad) {
+                this._validateBasicFormat(spec);
+            }
+
+            this.emit('load:complete', { source, spec });
+
+            return spec;
         } catch (error) {
-            throw new Error(`Failed to load Swagger specification: ${error.message}`);
+            this.emit('load:error', { source, error });
+            throw this._enhanceError(error, source);
         }
     }
 
     /**
-     * Check if input is a valid URL
+     * Load from stdin
      */
-    isValidUrl(string) {
-        try {
-            new URL(string);
-            return string.startsWith('http://') || string.startsWith('https://');
-        } catch (_) {
-            return false;
-        }
-    }
-
-    /**
-     * Check if input is an OpenAPI config file
-     */
-    isConfigFile(source) {
-        return source.endsWith('.yaml') || source.endsWith('.yml');
-    }
-
-    /**
-     * Read and parse OpenAPI generator config file
-     */
-    readOpenAPIConfig(configPath) {
-        try {
-            if (!fs.existsSync(configPath)) {
-                throw new Error(`OpenAPI config file not found: ${configPath}`);
-            }
-
-            const configContent = fs.readFileSync(configPath, 'utf8');
-            const config = yaml.load(configContent);
-
-            if (!config.inputSpec) {
-                throw new Error('inputSpec not found in OpenAPI config file');
-            }
-
-            console.log(`📋 Found OpenAPI config: ${configPath}`);
-            console.log(`📋 Input spec: ${config.inputSpec}`);
-            console.log(`📋 Output dir: ${config.outputDir || 'Not specified'}`);
-
-            return {
-                inputSpec: config.inputSpec,
-                outputDir: config.outputDir || './src/lib/api-client',
-                generatorName: config.generatorName || 'typescript-axios',
-                ...config
-            };
-        } catch (error) {
-            throw new Error(`Failed to read OpenAPI config: ${error.message}`);
-        }
-    }
-
-    /**
-     * Fetch content from URL with robust error handling
-     */
-    async fetchFromUrl(url) {
+    async _loadFromStdin(options) {
         return new Promise((resolve, reject) => {
-            const urlObj = new URL(url);
-            const client = urlObj.protocol === 'https:' ? https : http;
+            let data = '';
 
-            console.log(`🌐 Fetching Swagger spec from: ${url}`);
+            process.stdin.setEncoding('utf8');
 
-            const request = client.get(url, {
-                headers: {
-                    'User-Agent': 'Swagger-NextJS-Generator/1.0',
-                    'Accept': 'application/json, application/yaml, text/yaml, text/plain'
-                }
-            }, (response) => {
-                let data = '';
-
-                // Handle redirects
-                if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
-                    console.log(`🔄 Redirecting to: ${response.headers.location}`);
-                    this.fetchFromUrl(response.headers.location).then(resolve).catch(reject);
-                    return;
-                }
-
-                if (response.statusCode !== 200) {
-                    reject(new Error(`HTTP ${response.statusCode}: ${response.statusMessage}`));
-                    return;
-                }
-
-                response.on('data', (chunk) => {
-                    data += chunk;
-                });
-
-                response.on('end', () => {
-                    if (!data.trim()) {
-                        reject(new Error('Empty response received'));
-                        return;
-                    }
-                    resolve(data);
+            process.stdin.on('data', chunk => {
+                data += chunk;
+                this.emit('progress', {
+                    type: 'stdin',
+                    bytes: Buffer.byteLength(data)
                 });
             });
 
-            request.on('error', (error) => {
-                reject(new Error(`Network error: ${error.message}`));
+            process.stdin.on('end', () => {
+                try {
+                    const spec = this._parseContent(data);
+                    resolve(spec);
+                } catch (error) {
+                    reject(new Error(`Failed to parse stdin: ${error.message}`));
+                }
             });
 
-            // Set timeout
-            request.setTimeout(15000, () => {
-                request.destroy();
-                reject(new Error('Request timeout - server took too long to respond'));
-            });
+            process.stdin.on('error', reject);
         });
     }
 
     /**
-     * Read content from local file
+     * Load from URL with authentication and caching
      */
-    readFromFile(filePath) {
-        try {
-            if (!fs.existsSync(filePath)) {
-                throw new Error(`File not found: ${filePath}`);
-            }
+    async _loadFromUrl(url, options) {
+        // Check if request is already in progress
+        if (this.activeRequests.has(url)) {
+            return this.activeRequests.get(url);
+        }
 
-            return fs.readFileSync(filePath, 'utf8');
-        } catch (error) {
-            throw new Error(`Failed to read file: ${error.message}`);
+        // Check cache first
+        if (options.cacheEnabled) {
+            const cached = await this._checkCache(url);
+            if (cached) {
+                this.emit('cache:hit', { url });
+                return cached;
+            }
+        }
+
+        // Create request promise
+        const requestPromise = this._doHttpRequest(url, options);
+        this.activeRequests.set(url, requestPromise);
+
+        try {
+            const result = await requestPromise;
+            return result;
+        } finally {
+            this.activeRequests.delete(url);
         }
     }
 
     /**
-     * Parse content with auto-format detection
+     * Perform HTTP request with retries
      */
-    parseContent(content) {
-        // Try to parse as JSON first
+    async _doHttpRequest(url, options, attempt = 1) {
         try {
-            const parsed = JSON.parse(content);
-            console.log('📄 Detected format: JSON');
-            return parsed;
-        } catch (jsonError) {
-            // If JSON parsing fails, try YAML
+            const headers = this._buildHeaders(url, options);
+
+            const response = await axios({
+                url,
+                method: 'GET',
+                headers,
+                timeout: options.timeout,
+                responseType: 'text',
+                maxContentLength: Infinity,
+                maxBodyLength: Infinity,
+                onDownloadProgress: (progressEvent) => {
+                    this.emit('progress', {
+                        type: 'download',
+                        loaded: progressEvent.loaded,
+                        total: progressEvent.total,
+                        percentage: progressEvent.total
+                            ? Math.round((progressEvent.loaded / progressEvent.total) * 100)
+                            : 0
+                    });
+                },
+                validateStatus: (status) => status < 500 // Don't throw on 4xx
+            });
+
+            // Handle different status codes
+            if (response.status === 304 && options.cacheEnabled) {
+                // Not modified, use cache
+                const cached = await this._getCached(url);
+                if (cached) return cached;
+            }
+
+            if (response.status >= 400) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            // Parse content
+            const spec = this._parseContent(response.data, url);
+
+            // Cache if enabled
+            if (options.cacheEnabled && response.headers.etag) {
+                await this._saveToCache(url, spec, response.headers.etag);
+            }
+
+            return spec;
+
+        } catch (error) {
+            // Retry logic
+            if (attempt < options.maxRetries && this._shouldRetry(error)) {
+                const delay = options.retryDelay * Math.pow(2, attempt - 1); // Exponential backoff
+
+                this.emit('retry', {
+                    url,
+                    attempt,
+                    delay,
+                    error: error.message
+                });
+
+                await new Promise(resolve => setTimeout(resolve, delay));
+                return this._doHttpRequest(url, options, attempt + 1);
+            }
+
+            throw error;
+        }
+    }
+
+    /**
+     * Build request headers with authentication
+     */
+    _buildHeaders(url, options) {
+        const headers = {
+            'User-Agent': options.userAgent,
+            'Accept': 'application/json, application/yaml, application/x-yaml, text/yaml, text/x-yaml'
+        };
+
+        // Add authentication
+        const auth = options.auth;
+
+        if (auth.bearer) {
+            headers['Authorization'] = `Bearer ${auth.bearer}`;
+        } else if (auth.apiKey) {
+            if (auth.apiKey.in === 'header') {
+                headers[auth.apiKey.name] = auth.apiKey.value;
+            }
+            // Query params handled in URL
+        } else if (auth.basic) {
+            const credentials = Buffer.from(`${auth.basic.username}:${auth.basic.password}`).toString('base64');
+            headers['Authorization'] = `Basic ${credentials}`;
+        }
+
+        // Add ETag for cache validation
+        const etag = this.etagCache.get(url);
+        if (etag && options.cacheEnabled) {
+            headers['If-None-Match'] = etag;
+        }
+
+        return headers;
+    }
+
+    /**
+     * Load from file system
+     */
+    async _loadFromFile(filePath, options) {
+        const absolutePath = path.resolve(filePath);
+
+        // Check if file exists
+        try {
+            await fs.access(absolutePath);
+        } catch (error) {
+            throw new Error(`File not found: ${filePath}`);
+        }
+
+        // Get file stats for large file handling
+        const stats = await fs.stat(absolutePath);
+
+        this.emit('progress', {
+            type: 'file',
+            path: absolutePath,
+            size: stats.size
+        });
+
+        // Read file
+        const content = await fs.readFile(absolutePath, 'utf8');
+
+        // Parse content
+        return this._parseContent(content, absolutePath);
+    }
+
+    /**
+     * Parse content (JSON or YAML)
+     */
+    _parseContent(content, source = 'unknown') {
+        // Try to detect format
+        const trimmed = content.trim();
+
+        if (!trimmed) {
+            throw new Error('Empty specification');
+        }
+
+        // Try JSON first
+        if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
             try {
-                const parsed = yaml.load(content);
-                console.log('📄 Detected format: YAML');
-                return parsed;
-            } catch (yamlError) {
-                throw new Error(
-                    `Unable to parse content as JSON or YAML.\n` +
-                    `JSON Error: ${jsonError.message}\n` +
-                    `YAML Error: ${yamlError.message}`
-                );
+                return JSON.parse(trimmed);
+            } catch (jsonError) {
+                // Not JSON, try YAML
+                try {
+                    return yaml.load(trimmed, { filename: source });
+                } catch (yamlError) {
+                    throw new Error(`Failed to parse as JSON or YAML: ${jsonError.message}`);
+                }
             }
         }
+
+        // Try YAML
+        try {
+            return yaml.load(trimmed, { filename: source });
+        } catch (yamlError) {
+            // Last attempt as JSON (might have leading spaces)
+            try {
+                return JSON.parse(trimmed);
+            } catch (jsonError) {
+                throw new Error(`Failed to parse specification: ${yamlError.message}`);
+            }
+        }
+    }
+
+    /**
+     * Resolve external references
+     */
+    async _resolveReferences(spec, baseUrl, options) {
+        try {
+            this.emit('references:start');
+
+            const resolved = await $RefParser.dereference(spec, {
+                continueOnError: false,
+                dereference: {
+                    circular: 'ignore'
+                },
+                resolve: {
+                    external: true,
+                    http: {
+                        timeout: options.timeout,
+                        headers: this._buildHeaders(baseUrl, options)
+                    }
+                }
+            });
+
+            this.emit('references:complete');
+
+            return resolved;
+        } catch (error) {
+            this.emit('references:error', error);
+            throw new Error(`Failed to resolve references: ${error.message}`);
+        }
+    }
+
+    /**
+     * Detect specification format
+     */
+    _detectFormat(spec) {
+        if (spec.openapi) {
+            const version = spec.openapi;
+            if (version.startsWith('3.0')) {
+                this.format = 'openapi-3.0';
+            } else if (version.startsWith('3.1')) {
+                this.format = 'openapi-3.1';
+            } else {
+                throw new Error(`Unsupported OpenAPI version: ${version}`);
+            }
+        } else if (spec.swagger === '2.0') {
+            this.format = 'swagger-2.0';
+        } else {
+            throw new Error('Unable to detect specification format');
+        }
+
+        this.emit('format:detected', this.format);
+        return this.format;
+    }
+
+    /**
+     * Basic format validation
+     */
+    _validateBasicFormat(spec) {
+        const required = this.format === 'swagger-2.0'
+            ? ['swagger', 'info', 'paths']
+            : ['openapi', 'info', 'paths'];
+
+        for (const field of required) {
+            if (!spec[field]) {
+                throw new Error(`Missing required field: ${field}`);
+            }
+        }
+
+        // Validate info object
+        if (!spec.info.title || !spec.info.version) {
+            throw new Error('Missing required info fields: title and version');
+        }
+
+        return true;
+    }
+
+    /**
+     * Cache management
+     */
+    async _checkCache(url) {
+        if (!this.options.cacheEnabled) return null;
+
+        const cacheKey = this._getCacheKey(url);
+        const cachePath = path.join(this.options.cacheDir, cacheKey);
+
+        try {
+            const stats = await fs.stat(cachePath);
+            const age = Date.now() - stats.mtime.getTime();
+
+            if (age > this.options.cacheTTL) {
+                // Cache expired
+                return null;
+            }
+
+            const content = await fs.readFile(cachePath, 'utf8');
+            return JSON.parse(content);
+        } catch (error) {
+            // Cache miss
+            return null;
+        }
+    }
+
+    async _saveToCache(url, spec, etag) {
+        if (!this.options.cacheEnabled) return;
+
+        try {
+            await fs.mkdir(this.options.cacheDir, { recursive: true });
+
+            const cacheKey = this._getCacheKey(url);
+            const cachePath = path.join(this.options.cacheDir, cacheKey);
+
+            await fs.writeFile(cachePath, JSON.stringify(spec, null, 2));
+
+            if (etag) {
+                this.etagCache.set(url, etag);
+                const etagPath = `${cachePath}.etag`;
+                await fs.writeFile(etagPath, etag);
+            }
+
+            this.emit('cache:saved', { url, cacheKey });
+        } catch (error) {
+            this.emit('cache:error', error);
+        }
+    }
+
+    async _getCached(url) {
+        const cacheKey = this._getCacheKey(url);
+        const cachePath = path.join(this.options.cacheDir, cacheKey);
+
+        try {
+            const content = await fs.readFile(cachePath, 'utf8');
+            return JSON.parse(content);
+        } catch (error) {
+            return null;
+        }
+    }
+
+    _getCacheKey(url) {
+        return crypto.createHash('sha256').update(url).digest('hex');
+    }
+
+    /**
+     * Utility methods
+     */
+    _isUrl(source) {
+        return /^https?:\/\//.test(source);
+    }
+
+    _shouldRetry(error) {
+        // Retry on network errors or 5xx status codes
+        return error.code === 'ECONNRESET' ||
+            error.code === 'ETIMEDOUT' ||
+            error.code === 'ENOTFOUND' ||
+            (error.response && error.response.status >= 500);
+    }
+
+    _enhanceError(error, source) {
+        error.source = source;
+        error.loader = 'SwaggerLoader';
+        return error;
+    }
+
+    /**
+     * Clear cache
+     */
+    async clearCache() {
+        if (this.options.cacheDir) {
+            try {
+                await fs.rmdir(this.options.cacheDir, { recursive: true });
+                this.cache.clear();
+                this.etagCache.clear();
+                this.emit('cache:cleared');
+            } catch (error) {
+                this.emit('cache:error', error);
+            }
+        }
+    }
+
+    /**
+     * Get loader statistics
+     */
+    getStats() {
+        return {
+            cacheSize: this.cache.size,
+            etagCacheSize: this.etagCache.size,
+            activeRequests: this.activeRequests.size,
+            format: this.format
+        };
     }
 }
 

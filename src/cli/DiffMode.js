@@ -1,15 +1,26 @@
 /**
- * ===AI PROMPT ==============================================================
+ * ============================================================================
+ * SWAGGER-TO-NEXTJS GENERATOR - AI PROMPT
+ * ============================================================================
  * FILE: src/cli/DiffMode.js
- * VERSION: 2025-05-25 13:22:11
+ * VERSION: 2025-05-28 15:14:56
+ * PHASE: PHASE 6: Performance & Optimization
+ * CATEGORY: 🚀 Caching System
  * ============================================================================
  *
  * AI GENERATION PROMPT:
- * Create a diff mode that shows what files would be created, modified, or
- * deleted before actual generation, with colorized output and impact
- * analysis.
  *
- * ---
+ * Create an advanced diff mode that:
+ * - Implements syntax-aware diffing 
+ * - Provides multiple diff formats 
+ * - Supports three-way merging 
+ * - Implements conflict highlighting 
+ * - Provides diff statistics 
+ * - Supports diff filtering 
+ * - Implements side-by-side view 
+ * - Provides diff export options 
+ * - Supports custom diff algorithms 
+ * - Implements diff-based workflows
  *
- * ===PROMPT END ==============================================================
+ * ============================================================================
  */

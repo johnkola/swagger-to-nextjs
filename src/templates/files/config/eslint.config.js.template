@@ -1,13 +1,26 @@
-# ===AI PROMPT ==============================================================
-# FILE: src/templates/files/config/eslint.config.js.template
-# VERSION: 2025-05-25 13:22:11
-# ============================================================================
-#
-# AI GENERATION PROMPT:
-# Create an ESLint configuration template optimized for generated NextJS
-# applications with API integration, TypeScript support, and security-focused
-# rules.
-#
-# ---
-#
-# ===PROMPT END ==============================================================
+{{!--
+==============================================================================
+SWAGGER-TO-NEXTJS GENERATOR - AI PROMPT
+==============================================================================
+FILE: src/templates/files/config/eslint.config.js.template
+VERSION: 2025-05-28 15:14:56
+PHASE: PHASE 6: Performance & Optimization
+CATEGORY: 🚀 Caching System
+==============================================================================
+
+AI GENERATION PROMPT:
+
+Create an ESLint configuration template that:
+- Implements Next.js specific rules 
+- Provides TypeScript integration 
+- Supports custom rule sets 
+- Implements security-focused rules 
+- Provides accessibility linting 
+- Supports import sorting 
+- Implements performance rules 
+- Provides API-specific rules 
+- Supports team standards 
+- Implements auto-fixing capabilities
+
+==============================================================================
+--}}

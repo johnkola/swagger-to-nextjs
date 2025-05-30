@@ -1,15 +1,26 @@
 /**
- * ===AI PROMPT ==============================================================
+ * ============================================================================
+ * SWAGGER-TO-NEXTJS GENERATOR - AI PROMPT
+ * ============================================================================
  * FILE: src/cli/InteractiveMode.js
- * VERSION: 2025-05-25 13:22:11
+ * VERSION: 2025-05-28 15:14:56
+ * PHASE: PHASE 6: Performance & Optimization
+ * CATEGORY: 🚀 Caching System
  * ============================================================================
  *
  * AI GENERATION PROMPT:
- * Create an interactive CLI mode with prompts for configuration setup, guided
- * generation workflows, and real-time validation feedback using inquirer.js
- * or similar.
  *
- * ---
+ * Create an advanced interactive CLI mode that:
+ * - Implements intelligent prompting based on context 
+ * - Provides autocomplete for all options 
+ * - Supports configuration wizards 
+ * - Implements validation during input 
+ * - Provides contextual help 
+ * - Supports prompt templates 
+ * - Implements multi-step workflows 
+ * - Provides undo/redo functionality 
+ * - Supports prompt history 
+ * - Implements accessibility features
  *
- * ===PROMPT END ==============================================================
+ * ============================================================================
  */

@@ -1,15 +1,26 @@
 /**
- * ===AI PROMPT ==============================================================
+ * ============================================================================
+ * SWAGGER-TO-NEXTJS GENERATOR - AI PROMPT
+ * ============================================================================
  * FILE: src/hooks/HookSystem.js
- * VERSION: 2025-05-25 13:22:11
+ * VERSION: 2025-05-28 15:14:56
+ * PHASE: PHASE 6: Performance & Optimization
+ * CATEGORY: 🚀 Caching System
  * ============================================================================
  *
  * AI GENERATION PROMPT:
- * Create a hook system that allows plugins and users to inject custom logic
- * at various points in the generation process. Include async hook support,
- * error handling, and hook priority management.
  *
- * ---
+ * Create an advanced hook system that:
+ * - Implements priority-based hook execution 
+ * - Supports async hook chains 
+ * - Provides hook context passing 
+ * - Implements hook cancellation 
+ * - Supports conditional hook execution 
+ * - Provides hook performance monitoring 
+ * - Implements hook error boundaries 
+ * - Supports dynamic hook registration 
+ * - Provides hook debugging tools 
+ * - Implements hook documentation generation
  *
- * ===PROMPT END ==============================================================
+ * ============================================================================
  */

@@ -1,366 +1,1415 @@
 /**
- * ===AI PROMPT ==============================================================
+ * ============================================================================
+ * SWAGGER-TO-NEXTJS GENERATOR - AI PROMPT
+ * ============================================================================
  * FILE: src/generators/ApiRouteGenerator.js
- * VERSION: 2025-05-25 13:22:11
+ * VERSION: 2025-05-28 15:14:56
+ * PHASE: PHASE 3: Code Generation Engine
+ * CATEGORY: 🏗️ Base Generators
  * ============================================================================
  *
  * AI GENERATION PROMPT:
- * Build a generator class that creates NextJS App Router API routes from
- * OpenAPI paths. Generate route handlers with proper TypeScript types,
- * validation middleware, and error handling.
  *
- * ---
+ * Build an intelligent API route generator that:
+ * - Generates Next.js 13+ App Router API routes 
+ * - Implements proper TypeScript typing from OpenAPI schemas 
+ * - Generates request/response validation using Zod 
+ * - Implements error handling middleware 
+ * - Generates authentication guards 
+ * - Supports file upload handling 
+ * - Implements rate limiting 
+ * - Generates API documentation 
+ * - Supports WebSocket endpoints 
+ * - Implements request/response logging
  *
- * ===PROMPT END ==============================================================
- */
-/**
-/**
-/**
-/**
-/**
-/**
-/**
-/**
-/**
-/**
-/**
- * FILE: src/generators/ApiRouteGenerator.js
- *
- * AI PROMPT FOR CODE REVIEW/ENHANCEMENT:
- * =====================================
- *
- * You are reviewing the API route generator that creates Next.js 13+ App Router API routes
- * from OpenAPI specifications. This generator produces production-ready TypeScript API handlers
- * with comprehensive error handling, validation, and integration with OpenAPI generated clients.
- *
- * RESPONSIBILITIES:
- * - Generate Next.js API route handlers (route.ts files) for each OpenAPI path
- * - Create method-specific handlers (GET, POST, PUT, DELETE, etc.)
- * - Generate Zod validation schemas from OpenAPI parameter definitions
- * - Integrate with OpenAPI generated TypeScript client and models
- * - Produce comprehensive AI prompts for further code completion
- * - Handle complex parameter extraction (path, query, body)
- * - Generate proper error handling with appropriate HTTP status codes
- *
- * TECHNICAL FEATURES:
- * - Template-based code generation with dynamic content insertion
- * - OpenAPI schema analysis for automatic type discovery
- * - Validation schema generation with Zod integration
- * - API client integration with proper import management
- * - Comprehensive error handling patterns
- * - AI-assisted code completion prompts
- *
- * REVIEW FOCUS:
- * - Code generation accuracy and completeness
- * - TypeScript type safety and integration
- * - Error handling robustness and user experience
- * - Template system efficiency and maintainability
- * - OpenAPI specification compliance and edge case handling
+ * ============================================================================
  */
 
-const BaseGenerator = require('./BaseGenerator');
-const TemplateEngine = require('../templates/TemplateEngine');
+import path from 'path';
+import { BaseGenerator } from './BaseGenerator.js';
+import { GeneratorError } from '../errors/GeneratorError.js';
+import { PathUtils } from '../utils/PathUtils.js';
+import { SchemaUtils } from '../utils/SchemaUtils.js';
+import { StringUtils } from '../utils/StringUtils.js';
+import { TypeScriptUtils } from '../utils/TypeScriptUtils.js';
 
-class ApiRouteGenerator extends BaseGenerator {
-    constructor() {
-        super();
-        this.templateEngine = new TemplateEngine();
-    }
+/**
+ * Generates Next.js 13+ App Router API routes from OpenAPI specs
+ */
+export class ApiRouteGenerator extends BaseGenerator {
+    constructor(options = {}) {
+        super({
+            ...options,
+            templateDir: 'api',
+            outputSubdir: 'app/api'
+        });
 
-    /**
-     * Generate API routes for all paths in the Swagger document
-     */
-    async generateRoutes(swaggerDoc, directoryManager) {
-        this.resetStats();
+        this.pathUtils = new PathUtils();
+        this.schemaUtils = new SchemaUtils();
+        this.stringUtils = new StringUtils();
+        this.tsUtils = new TypeScriptUtils();
 
-        if (!swaggerDoc.paths) {
-            console.error('❌ No paths found in Swagger document');
-            return this.getStats();
-        }
-
-        const paths = swaggerDoc.paths;
-        console.log(`🔧 Generating API routes for ${Object.keys(paths).length} paths...`);
-
-        for (const [routePath, pathItem] of Object.entries(paths)) {
-            try {
-                await this.generateRoute(routePath, pathItem, swaggerDoc, directoryManager);
-                this.recordSuccess();
-            } catch (error) {
-                this.logError(`Failed to generate route for ${routePath}`, error);
-                this.recordFailure(`${routePath}: ${error.message}`);
-            }
-        }
-
-        console.log(`✅ API route generation completed: ${this.stats.generated} generated, ${this.stats.failed} failed\n`);
-        return this.getStats();
-    }
-
-    /**
-     * Generate a single API route
-     */
-    async generateRoute(routePath, pathItem, swaggerDoc, directoryManager) {
-        const methods = this.getHttpMethods(pathItem);
-
-        if (methods.length === 0) {
-            this.logWarning(`No HTTP methods found for path: ${routePath}`);
-            return;
-        }
-
-        // Generate route content
-        const content = await this.generateRouteContent(routePath, pathItem, methods, swaggerDoc);
-
-        // Write to file
-        const filePath = directoryManager.getApiRouteFilePath(routePath);
-        const success = directoryManager.writeFile(filePath, content, `API route ${routePath}`);
-
-        if (!success) {
-            throw new Error(`Failed to write API route file: ${filePath}`);
-        }
-    }
-
-    /**
-     * Generate the complete API route file content
-     */
-    async generateRouteContent(routePath, pathItem, methods, swaggerDoc) {
-        // Extract operations for all methods
-        const operations = this.extractOperations(pathItem, methods);
-
-        // Find relevant schemas for imports
-        const relevantSchemas = this.findRelevantSchemas(operations);
-
-        // Generate validation schemas
-        const validationSchemas = this.generateValidationSchemas(operations, methods);
-
-        // Prepare template data
-        const templateData = {
-            routePath,
-            methods,
-            operations,
-            relevantSchemas,
-            validationSchemas,
-            apiClassName: this.generateApiClassName(this.getLastPathSegment(routePath)),
-            pathParams: this.extractPathParameters(routePath),
-            hasRequestBody: methods.some(method => operations[method]?.requestBody),
-            hasQueryParams: methods.some(method =>
-                operations[method]?.parameters?.some(p => p.in === 'query')
-            ),
-            hasPathParams: this.extractPathParameters(routePath).length > 0,
-            swaggerDoc,
-            aiPromptData: this.generateAIPromptData(routePath, methods, operations, swaggerDoc)
+        // Route generation options
+        this.routeOptions = {
+            generateValidation: true,
+            generateAuth: true,
+            generateRateLimit: true,
+            generateDocs: true,
+            generateTests: true,
+            generateMiddleware: true,
+            errorHandling: 'comprehensive',
+            logging: 'detailed',
+            typescript: true,
+            ...options.routeOptions
         };
 
-        // Use template engine to generate content
-        return await this.templateEngine.render('api/route.ts.template', templateData);
+        // Template configurations
+        this.templates = {
+            route: null,
+            validation: null,
+            auth: null,
+            middleware: null,
+            error: null,
+            types: null
+        };
     }
 
     /**
-     * Generate validation schemas for operations
+     * Load API route templates
      */
-    generateValidationSchemas(operations, methods) {
+    async loadTemplates() {
+        this.logger.debug('Loading API route templates');
+
+        this.templates.route = await this.templateEngine.load('api/route.ts.template');
+        this.templates.validation = await this.templateEngine.load('api/validation.ts.template');
+        this.templates.auth = await this.templateEngine.load('api/auth.ts.template');
+        this.templates.middleware = await this.templateEngine.load('api/middleware.ts.template');
+        this.templates.error = await this.templateEngine.load('api/error.ts.template');
+        this.templates.types = await this.templateEngine.load('api/types.ts.template');
+
+        // Register custom helpers
+        this._registerTemplateHelpers();
+    }
+
+    /**
+     * Validate API route generation context
+     */
+    async doValidate(context) {
+        if (!context.swagger.paths || Object.keys(context.swagger.paths).length === 0) {
+            throw new GeneratorError('No API paths found in specification');
+        }
+
+        if (!context.schemas) {
+            throw new GeneratorError('Schemas are required for API generation');
+        }
+
+        if (!context.routes) {
+            throw new GeneratorError('Routes analysis is required for API generation');
+        }
+    }
+
+    /**
+     * Prepare API route generation context
+     */
+    async doPrepare(context) {
+        return {
+            ...context,
+            apiConfig: {
+                baseUrl: context.swagger.servers?.[0]?.url || '/api',
+                version: this._extractApiVersion(context.swagger),
+                security: this._extractSecuritySchemes(context.swagger),
+                globalHeaders: this._extractGlobalHeaders(context.swagger)
+            },
+            routeGroups: this._groupRoutesByPath(context.routes),
+            sharedTypes: this._extractSharedTypes(context.schemas),
+            middleware: this._prepareMiddleware(context)
+        };
+    }
+
+    /**
+     * Generate API routes
+     */
+    async doGenerate(context) {
+        const files = [];
+
+        // Generate shared files first
+        files.push(...await this._generateSharedFiles(context));
+
+        // Generate route files
+        for (const [routePath, routeGroup] of Object.entries(context.routeGroups)) {
+            files.push(...await this._generateRouteFiles(routePath, routeGroup, context));
+        }
+
+        // Generate index and documentation
+        files.push(...await this._generateIndexFiles(context));
+
+        return files;
+    }
+
+    /**
+     * Generate shared files (types, middleware, etc.)
+     */
+    async _generateSharedFiles(context) {
+        const files = [];
+
+        // Generate shared types
+        if (this.routeOptions.typescript) {
+            files.push({
+                path: path.join(context.outputDir, this.options.outputSubdir, 'types.ts'),
+                content: await this.templates.types.render({
+                    types: context.sharedTypes,
+                    imports: this._generateTypeImports(context),
+                    apiConfig: context.apiConfig
+                })
+            });
+        }
+
+        // Generate error handler
+        files.push({
+            path: path.join(context.outputDir, this.options.outputSubdir, 'error.ts'),
+            content: await this.templates.error.render({
+                errorHandling: this.routeOptions.errorHandling,
+                logging: this.routeOptions.logging
+            })
+        });
+
+        // Generate auth middleware
+        if (this.routeOptions.generateAuth && context.apiConfig.security) {
+            files.push({
+                path: path.join(context.outputDir, this.options.outputSubdir, 'auth.ts'),
+                content: await this.templates.auth.render({
+                    security: context.apiConfig.security,
+                    typescript: this.routeOptions.typescript
+                })
+            });
+        }
+
+        // Generate shared middleware
+        if (this.routeOptions.generateMiddleware) {
+            files.push({
+                path: path.join(context.outputDir, this.options.outputSubdir, 'middleware.ts'),
+                content: await this.templates.middleware.render({
+                    middleware: context.middleware,
+                    rateLimit: this.routeOptions.generateRateLimit,
+                    logging: this.routeOptions.logging
+                })
+            });
+        }
+
+        return files;
+    }
+
+    /**
+     * Generate files for a route group
+     */
+    async _generateRouteFiles(routePath, routeGroup, context) {
+        const files = [];
+
+        // Convert OpenAPI path to Next.js directory structure
+        const nextjsPath = this.pathUtils.openApiToNextJs(routePath);
+        const routeDir = path.join(context.outputDir, this.options.outputSubdir, ...nextjsPath);
+
+        // Generate main route file
+        const routeFile = await this._generateRouteFile(routeGroup, context);
+        files.push({
+            path: path.join(routeDir, 'route.ts'),
+            content: routeFile
+        });
+
+        // Generate validation schemas
+        if (this.routeOptions.generateValidation && this._hasValidation(routeGroup)) {
+            files.push({
+                path: path.join(routeDir, 'validation.ts'),
+                content: await this._generateValidationFile(routeGroup, context)
+            });
+        }
+
+        // Generate route-specific types
+        if (this.routeOptions.typescript && this._hasRouteTypes(routeGroup)) {
+            files.push({
+                path: path.join(routeDir, 'types.ts'),
+                content: await this._generateRouteTypes(routeGroup, context)
+            });
+        }
+
+        // Generate tests
+        if (this.routeOptions.generateTests) {
+            files.push({
+                path: path.join(routeDir, 'route.test.ts'),
+                content: await this._generateRouteTests(routeGroup, context)
+            });
+        }
+
+        // Generate API documentation
+        if (this.routeOptions.generateDocs) {
+            files.push({
+                path: path.join(routeDir, 'README.md'),
+                content: await this._generateRouteDocs(routeGroup, context)
+            });
+        }
+
+        return files;
+    }
+
+    /**
+     * Generate main route file
+     */
+    async _generateRouteFile(routeGroup, context) {
+        const methods = Object.keys(routeGroup.operations);
+        const imports = this._generateRouteImports(routeGroup, context);
+        const handlers = {};
+
+        // Generate handler for each HTTP method
+        for (const [method, operation] of Object.entries(routeGroup.operations)) {
+            handlers[method] = await this._generateMethodHandler(method, operation, context);
+        }
+
+        return await this.templates.route.render({
+            imports,
+            methods,
+            handlers,
+            routePath: routeGroup.path,
+            middleware: this._getRouteMiddleware(routeGroup, context),
+            errorHandling: this.routeOptions.errorHandling,
+            logging: this.routeOptions.logging,
+            typescript: this.routeOptions.typescript
+        });
+    }
+
+    /**
+     * Generate method handler
+     */
+    async _generateMethodHandler(method, operation, context) {
+        const handler = {
+            method: method.toUpperCase(),
+            operationId: operation.operationId,
+            summary: operation.summary,
+            description: operation.description,
+            tags: operation.tags,
+            security: this._getOperationSecurity(operation, context),
+            parameters: await this._processParameters(operation.parameters, context),
+            requestBody: await this._processRequestBody(operation.requestBody, context),
+            responses: await this._processResponses(operation.responses, context),
+            middleware: this._getOperationMiddleware(operation, context)
+        };
+
+        // Add rate limiting if enabled
+        if (this.routeOptions.generateRateLimit) {
+            handler.rateLimit = this._getRateLimitConfig(operation);
+        }
+
+        // Add logging configuration
+        if (this.routeOptions.logging) {
+            handler.logging = this._getLoggingConfig(operation);
+        }
+
+        return handler;
+    }
+
+    /**
+     * Generate validation file
+     */
+    async _generateValidationFile(routeGroup, context) {
         const schemas = {};
 
-        methods.forEach(method => {
-            const operation = operations[method];
+        for (const [method, operation] of Object.entries(routeGroup.operations)) {
+            const validationSchemas = {};
 
-            // Generate query parameter schema
+            // Parameter validation schemas
             if (operation.parameters?.length > 0) {
-                const queryParams = operation.parameters.filter(param => param.in === 'query');
-                if (queryParams.length > 0) {
-                    schemas[`${method.toLowerCase()}QuerySchema`] = {
-                        name: `${method.toLowerCase()}QuerySchema`,
-                        type: 'query',
-                        fields: queryParams.map(param => ({
-                            name: param.name,
-                            zodType: this.getZodTypeFromSchema(param.schema),
-                            optional: !param.required,
-                            description: param.description || 'No description'
-                        }))
-                    };
-                }
+                validationSchemas.params = await this._generateParamSchema(operation.parameters, context);
+                validationSchemas.query = await this._generateQuerySchema(operation.parameters, context);
+                validationSchemas.headers = await this._generateHeaderSchema(operation.parameters, context);
             }
 
-            // Generate request body schema
+            // Request body validation schema
             if (operation.requestBody) {
-                schemas[`${method.toLowerCase()}BodySchema`] = {
-                    name: `${method.toLowerCase()}BodySchema`,
-                    type: 'body',
-                    description: operation.requestBody.description || 'Request body schema',
-                    contentTypes: Object.keys(operation.requestBody.content || {}),
-                    // Simplified for now - could be expanded based on actual schema
-                    fields: []
-                };
+                validationSchemas.body = await this._generateBodySchema(operation.requestBody, context);
             }
+
+            // Response validation schemas
+            validationSchemas.responses = await this._generateResponseSchemas(operation.responses, context);
+
+            schemas[method] = validationSchemas;
+        }
+
+        return await this.templates.validation.render({
+            schemas,
+            imports: this._generateValidationImports(context),
+            typescript: this.routeOptions.typescript
         });
+    }
+
+    /**
+     * Generate parameter schema
+     */
+    async _generateParamSchema(parameters, context) {
+        const pathParams = parameters.filter(p => p.in === 'path');
+        if (pathParams.length === 0) return null;
+
+        const schema = {
+            type: 'object',
+            properties: {},
+            required: []
+        };
+
+        for (const param of pathParams) {
+            schema.properties[param.name] = this.schemaUtils.convertToZodSchema(param.schema);
+            if (param.required) {
+                schema.required.push(param.name);
+            }
+        }
+
+        return this.schemaUtils.generateZodSchema(schema);
+    }
+
+    /**
+     * Generate query schema
+     */
+    async _generateQuerySchema(parameters, context) {
+        const queryParams = parameters.filter(p => p.in === 'query');
+        if (queryParams.length === 0) return null;
+
+        const schema = {
+            type: 'object',
+            properties: {},
+            required: []
+        };
+
+        for (const param of queryParams) {
+            schema.properties[param.name] = this.schemaUtils.convertToZodSchema(param.schema);
+            if (param.required) {
+                schema.required.push(param.name);
+            }
+        }
+
+        return this.schemaUtils.generateZodSchema(schema);
+    }
+
+    /**
+     * Generate header schema
+     */
+    async _generateHeaderSchema(parameters, context) {
+        const headerParams = parameters.filter(p => p.in === 'header');
+        if (headerParams.length === 0) return null;
+
+        const schema = {
+            type: 'object',
+            properties: {},
+            required: []
+        };
+
+        for (const param of headerParams) {
+            // Convert header names to lowercase for consistency
+            const headerName = param.name.toLowerCase();
+            schema.properties[headerName] = this.schemaUtils.convertToZodSchema(param.schema);
+            if (param.required) {
+                schema.required.push(headerName);
+            }
+        }
+
+        return this.schemaUtils.generateZodSchema(schema);
+    }
+
+    /**
+     * Generate body schema
+     */
+    async _generateBodySchema(requestBody, context) {
+        if (!requestBody?.content) return null;
+
+        // Prioritize JSON content
+        const jsonContent = requestBody.content['application/json'];
+        if (jsonContent?.schema) {
+            return this.schemaUtils.generateZodSchema(jsonContent.schema);
+        }
+
+        // Handle other content types
+        const contentTypes = Object.keys(requestBody.content);
+        if (contentTypes.length > 0) {
+            const firstContent = requestBody.content[contentTypes[0]];
+            if (firstContent?.schema) {
+                return this.schemaUtils.generateZodSchema(firstContent.schema);
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Generate response schemas
+     */
+    async _generateResponseSchemas(responses, context) {
+        const schemas = {};
+
+        for (const [statusCode, response] of Object.entries(responses)) {
+            if (response.content?.['application/json']?.schema) {
+                schemas[statusCode] = this.schemaUtils.generateZodSchema(
+                    response.content['application/json'].schema
+                );
+            }
+        }
 
         return schemas;
     }
 
     /**
-     * Generate AI prompt data for code completion
+     * Generate route-specific types
      */
-    generateAIPromptData(routePath, methods, operations, swaggerDoc) {
+    async _generateRouteTypes(routeGroup, context) {
+        const types = [];
+
+        for (const [method, operation] of Object.entries(routeGroup.operations)) {
+            // Request types
+            if (operation.parameters?.length > 0) {
+                types.push(await this._generateParamTypes(operation, method));
+            }
+
+            if (operation.requestBody) {
+                types.push(await this._generateRequestBodyType(operation, method));
+            }
+
+            // Response types
+            types.push(await this._generateResponseTypes(operation, method));
+        }
+
+        return this.tsUtils.generateTypeDefinitions(types);
+    }
+
+    /**
+     * Generate route tests
+     */
+    async _generateRouteTests(routeGroup, context) {
+        const testCases = [];
+
+        for (const [method, operation] of Object.entries(routeGroup.operations)) {
+            testCases.push({
+                method: method.toUpperCase(),
+                operationId: operation.operationId,
+                description: operation.summary || `Test ${method.toUpperCase()} ${routeGroup.path}`,
+                tests: await this._generateTestCases(operation, context)
+            });
+        }
+
+        return this.templateEngine.render('api/route.test.ts.template', {
+            routePath: routeGroup.path,
+            testCases,
+            imports: this._generateTestImports(context)
+        });
+    }
+
+    /**
+     * Generate route documentation
+     */
+    async _generateRouteDocs(routeGroup, context) {
+        const sections = [];
+
+        // Route overview
+        sections.push({
+            title: 'Route Overview',
+            content: this._generateRouteOverview(routeGroup)
+        });
+
+        // Endpoint documentation
+        for (const [method, operation] of Object.entries(routeGroup.operations)) {
+            sections.push({
+                title: `${method.toUpperCase()} ${routeGroup.path}`,
+                content: await this._generateOperationDocs(operation, context)
+            });
+        }
+
+        // Examples
+        sections.push({
+            title: 'Examples',
+            content: await this._generateExamples(routeGroup, context)
+        });
+
+        return this.templateEngine.render('api/README.md.template', {
+            title: `API Route: ${routeGroup.path}`,
+            sections
+        });
+    }
+
+    /**
+     * Generate index files
+     */
+    async _generateIndexFiles(context) {
+        const files = [];
+
+        // API index with route listing
+        files.push({
+            path: path.join(context.outputDir, this.options.outputSubdir, 'index.ts'),
+            content: await this._generateApiIndex(context)
+        });
+
+        // API documentation
+        if (this.routeOptions.generateDocs) {
+            files.push({
+                path: path.join(context.outputDir, this.options.outputSubdir, 'README.md'),
+                content: await this._generateApiDocumentation(context)
+            });
+        }
+
+        return files;
+    }
+
+    // ============================================================================
+    // Helper Methods
+    // ============================================================================
+
+    /**
+     * Register template helpers
+     */
+    _registerTemplateHelpers() {
+        this.templateEngine.registerHelper('httpMethod', (method) => {
+            return method.toUpperCase();
+        });
+
+        this.templateEngine.registerHelper('routePath', (path) => {
+            return this.pathUtils.openApiToNextJs(path).join('/');
+        });
+
+        this.templateEngine.registerHelper('zodSchema', (schema) => {
+            return this.schemaUtils.generateZodSchema(schema);
+        });
+
+        this.templateEngine.registerHelper('tsType', (schema) => {
+            return this.tsUtils.schemaToType(schema);
+        });
+
+        this.templateEngine.registerHelper('camelCase', (str) => {
+            return this.stringUtils.toCamelCase(str);
+        });
+
+        this.templateEngine.registerHelper('pascalCase', (str) => {
+            return this.stringUtils.toPascalCase(str);
+        });
+    }
+
+    /**
+     * Extract API version from spec
+     */
+    _extractApiVersion(swagger) {
+        return swagger.info?.version || '1.0.0';
+    }
+
+    /**
+     * Extract security schemes
+     */
+    _extractSecuritySchemes(swagger) {
+        return swagger.components?.securitySchemes || {};
+    }
+
+    /**
+     * Extract global headers
+     */
+    _extractGlobalHeaders(swagger) {
+        // Extract from global parameters or x-headers extension
+        const headers = {};
+
+        if (swagger.components?.parameters) {
+            for (const [name, param] of Object.entries(swagger.components.parameters)) {
+                if (param.in === 'header') {
+                    headers[name] = param;
+                }
+            }
+        }
+
+        return headers;
+    }
+
+    /**
+     * Group routes by path
+     */
+    _groupRoutesByPath(routes) {
+        const groups = {};
+
+        for (const route of routes) {
+            if (!groups[route.path]) {
+                groups[route.path] = {
+                    path: route.path,
+                    operations: {}
+                };
+            }
+            groups[route.path].operations[route.method] = route.operation;
+        }
+
+        return groups;
+    }
+
+    /**
+     * Extract shared types
+     */
+    _extractSharedTypes(schemas) {
+        // Extract types that are used across multiple routes
+        const sharedTypes = {};
+        const usageCount = {};
+
+        // Count usage
+        for (const [name, schema] of Object.entries(schemas)) {
+            const refs = this.schemaUtils.findReferences(schema);
+            for (const ref of refs) {
+                usageCount[ref] = (usageCount[ref] || 0) + 1;
+            }
+        }
+
+        // Extract types used more than once
+        for (const [name, schema] of Object.entries(schemas)) {
+            if (usageCount[`#/components/schemas/${name}`] > 1) {
+                sharedTypes[name] = schema;
+            }
+        }
+
+        return sharedTypes;
+    }
+
+    /**
+     * Prepare middleware configuration
+     */
+    _prepareMiddleware(context) {
+        const middleware = [];
+
+        // CORS middleware
+        middleware.push({
+            name: 'cors',
+            config: {
+                origin: context.config?.cors?.origin || '*',
+                methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+                allowedHeaders: ['Content-Type', 'Authorization'],
+                credentials: true
+            }
+        });
+
+        // Rate limiting
+        if (this.routeOptions.generateRateLimit) {
+            middleware.push({
+                name: 'rateLimit',
+                config: {
+                    windowMs: 15 * 60 * 1000, // 15 minutes
+                    max: 100 // limit each IP to 100 requests per windowMs
+                }
+            });
+        }
+
+        // Request logging
+        if (this.routeOptions.logging) {
+            middleware.push({
+                name: 'logging',
+                config: {
+                    level: 'info',
+                    excludePaths: ['/health', '/metrics']
+                }
+            });
+        }
+
+        return middleware;
+    }
+
+    /**
+     * Check if route group has validation
+     */
+    _hasValidation(routeGroup) {
+        for (const operation of Object.values(routeGroup.operations)) {
+            if (operation.parameters?.length > 0 || operation.requestBody) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Check if route group has specific types
+     */
+    _hasRouteTypes(routeGroup) {
+        for (const operation of Object.values(routeGroup.operations)) {
+            if (operation.requestBody || operation.responses) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Get operation security requirements
+     */
+    _getOperationSecurity(operation, context) {
+        return operation.security || context.swagger.security || [];
+    }
+
+    /**
+     * Get operation-specific middleware
+     */
+    _getOperationMiddleware(operation, context) {
+        const middleware = [];
+
+        // Authentication middleware
+        if (operation.security?.length > 0) {
+            middleware.push('authenticate');
+        }
+
+        // Custom middleware from extensions
+        if (operation['x-middleware']) {
+            middleware.push(...operation['x-middleware']);
+        }
+
+        return middleware;
+    }
+
+    /**
+     * Get rate limit configuration
+     */
+    _getRateLimitConfig(operation) {
+        // Check for custom rate limit in extensions
+        if (operation['x-rate-limit']) {
+            return operation['x-rate-limit'];
+        }
+
+        // Default based on operation type
+        const operationId = operation.operationId?.toLowerCase() || '';
+
+        if (operationId.includes('create') || operationId.includes('update')) {
+            return { windowMs: 60000, max: 10 }; // Stricter for mutations
+        }
+
+        return { windowMs: 60000, max: 100 }; // Default
+    }
+
+    /**
+     * Get logging configuration
+     */
+    _getLoggingConfig(operation) {
         return {
-            routeInfo: {
-                path: routePath,
-                methods: methods.join(', '),
-                framework: 'Next.js 13+ App Router',
-                typescript: true
-            },
-            methodRequirements: this.buildMethodRequirements(operations, methods),
-            implementationRequirements: this.getImplementationRequirements(),
-            availableSchemas: this.getAvailableSchemas(swaggerDoc),
-            examplePatterns: this.getExamplePatterns(),
-            databaseServices: this.getDatabaseServicesInfo()
+            logRequest: true,
+            logResponse: true,
+            logErrors: true,
+            sensitiveFields: ['password', 'token', 'secret', 'authorization']
         };
     }
 
     /**
-     * Build method-specific requirements for AI prompt
+     * Process parameters
      */
-    buildMethodRequirements(operations, methods) {
-        return methods.map(method => {
-            const operation = operations[method];
-            return {
-                method,
-                summary: operation.summary || 'Not specified',
-                description: operation.description || 'Not specified',
-                parameters: operation.parameters?.map(param => ({
-                    name: param.name,
-                    location: param.in,
-                    type: param.schema?.type || 'unknown',
-                    required: param.required || false,
-                    description: param.description || 'No description',
-                    allowedValues: param.schema?.enum || null
-                })) || [],
-                requestBody: operation.requestBody ? {
-                    required: operation.requestBody.required || false,
-                    description: operation.requestBody.description || 'Request body required',
-                    contentTypes: Object.keys(operation.requestBody.content || {})
-                } : null,
-                responses: Object.entries(operation.responses || {}).map(([code, response]) => ({
-                    code,
-                    description: response.description || 'No description',
-                    contentTypes: Object.keys(response.content || {})
-                }))
+    async _processParameters(parameters = [], context) {
+        const processed = {
+            path: {},
+            query: {},
+            header: {},
+            cookie: {}
+        };
+
+        for (const param of parameters) {
+            const paramData = {
+                name: param.name,
+                description: param.description,
+                required: param.required,
+                schema: param.schema,
+                example: param.example
             };
-        });
-    }
 
-    /**
-     * Get implementation requirements for AI prompt
-     */
-    getImplementationRequirements() {
-        return [
-            'Use Next.js 13+ App Router API route format',
-            'Implement proper TypeScript types',
-            'Add comprehensive error handling',
-            'Validate request parameters and body',
-            'Return appropriate HTTP status codes',
-            'Follow RESTful conventions',
-            'Add proper CORS headers if needed',
-            'Implement authentication/authorization if required',
-            'Add request logging for debugging',
-            'Use environment variables for configuration'
-        ];
-    }
-
-    /**
-     * Get available schemas from Swagger document
-     */
-    getAvailableSchemas(swaggerDoc) {
-        const schemas = swaggerDoc.components?.schemas || swaggerDoc.definitions || {};
-        return Object.keys(schemas).slice(0, 10).map(schemaName => ({
-            name: schemaName,
-            schema: this.sanitizeJsonForComment(schemas[schemaName], 2)
-        }));
-    }
-
-    /**
-     * Get example patterns for AI prompt
-     */
-    getExamplePatterns() {
-        return [
-            'Use try-catch blocks for error handling',
-            'Validate input using Zod or similar',
-            'Return NextResponse.json() for all responses',
-            'Extract path/query parameters properly',
-            'Handle different content types appropriately'
-        ];
-    }
-
-    /**
-     * Get database/services information for AI prompt
-     */
-    getDatabaseServicesInfo() {
-        return [
-            'Assume you have access to a database connection',
-            'Use async/await for database operations',
-            'Implement proper connection pooling',
-            'Handle database errors gracefully'
-        ];
-    }
-
-    /**
-     * Get last path segment for API class name generation
-     */
-    getLastPathSegment(routePath) {
-        const segments = routePath.split('/').filter(segment =>
-            segment && !segment.startsWith('{')
-        );
-        return segments.length > 0 ? segments[segments.length - 1] : 'default';
-    }
-
-    /**
-     * Generate fallback content when template fails
-     */
-    generateFallbackContent(routePath, pathItem, methods, swaggerDoc) {
-        const operations = this.extractOperations(pathItem, methods);
-        const relevantSchemas = this.findRelevantSchemas(operations);
-
-        let content = `/**\n`;
-        content += ` * AI PROMPT FOR CODE GENERATION:\n`;
-        content += ` * ================================\n`;
-        content += ` * \n`;
-        content += ` * You are a Next.js API developer. Generate a complete implementation for this API route.\n`;
-        content += ` * \n`;
-        content += ` * ROUTE INFORMATION:\n`;
-        content += ` * - Path: ${routePath}\n`;
-        content += ` * - Methods: ${methods.join(', ')}\n`;
-        content += ` * - Framework: Next.js 13+ App Router\n`;
-        content += ` * - TypeScript: Yes\n`;
-        content += ` * \n`;
-        content += ` * GENERATE: Complete, production-ready code with all necessary imports, types, and logic.\n`;
-        content += ` */\n\n`;
-
-        content += `// API Route: ${routePath}\n`;
-        content += `// Generated from Swagger/OpenAPI specification\n`;
-        content += `// Methods: ${methods.join(', ')}\n\n`;
-
-        content += `import { NextRequest, NextResponse } from 'next/server';\n`;
-        content += `import { z } from 'zod';\n`;
-
-        if (relevantSchemas.length > 0) {
-            content += this.generateModelImports(relevantSchemas);
+            if (processed[param.in]) {
+                processed[param.in][param.name] = paramData;
+            }
         }
 
-        content += this.generateApiClientImports(routePath);
-        content += `\n`;
+        return processed;
+    }
 
-        // Generate basic handlers
-        methods.forEach(method => {
-            content += `export async function ${method}(request: NextRequest) {\n`;
-            content += `  try {\n`;
-            content += `    // TODO: Implement ${method} ${routePath}\n`;
-            content += `    return NextResponse.json({ message: '${method} ${routePath} - Implementation needed' });\n`;
-            content += `  } catch (error) {\n`;
-            content += `    console.error('Error in ${method} ${routePath}:', error);\n`;
-            content += `    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });\n`;
-            content += `  }\n`;
-            content += `}\n\n`;
+    /**
+     * Process request body
+     */
+    async _processRequestBody(requestBody, context) {
+        if (!requestBody) return null;
+
+        return {
+            description: requestBody.description,
+            required: requestBody.required,
+            content: requestBody.content,
+            examples: this._extractExamples(requestBody)
+        };
+    }
+
+    /**
+     * Process responses
+     */
+    async _processResponses(responses, context) {
+        const processed = {};
+
+        for (const [statusCode, response] of Object.entries(responses)) {
+            processed[statusCode] = {
+                description: response.description,
+                content: response.content,
+                headers: response.headers,
+                examples: this._extractExamples(response)
+            };
+        }
+
+        return processed;
+    }
+
+    /**
+     * Extract examples from request/response
+     */
+    _extractExamples(obj) {
+        const examples = [];
+
+        if (obj.content) {
+            for (const [contentType, content] of Object.entries(obj.content)) {
+                if (content.example) {
+                    examples.push({
+                        contentType,
+                        value: content.example
+                    });
+                }
+                if (content.examples) {
+                    for (const [name, example] of Object.entries(content.examples)) {
+                        examples.push({
+                            contentType,
+                            name,
+                            value: example.value
+                        });
+                    }
+                }
+            }
+        }
+
+        return examples;
+    }
+
+    /**
+     * Generate route imports
+     */
+    _generateRouteImports(routeGroup, context) {
+        const imports = [];
+
+        // Next.js imports
+        imports.push({
+            from: 'next',
+            items: ['NextRequest', 'NextResponse']
         });
 
-        return content;
+        // Validation imports
+        if (this._hasValidation(routeGroup)) {
+            imports.push({
+                from: './validation',
+                items: ['schemas']
+            });
+        }
+
+        // Auth imports
+        if (this._hasAuth(routeGroup)) {
+            imports.push({
+                from: '../auth',
+                items: ['authenticate', 'authorize']
+            });
+        }
+
+        // Middleware imports
+        imports.push({
+            from: '../middleware',
+            items: ['withMiddleware', 'errorHandler']
+        });
+
+        // Type imports
+        if (this.routeOptions.typescript) {
+            imports.push({
+                from: './types',
+                items: ['*'],
+                as: 'Types'
+            });
+        }
+
+        return imports;
+    }
+
+    /**
+     * Check if route has authentication
+     */
+    _hasAuth(routeGroup) {
+        for (const operation of Object.values(routeGroup.operations)) {
+            if (operation.security?.length > 0) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Get route middleware configuration
+     */
+    _getRouteMiddleware(routeGroup, context) {
+        const middleware = [];
+
+        // Error handling middleware
+        middleware.push('errorHandler');
+
+        // Logging middleware
+        if (this.routeOptions.logging) {
+            middleware.push('requestLogger');
+        }
+
+        // CORS middleware
+        middleware.push('cors');
+
+        // Rate limiting
+        if (this.routeOptions.generateRateLimit) {
+            middleware.push('rateLimit');
+        }
+
+        return middleware;
+    }
+
+    /**
+     * Generate type imports
+     */
+    _generateTypeImports(context) {
+        const imports = [];
+
+        // Zod for runtime validation
+        imports.push({
+            from: 'zod',
+            items: ['z']
+        });
+
+        // Shared types
+        if (context.sharedTypes) {
+            imports.push({
+                from: '../types',
+                items: Object.keys(context.sharedTypes)
+            });
+        }
+
+        return imports;
+    }
+
+    /**
+     * Generate validation imports
+     */
+    _generateValidationImports(context) {
+        return [
+            { from: 'zod', items: ['z'] },
+            { from: '../types', items: ['*'], as: 'Types' }
+        ];
+    }
+
+    /**
+     * Generate test imports
+     */
+    _generateTestImports(context) {
+        return [
+            { from: '@jest/globals', items: ['describe', 'it', 'expect', 'beforeAll', 'afterAll'] },
+            { from: 'supertest', items: ['default'], as: 'request' },
+            { from: './route', items: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'] }
+        ];
+    }
+
+    /**
+     * Generate parameter types
+     */
+    async _generateParamTypes(operation, method) {
+        const typeName = `${this.stringUtils.toPascalCase(operation.operationId)}Params`;
+        const properties = {};
+
+        for (const param of operation.parameters || []) {
+            if (param.in === 'path' || param.in === 'query') {
+                properties[param.name] = this.tsUtils.schemaToType(param.schema);
+            }
+        }
+
+        return {
+            name: typeName,
+            type: 'interface',
+            properties
+        };
+    }
+
+    /**
+     * Generate request body type
+     */
+    async _generateRequestBodyType(operation, method) {
+        const typeName = `${this.stringUtils.toPascalCase(operation.operationId)}Request`;
+        const content = operation.requestBody?.content?.['application/json'];
+
+        if (!content?.schema) {
+            return null;
+        }
+
+        return {
+            name: typeName,
+            type: 'type',
+            definition: this.tsUtils.schemaToType(content.schema)
+        };
+    }
+
+    /**
+     * Generate response types
+     */
+    async _generateResponseTypes(operation, method) {
+        const types = [];
+        const baseTypeName = `${this.stringUtils.toPascalCase(operation.operationId)}Response`;
+
+        for (const [statusCode, response] of Object.entries(operation.responses || {})) {
+            const content = response.content?.['application/json'];
+            if (content?.schema) {
+                types.push({
+                    name: `${baseTypeName}${statusCode}`,
+                    type: 'type',
+                    definition: this.tsUtils.schemaToType(content.schema)
+                });
+            }
+        }
+
+        // Union type for all responses
+        if (types.length > 0) {
+            types.push({
+                name: baseTypeName,
+                type: 'type',
+                definition: types.map(t => t.name).join(' | ')
+            });
+        }
+
+        return types;
+    }
+
+    /**
+     * Generate test cases
+     */
+    async _generateTestCases(operation, context) {
+        const testCases = [];
+
+        // Success case
+        testCases.push({
+            name: 'should return success response',
+            type: 'success',
+            request: this._generateTestRequest(operation, 'success'),
+            expectedStatus: 200,
+            expectedResponse: this._generateTestResponse(operation, '200')
+        });
+
+        // Validation error case
+        if (operation.parameters?.some(p => p.required) || operation.requestBody?.required) {
+            testCases.push({
+                name: 'should return validation error for invalid input',
+                type: 'validation',
+                request: this._generateTestRequest(operation, 'invalid'),
+                expectedStatus: 400,
+                expectedResponse: { error: 'Validation failed' }
+            });
+        }
+
+        // Auth error case
+        if (operation.security?.length > 0) {
+            testCases.push({
+                name: 'should return unauthorized without auth',
+                type: 'auth',
+                request: this._generateTestRequest(operation, 'noauth'),
+                expectedStatus: 401,
+                expectedResponse: { error: 'Unauthorized' }
+            });
+        }
+
+        return testCases;
+    }
+
+    /**
+     * Generate test request
+     */
+    _generateTestRequest(operation, scenario) {
+        const request = {
+            headers: {},
+            params: {},
+            query: {},
+            body: null
+        };
+
+        // Add test data based on scenario
+        switch (scenario) {
+            case 'success':
+                // Add valid test data
+                for (const param of operation.parameters || []) {
+                    const value = this._generateTestValue(param.schema);
+                    if (param.in === 'path') {
+                        request.params[param.name] = value;
+                    } else if (param.in === 'query') {
+                        request.query[param.name] = value;
+                    } else if (param.in === 'header') {
+                        request.headers[param.name] = value;
+                    }
+                }
+
+                if (operation.requestBody?.content?.['application/json']) {
+                    request.body = this._generateTestData(
+                        operation.requestBody.content['application/json'].schema
+                    );
+                }
+                break;
+
+            case 'invalid':
+                // Add invalid test data
+                if (operation.requestBody?.required) {
+                    request.body = { invalid: 'data' };
+                }
+                break;
+
+            case 'noauth':
+                // Don't add auth headers
+                break;
+        }
+
+        return request;
+    }
+
+    /**
+     * Generate test response
+     */
+    _generateTestResponse(operation, statusCode) {
+        const response = operation.responses?.[statusCode];
+        if (!response?.content?.['application/json']?.schema) {
+            return {};
+        }
+
+        return this._generateTestData(response.content['application/json'].schema);
+    }
+
+    /**
+     * Generate test value for schema
+     */
+    _generateTestValue(schema) {
+        switch (schema?.type) {
+            case 'string':
+                return 'test-string';
+            case 'number':
+            case 'integer':
+                return 123;
+            case 'boolean':
+                return true;
+            case 'array':
+                return [];
+            case 'object':
+                return {};
+            default:
+                return 'test';
+        }
+    }
+
+    /**
+     * Generate test data for schema
+     */
+    _generateTestData(schema) {
+        if (!schema) return {};
+
+        if (schema.example) {
+            return schema.example;
+        }
+
+        if (schema.type === 'object' && schema.properties) {
+            const data = {};
+            for (const [key, propSchema] of Object.entries(schema.properties)) {
+                data[key] = this._generateTestValue(propSchema);
+            }
+            return data;
+        }
+
+        return this._generateTestValue(schema);
+    }
+
+    /**
+     * Generate route overview
+     */
+    _generateRouteOverview(routeGroup) {
+        const methods = Object.keys(routeGroup.operations);
+        return `This route supports the following HTTP methods: ${methods.join(', ').toUpperCase()}`;
+    }
+
+    /**
+     * Generate operation documentation
+     */
+    async _generateOperationDocs(operation, context) {
+        const sections = [];
+
+        // Description
+        if (operation.description) {
+            sections.push(`**Description:** ${operation.description}`);
+        }
+
+        // Parameters
+        if (operation.parameters?.length > 0) {
+            sections.push('**Parameters:**');
+            for (const param of operation.parameters) {
+                sections.push(`- \`${param.name}\` (${param.in}): ${param.description || 'No description'}`);
+            }
+        }
+
+        // Request body
+        if (operation.requestBody) {
+            sections.push('**Request Body:**');
+            sections.push(operation.requestBody.description || 'Request body required');
+        }
+
+        // Responses
+        sections.push('**Responses:**');
+        for (const [code, response] of Object.entries(operation.responses || {})) {
+            sections.push(`- \`${code}\`: ${response.description}`);
+        }
+
+        return sections.join('\n\n');
+    }
+
+    /**
+     * Generate examples
+     */
+    async _generateExamples(routeGroup, context) {
+        const examples = [];
+
+        for (const [method, operation] of Object.entries(routeGroup.operations)) {
+            const example = {
+                method: method.toUpperCase(),
+                path: routeGroup.path,
+                description: operation.summary
+            };
+
+            // Request example
+            if (operation.requestBody?.content?.['application/json']?.example) {
+                example.request = {
+                    body: operation.requestBody.content['application/json'].example
+                };
+            }
+
+            // Response example
+            const successResponse = operation.responses?.['200'] || operation.responses?.['201'];
+            if (successResponse?.content?.['application/json']?.example) {
+                example.response = successResponse.content['application/json'].example;
+            }
+
+            examples.push(example);
+        }
+
+        return examples.map(ex =>
+            `### ${ex.method} ${ex.path}\n\n` +
+            (ex.request ? `**Request:**\n\`\`\`json\n${JSON.stringify(ex.request.body, null, 2)}\n\`\`\`\n\n` : '') +
+            (ex.response ? `**Response:**\n\`\`\`json\n${JSON.stringify(ex.response, null, 2)}\n\`\`\`\n` : '')
+        ).join('\n');
+    }
+
+    /**
+     * Generate API index
+     */
+    async _generateApiIndex(context) {
+        const routes = [];
+
+        for (const [path, group] of Object.entries(context.routeGroups)) {
+            for (const method of Object.keys(group.operations)) {
+                routes.push({
+                    method: method.toUpperCase(),
+                    path: path,
+                    nextjsPath: this.pathUtils.openApiToNextJs(path).join('/')
+                });
+            }
+        }
+
+        return this.templateEngine.render('api/index.ts.template', {
+            routes,
+            apiConfig: context.apiConfig
+        });
+    }
+
+    /**
+     * Generate API documentation
+     */
+    async _generateApiDocumentation(context) {
+        const sections = [];
+
+        // API overview
+        sections.push({
+            title: 'API Overview',
+            content: this._generateApiOverview(context)
+        });
+
+        // Authentication
+        if (context.apiConfig.security) {
+            sections.push({
+                title: 'Authentication',
+                content: this._generateAuthDocs(context.apiConfig.security)
+            });
+        }
+
+        // Endpoints
+        sections.push({
+            title: 'Endpoints',
+            content: this._generateEndpointList(context)
+        });
+
+        // Common responses
+        sections.push({
+            title: 'Common Responses',
+            content: this._generateCommonResponseDocs()
+        });
+
+        return this.templateEngine.render('api/README.md.template', {
+            title: context.swagger.info?.title || 'API Documentation',
+            version: context.apiConfig.version,
+            sections
+        });
+    }
+
+    /**
+     * Generate API overview
+     */
+    _generateApiOverview(context) {
+        return context.swagger.info?.description || 'Generated API from OpenAPI specification';
+    }
+
+    /**
+     * Generate auth documentation
+     */
+    _generateAuthDocs(security) {
+        const docs = [];
+
+        for (const [name, scheme] of Object.entries(security)) {
+            docs.push(`### ${name}`);
+            docs.push(`- **Type:** ${scheme.type}`);
+            if (scheme.scheme) {
+                docs.push(`- **Scheme:** ${scheme.scheme}`);
+            }
+            if (scheme.description) {
+                docs.push(`- **Description:** ${scheme.description}`);
+            }
+        }
+
+        return docs.join('\n');
+    }
+
+    /**
+     * Generate endpoint list
+     */
+    _generateEndpointList(context) {
+        const endpoints = [];
+
+        for (const [path, group] of Object.entries(context.routeGroups)) {
+            for (const [method, operation] of Object.entries(group.operations)) {
+                endpoints.push(
+                    `- **${method.toUpperCase()} ${path}** - ${operation.summary || 'No description'}`
+                );
+            }
+        }
+
+        return endpoints.join('\n');
+    }
+
+    /**
+     * Generate common response documentation
+     */
+    _generateCommonResponseDocs() {
+        return `
+- \`200 OK\` - Request succeeded
+- \`201 Created\` - Resource created successfully
+- \`400 Bad Request\` - Invalid request data
+- \`401 Unauthorized\` - Authentication required
+- \`403 Forbidden\` - Insufficient permissions
+- \`404 Not Found\` - Resource not found
+- \`422 Unprocessable Entity\` - Validation failed
+- \`429 Too Many Requests\` - Rate limit exceeded
+- \`500 Internal Server Error\` - Server error
+    `.trim();
     }
 }
 
-module.exports = ApiRouteGenerator;
+export default ApiRouteGenerator;

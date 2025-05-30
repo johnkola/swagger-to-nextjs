@@ -1,14 +1,26 @@
 /**
- * ===AI PROMPT ==============================================================
+ * ============================================================================
+ * SWAGGER-TO-NEXTJS GENERATOR - AI PROMPT
+ * ============================================================================
  * FILE: src/monitoring/HealthChecker.js
- * VERSION: 2025-05-25 13:22:11
+ * VERSION: 2025-05-28 15:14:56
+ * PHASE: PHASE 6: Performance & Optimization
+ * CATEGORY: 🚀 Caching System
  * ============================================================================
  *
  * AI GENERATION PROMPT:
- * Build a health checking system that validates the integrity of generated
- * code, checks for common issues, and provides suggestions for optimization.
  *
- * ---
+ * Build a comprehensive health checking system that:
+ * - Validates generated code integrity 
+ * - Implements runtime health checks 
+ * - Provides dependency health monitoring 
+ * - Implements security vulnerability scanning 
+ * - Supports custom health checks 
+ * - Provides health dashboards 
+ * - Implements alerting capabilities 
+ * - Supports health check scheduling 
+ * - Provides remediation suggestions 
+ * - Implements health trends analysis
  *
- * ===PROMPT END ==============================================================
+ * ============================================================================
  */

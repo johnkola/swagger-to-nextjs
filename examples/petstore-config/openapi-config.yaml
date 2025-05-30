@@ -1,12 +1,25 @@
-# ===AI PROMPT ==============================================================
+################################################################################
+# SWAGGER-TO-NEXTJS GENERATOR - AI PROMPT
+################################################################################
 # FILE: examples/petstore-config/openapi-config.yaml
-# VERSION: 2025-05-25 13:22:11
-# ============================================================================
+# VERSION: 2025-05-28 15:14:56
+# PHASE: PHASE 6: Performance & Optimization
+# CATEGORY: 🚀 Caching System
+################################################################################
 #
 # AI GENERATION PROMPT:
-# Create a configuration file for generating a pet store application with
-# specific settings for authentication, styling, and component preferences.
 #
-# ---
+# Create a comprehensive OpenAPI 3.0 specification for a pet store API that
+# demonstrates:
+# - Complete CRUD operations for pets, users, and orders 
+# - Multiple authentication schemes (API Key, JWT Bearer) 
+# - Request/response examples with realistic data 
+# - Error response definitions with problem details 
+# - File upload endpoints for pet images 
+# - Pagination parameters for list endpoints 
+# - Search and filtering capabilities 
+# - Webhook definitions for order notifications 
+# - Reusable components and schemas 
+# - OpenAPI extensions for custom metadata
 #
-# ===PROMPT END ==============================================================
+################################################################################

@@ -1,13 +1,26 @@
-# ===AI PROMPT ==============================================================
-# FILE: src/templates/files/config/docker.template
-# VERSION: 2025-05-25 13:22:11
-# ============================================================================
-#
-# AI GENERATION PROMPT:
-# Create Docker configuration templates (Dockerfile, docker-compose.yml) for
-# containerizing generated NextJS applications with API integration and
-# production optimization.
-#
-# ---
-#
-# ===PROMPT END ==============================================================
+{{!--
+==============================================================================
+SWAGGER-TO-NEXTJS GENERATOR - AI PROMPT
+==============================================================================
+FILE: src/templates/files/config/docker.template
+VERSION: 2025-05-28 15:14:56
+PHASE: PHASE 6: Performance & Optimization
+CATEGORY: 🚀 Caching System
+==============================================================================
+
+AI GENERATION PROMPT:
+
+Create Docker templates that include:
+- Multi-stage production Dockerfile 
+- Development docker-compose configuration 
+- Optimized layer caching 
+- Security best practices 
+- Health check implementation 
+- Volume optimization 
+- Network configuration 
+- Environment management 
+- Logging configuration 
+- Monitoring integration
+
+==============================================================================
+--}}

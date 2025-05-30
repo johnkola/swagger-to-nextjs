@@ -1,15 +1,26 @@
 /**
- * ===AI PROMPT ==============================================================
+ * ============================================================================
+ * SWAGGER-TO-NEXTJS GENERATOR - AI PROMPT
+ * ============================================================================
  * FILE: src/utils/OpenApiUtils.js
- * VERSION: 2025-05-25 13:22:11
+ * VERSION: 2025-05-28 15:14:56
+ * PHASE: PHASE 6: Performance & Optimization
+ * CATEGORY: 🚀 Caching System
  * ============================================================================
  *
  * AI GENERATION PROMPT:
- * Build utilities for advanced OpenAPI specification manipulation: reference
- * resolution, schema flattening, operation grouping, and spec optimization
- * for better code generation.
  *
- * ---
+ * Build comprehensive OpenAPI utilities that:
+ * - Implement spec merging and splitting 
+ * - Support vendor extensions handling 
+ * - Provide spec optimization algorithms 
+ * - Implement security scheme resolution 
+ * - Support discriminator handling 
+ * - Provide operation deduplication 
+ * - Implement tag organization 
+ * - Support example generation 
+ * - Provide spec statistics 
+ * - Implement compatibility checking
  *
- * ===PROMPT END ==============================================================
+ * ============================================================================
  */

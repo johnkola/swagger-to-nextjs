@@ -1,15 +1,26 @@
 /**
- * ===AI PROMPT ==============================================================
+ * ============================================================================
+ * SWAGGER-TO-NEXTJS GENERATOR - AI PROMPT
+ * ============================================================================
  * FILE: src/migration/CodeMigrator.js
- * VERSION: 2025-05-25 13:22:11
+ * VERSION: 2025-05-28 15:14:56
+ * PHASE: PHASE 6: Performance & Optimization
+ * CATEGORY: 🚀 Caching System
  * ============================================================================
  *
  * AI GENERATION PROMPT:
- * Create a code migration system that can update generated code when OpenAPI
- * specs change, preserving custom modifications and handling breaking changes
- * gracefully.
  *
- * ---
+ * Create an intelligent code migration system that:
+ * - Analyzes existing generated code for modifications 
+ * - Implements AST-based code transformation 
+ * - Preserves custom code sections 
+ * - Provides conflict resolution strategies 
+ * - Implements rollback capabilities 
+ * - Supports incremental migrations 
+ * - Provides migration testing 
+ * - Implements migration scheduling 
+ * - Supports custom migration rules 
+ * - Provides migration analytics
  *
- * ===PROMPT END ==============================================================
+ * ============================================================================
  */

@@ -1,15 +1,26 @@
 /**
- * ===AI PROMPT ==============================================================
+ * ============================================================================
+ * SWAGGER-TO-NEXTJS GENERATOR - AI PROMPT
+ * ============================================================================
  * FILE: src/config/EnvironmentConfig.js
- * VERSION: 2025-05-25 13:22:11
+ * VERSION: 2025-05-28 15:14:56
+ * PHASE: PHASE 6: Performance & Optimization
+ * CATEGORY: 🚀 Caching System
  * ============================================================================
  *
  * AI GENERATION PROMPT:
- * Build an environment-specific configuration loader that handles different
- * environments (dev, staging, prod) with config inheritance, variable
- * substitution, and validation.
  *
- * ---
+ * Build an environment configuration system that:
+ * - Supports multiple environment definitions 
+ * - Implements secure secret management 
+ * - Provides environment variable validation 
+ * - Supports dynamic environment detection 
+ * - Implements configuration encryption 
+ * - Provides environment parity checking 
+ * - Supports remote configuration loading 
+ * - Implements configuration hot-reloading 
+ * - Provides environment migration tools 
+ * - Supports configuration templating
  *
- * ===PROMPT END ==============================================================
+ * ============================================================================
  */

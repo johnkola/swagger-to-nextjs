@@ -1,462 +1,642 @@
 /**
- * ===AI PROMPT ==============================================================
+ * ============================================================================
+ * SWAGGER-TO-NEXTJS GENERATOR - AI PROMPT
+ * ============================================================================
  * FILE: src/generators/BaseGenerator.js
- * VERSION: 2025-05-25 13:22:11
+ * VERSION: 2025-05-28 15:14:56
+ * PHASE: PHASE 3: Code Generation Engine
+ * CATEGORY: 🏗️ Base Generators
  * ============================================================================
  *
  * AI GENERATION PROMPT:
- * Create an abstract base class for code generators with common
- * functionality: template loading, file writing, variable substitution, and
- * logging utilities.
  *
- * ---
+ * Create a sophisticated abstract base generator class that:
+ * - Implements template method pattern for generation workflow
+ * - Provides lifecycle hooks (before, during, after generation)
+ * - Implements dependency injection for services
+ * - Provides template variable resolution
+ * - Implements file conflict resolution strategies
+ * - Supports incremental generation
+ * - Provides rollback capabilities
+ * - Implements generation metrics
+ * - Supports dry-run mode
+ * - Provides extension points for customization
  *
- * ===PROMPT END ==============================================================
- */
-/**
-/**
-/**
-/**
-/**
-/**
-/**
-/**
-/**
-/**
-/**
- * FILE: src/generators/BaseGenerator.js
- *
- * AI PROMPT FOR CODE REVIEW/ENHANCEMENT:
- * =====================================
- *
- * You are reviewing the base generator class that provides common functionality
- * for all code generators in the Swagger-to-NextJS toolkit. This class implements
- * shared utilities, helper methods, and common patterns used across different generators.
- *
- * RESPONSIBILITIES:
- * - Provide common utility methods for path manipulation and naming
- * - Handle OpenAPI schema processing and analysis
- * - Implement shared validation and sanitization logic
- * - Manage template data preparation and formatting
- * - Provide error handling patterns for all generators
- * - Abstract common file operations and logging
- *
- * SHARED FUNCTIONALITY:
- * - Path parameter extraction and Next.js route conversion
- * - Component and class name generation with proper casing
- * - OpenAPI schema analysis and type discovery
- * - Content sanitization for safe code generation
- * - HTTP method extraction and validation
- * - Template data structuring and preparation
- *
- * REVIEW FOCUS:
- * - Code reusability and DRY principle adherence
- * - Naming convention consistency and standards
- * - Error handling robustness and clarity
- * - Performance optimization for large schemas
- * - Extensibility for future generator types
+ * ============================================================================
  */
 
-const path = require('path');
+import { EventEmitter } from 'events';
+import path from 'path';
+import fs from 'fs-extra';
+import { Logger } from '../logging/Logger.js';
+import { GeneratorError } from '../errors/GeneratorError.js';
+import { TemplateEngine } from '../templates/TemplateEngine.js';
+import { FileWriter } from '../utils/FileWriter.js';
+import { CodeFormatter } from '../utils/CodeFormatter.js';
+import { performance } from 'perf_hooks';
 
-class BaseGenerator {
-    constructor() {
-        this.stats = {
-            generated: 0,
-            failed: 0,
-            errors: []
+/**
+ * Abstract base generator class implementing template method pattern
+ */
+export class BaseGenerator extends EventEmitter {
+    constructor(options = {}) {
+        super();
+
+        this.options = {
+            dryRun: false,
+            incremental: true,
+            formatCode: true,
+            conflictStrategy: 'prompt', // 'prompt' | 'overwrite' | 'skip' | 'backup'
+            metricsEnabled: true,
+            rollbackEnabled: true,
+            ...options
         };
-    }
 
-    /**
-     * Reset statistics
-     */
-    resetStats() {
-        this.stats = {
-            generated: 0,
-            failed: 0,
-            errors: []
-        };
-    }
+        // Dependencies injection
+        this.logger = options.logger || new Logger({ context: this.constructor.name });
+        this.templateEngine = options.templateEngine || new TemplateEngine();
+        this.fileWriter = options.fileWriter || new FileWriter();
+        this.codeFormatter = options.codeFormatter || new CodeFormatter();
 
-    /**
-     * Record successful generation
-     */
-    recordSuccess() {
-        this.stats.generated++;
-    }
-
-    /**
-     * Record failed generation
-     */
-    recordFailure(error) {
-        this.stats.failed++;
-        this.stats.errors.push(error);
-    }
-
-    /**
-     * Get generation statistics
-     */
-    getStats() {
-        return {...this.stats};
-    }
-
-    /**
-     * Extract HTTP methods from path item
-     */
-    getHttpMethods(pathItem) {
-        const methods = [];
-        const httpMethods = ['get', 'post', 'put', 'delete', 'patch', 'head', 'options'];
-
-        httpMethods.forEach(method => {
-            if (pathItem[method]) {
-                methods.push(method.toUpperCase());
+        // Generation state
+        this.state = {
+            initialized: false,
+            generating: false,
+            completed: false,
+            generatedFiles: [],
+            modifiedFiles: [],
+            skippedFiles: [],
+            conflicts: [],
+            metrics: {
+                startTime: null,
+                endTime: null,
+                filesGenerated: 0,
+                filesModified: 0,
+                filesSkipped: 0,
+                totalSize: 0
             }
-        });
+        };
 
-        return methods;
+        // Rollback tracking
+        this.rollbackData = {
+            originalFiles: new Map(),
+            createdFiles: new Set(),
+            modifiedFiles: new Map()
+        };
+
+        // Extension points map
+        this.extensions = new Map();
+
+        // Lifecycle hooks
+        this.hooks = {
+            beforeInit: [],
+            afterInit: [],
+            beforeValidate: [],
+            afterValidate: [],
+            beforeGenerate: [],
+            afterGenerate: [],
+            beforeWrite: [],
+            afterWrite: [],
+            onError: [],
+            onConflict: []
+        };
     }
 
     /**
-     * Extract path parameters from route
+     * Template method - main generation workflow
      */
-    extractPathParameters(routePath) {
-        const matches = routePath.match(/\{([^}]+)\}/g);
-        if (!matches) return [];
-
-        return matches.map(match => match.slice(1, -1)); // Remove { and }
-    }
-
-    /**
-     * Generate API class name from path segment
-     */
-    generateApiClassName(pathSegment) {
-        if (!pathSegment) return 'DefaultApi';
-
-        // Convert path segment to PascalCase and add Api suffix
-        const className = pathSegment
-            .split(/[-_]/)
-            .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-            .join('') + 'Api';
-
-        return className;
-    }
-
-    /**
-     * Generate a valid React component name
-     */
-    generateComponentName(routePath) {
-        // Remove path parameters and clean up the path
-        let cleanPath = routePath
-            .replace(/\{[^}]+\}/g, '') // Remove {param} patterns
-            .replace(/[^a-zA-Z0-9/_-]/g, '') // Remove special characters
-            .split('/')
-            .filter(segment => segment && segment.trim() !== '')
-            .map(segment => {
-                // Convert kebab-case to PascalCase
-                return segment
-                    .split(/[-_]/)
-                    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-                    .join('');
-            })
-            .join('');
-
-        // Ensure it starts with a capital letter
-        cleanPath = cleanPath.charAt(0).toUpperCase() + cleanPath.slice(1);
-
-        // Validate component name
-        if (!cleanPath || cleanPath === 'Page' || !/^[A-Z][a-zA-Z0-9]*$/.test(cleanPath)) {
-            cleanPath = 'ApiEndpoint';
+    async generate(context) {
+        if (this.state.generating) {
+            throw new GeneratorError('Generation already in progress');
         }
-
-        return cleanPath + 'Page';
-    }
-
-    /**
-     * Generate a meaningful page title
-     */
-    generatePageTitle(routePath, operation) {
-        if (operation && operation.summary) {
-            return operation.summary;
-        }
-
-        // Generate title from path
-        const pathParts = routePath
-            .split('/')
-            .filter(segment => segment && !segment.startsWith('{'))
-            .map(segment =>
-                segment.split(/[-_]/)
-                    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-                    .join(' ')
-            );
-
-        return pathParts.length > 0 ? pathParts.join(' - ') : 'API Endpoint';
-    }
-
-    /**
-     * Sanitize JSON for comments
-     */
-    sanitizeJsonForComment(obj, indent = 4) {
-        if (!obj) return '';
 
         try {
-            let jsonStr = JSON.stringify(obj, null, indent);
-            // Replace problematic patterns that could break comment blocks
-            jsonStr = jsonStr
-                .replace(/\*\//g, '*_/') // Replace */ with *_/
-                .replace(/\/\*/g, '/_*'); // Replace /* with /_*
-            return jsonStr;
+            this.state.generating = true;
+            this.state.metrics.startTime = performance.now();
+
+            // Lifecycle: Initialize
+            await this._runHooks('beforeInit', context);
+            await this.initialize(context);
+            await this._runHooks('afterInit', context);
+
+            // Lifecycle: Validate
+            await this._runHooks('beforeValidate', context);
+            await this.validate(context);
+            await this._runHooks('afterValidate', context);
+
+            // Lifecycle: Prepare
+            const preparedContext = await this.prepare(context);
+
+            // Lifecycle: Generate
+            await this._runHooks('beforeGenerate', preparedContext);
+            const files = await this.doGenerate(preparedContext);
+            await this._runHooks('afterGenerate', files);
+
+            // Lifecycle: Process
+            const processedFiles = await this.process(files);
+
+            // Lifecycle: Write
+            if (!this.options.dryRun) {
+                await this._runHooks('beforeWrite', processedFiles);
+                await this.write(processedFiles);
+                await this._runHooks('afterWrite', processedFiles);
+            }
+
+            // Lifecycle: Finalize
+            await this.finalize(processedFiles);
+
+            this.state.completed = true;
+            this.state.generating = false;
+            this.state.metrics.endTime = performance.now();
+
+            return this.getResults();
+
         } catch (error) {
-            return '{ /* Error serializing schema */ }';
+            this.state.generating = false;
+            await this._handleError(error);
+
+            if (this.options.rollbackEnabled) {
+                await this.rollback();
+            }
+
+            throw error;
         }
     }
 
     /**
-     * Sanitize content types and other strings for comments
+     * Initialize generator - override in subclasses
      */
-    sanitizeForComment(str) {
-        if (!str) return str;
+    async initialize(context) {
+        this.logger.debug('Initializing generator');
+        this.state.initialized = true;
 
-        // Replace problematic patterns
-        return str
-            .replace(/\*\/\*/g, 'any') // Replace */* with 'any'
-            .replace(/\*\//g, 'any/')   // Replace */ with 'any/'
-            .replace(/\/\*/g, '/any')   // Replace /* with '/any'
-            .replace(/\*\*/g, 'any')    // Replace ** with 'any'
-            .replace(/\*/g, 'any');     // Replace single * with 'any'
+        // Load templates
+        await this.loadTemplates();
+
+        // Setup working directory
+        if (context.outputDir) {
+            await fs.ensureDir(context.outputDir);
+        }
+
+        this.emit('initialized', { generator: this.constructor.name });
     }
 
     /**
-     * Find relevant schemas for operations
+     * Validate context - override in subclasses
      */
-    findRelevantSchemas(operations) {
-        const schemas = new Set();
+    async validate(context) {
+        this.logger.debug('Validating context');
 
-        Object.values(operations).forEach(operation => {
-            // Check request body schemas
-            if (operation.requestBody?.content) {
-                Object.values(operation.requestBody.content).forEach(content => {
-                    if (content.schema?.$ref) {
-                        const schemaName = content.schema.$ref.split('/').pop();
-                        schemas.add(schemaName);
+        if (!context) {
+            throw new GeneratorError('Context is required');
+        }
+
+        if (!context.swagger) {
+            throw new GeneratorError('Swagger specification is required');
+        }
+
+        // Subclasses should implement specific validation
+        await this.doValidate(context);
+
+        this.emit('validated', { valid: true });
+    }
+
+    /**
+     * Prepare context - override in subclasses
+     */
+    async prepare(context) {
+        this.logger.debug('Preparing context');
+
+        // Default preparation
+        const prepared = {
+            ...context,
+            generator: {
+                name: this.constructor.name,
+                version: this.options.version || '1.0.0',
+                timestamp: new Date().toISOString()
+            }
+        };
+
+        // Subclass-specific preparation
+        const customPrepared = await this.doPrepare(prepared);
+
+        this.emit('prepared', customPrepared);
+        return customPrepared;
+    }
+
+    /**
+     * Process generated files - formatting, optimization
+     */
+    async process(files) {
+        this.logger.debug(`Processing ${files.length} files`);
+
+        const processed = [];
+
+        for (const file of files) {
+            try {
+                let processedFile = { ...file };
+
+                // Format code if enabled
+                if (this.options.formatCode && this._isFormattable(file)) {
+                    processedFile = await this._formatFile(processedFile);
+                }
+
+                // Apply extensions
+                for (const [name, extension] of this.extensions) {
+                    if (extension.process) {
+                        processedFile = await extension.process(processedFile);
                     }
-                    // Handle nested schema references
-                    this.extractNestedSchemaRefs(content.schema, schemas);
-                });
-            }
-
-            // Check response schemas
-            Object.values(operation.responses || {}).forEach(response => {
-                if (response.content) {
-                    Object.values(response.content).forEach(content => {
-                        if (content.schema?.$ref) {
-                            const schemaName = content.schema.$ref.split('/').pop();
-                            schemas.add(schemaName);
-                        }
-                        // Handle nested schema references
-                        this.extractNestedSchemaRefs(content.schema, schemas);
-                    });
                 }
-            });
 
-            // Check parameter schemas
-            if (operation.parameters) {
-                operation.parameters.forEach(param => {
-                    if (param.schema?.$ref) {
-                        const schemaName = param.schema.$ref.split('/').pop();
-                        schemas.add(schemaName);
+                // Calculate metrics
+                processedFile.size = Buffer.byteLength(processedFile.content);
+                this.state.metrics.totalSize += processedFile.size;
+
+                processed.push(processedFile);
+
+            } catch (error) {
+                this.logger.error(`Error processing file ${file.path}:`, error);
+                throw new GeneratorError(`Failed to process ${file.path}: ${error.message}`);
+            }
+        }
+
+        this.emit('processed', processed);
+        return processed;
+    }
+
+    /**
+     * Write files with conflict resolution
+     */
+    async write(files) {
+        this.logger.info(`Writing ${files.length} files`);
+
+        for (const file of files) {
+            try {
+                const fullPath = path.resolve(file.path);
+                const exists = await fs.pathExists(fullPath);
+
+                if (exists) {
+                    // Handle conflict
+                    const resolution = await this._resolveConflict(file);
+
+                    switch (resolution) {
+                        case 'overwrite':
+                            await this._backupFile(fullPath);
+                            await this._writeFile(file);
+                            this.state.modifiedFiles.push(file);
+                            this.state.metrics.filesModified++;
+                            break;
+
+                        case 'skip':
+                            this.state.skippedFiles.push(file);
+                            this.state.metrics.filesSkipped++;
+                            this.logger.info(`Skipped ${file.path}`);
+                            break;
+
+                        case 'backup':
+                            await this._backupAndWrite(file);
+                            this.state.modifiedFiles.push(file);
+                            this.state.metrics.filesModified++;
+                            break;
+
+                        default:
+                            throw new GeneratorError(`Unknown conflict resolution: ${resolution}`);
                     }
-                });
+                } else {
+                    // New file
+                    await this._writeFile(file);
+                    this.state.generatedFiles.push(file);
+                    this.state.metrics.filesGenerated++;
+                    this.rollbackData.createdFiles.add(fullPath);
+                }
+
+            } catch (error) {
+                this.logger.error(`Error writing file ${file.path}:`, error);
+                throw new GeneratorError(`Failed to write ${file.path}: ${error.message}`);
             }
-        });
+        }
 
-        return Array.from(schemas);
+        this.emit('written', { count: files.length });
     }
 
     /**
-     * Helper to extract nested schema references
+     * Finalize generation - cleanup, reporting
      */
-    extractNestedSchemaRefs(schema, schemas) {
-        if (!schema) return;
+    async finalize(files) {
+        this.logger.debug('Finalizing generation');
 
-        if (schema.$ref) {
-            const schemaName = schema.$ref.split('/').pop();
-            schemas.add(schemaName);
+        // Generate summary report
+        const report = this.generateReport();
+
+        // Save metrics if enabled
+        if (this.options.metricsEnabled) {
+            await this.saveMetrics(report);
         }
 
-        if (schema.items && schema.items.$ref) {
-            const schemaName = schema.items.$ref.split('/').pop();
-            schemas.add(schemaName);
-        }
+        // Clean up temporary files
+        await this.cleanup();
 
-        if (schema.properties) {
-            Object.values(schema.properties).forEach(prop => {
-                this.extractNestedSchemaRefs(prop, schemas);
-            });
-        }
-
-        if (schema.allOf || schema.oneOf || schema.anyOf) {
-            const schemaList = schema.allOf || schema.oneOf || schema.anyOf;
-            schemaList.forEach(subSchema => {
-                this.extractNestedSchemaRefs(subSchema, schemas);
-            });
-        }
+        this.emit('finalized', report);
     }
 
     /**
-     * Generate imports for OpenAPI generated models
+     * Get generation results
      */
-    generateModelImports(relevantSchemas) {
-        if (!relevantSchemas || relevantSchemas.length === 0) {
-            return '';
-        }
+    getResults() {
+        const duration = this.state.metrics.endTime - this.state.metrics.startTime;
 
-        const modelImports = relevantSchemas
-            .filter(schema => schema && schema.trim() !== '')
-            .map(schema => schema.trim())
-            .join(', ');
-
-        // Use @ alias for clean imports
-        return `import { ${modelImports} } from '@/lib/api-client/model';\n`;
+        return {
+            success: this.state.completed,
+            duration: Math.round(duration),
+            files: {
+                generated: this.state.generatedFiles,
+                modified: this.state.modifiedFiles,
+                skipped: this.state.skippedFiles
+            },
+            metrics: this.state.metrics,
+            conflicts: this.state.conflicts
+        };
     }
 
     /**
-     * Generate API client imports
+     * Generate summary report
      */
-    generateApiClientImports(routePath) {
-        // Try to determine which API class to import based on the route path
-        const pathParts = routePath.split('/').filter(part => part && !part.startsWith('{'));
+    generateReport() {
+        const duration = this.state.metrics.endTime - this.state.metrics.startTime;
 
-        // Common API naming patterns
-        const apiClassGuesses = [
-            // Try to generate API class name from path
-            pathParts.length > 0 ? this.generateApiClassName(pathParts[pathParts.length - 1]) : null,
-            pathParts.length > 1 ? this.generateApiClassName(pathParts[pathParts.length - 2]) : null,
-            'DefaultApi' // Fallback
-        ].filter(name => name);
-
-        const primaryApiClass = apiClassGuesses[0];
-        // Use @ alias for clean imports
-        return `import { ${primaryApiClass}, Configuration } from '@/lib/api-client/api';\n`;
-    }
-
-    /**
-     * Convert OpenAPI schema to Zod type
-     */
-    getZodTypeFromSchema(schema) {
-        if (!schema) return 'z.unknown()';
-
-        switch (schema.type) {
-            case 'string':
-                if (schema.enum) {
-                    const enumValues = schema.enum.map(v => `'${v.replace(/'/g, "\\'")}'`).join(', ');
-                    return `z.enum([${enumValues}])`;
-                }
-                if (schema.format === 'email') return 'z.string().email()';
-                if (schema.format === 'uuid') return 'z.string().uuid()';
-                if (schema.format === 'date-time') return 'z.string().datetime()';
-                if (schema.minLength || schema.maxLength) {
-                    let validation = 'z.string()';
-                    if (schema.minLength) validation += `.min(${schema.minLength})`;
-                    if (schema.maxLength) validation += `.max(${schema.maxLength})`;
-                    return validation;
-                }
-                return 'z.string()';
-            case 'integer':
-                let intValidation = 'z.number().int()';
-                if (schema.minimum) intValidation += `.min(${schema.minimum})`;
-                if (schema.maximum) intValidation += `.max(${schema.maximum})`;
-                return intValidation;
-            case 'number':
-                let numValidation = 'z.number()';
-                if (schema.minimum) numValidation += `.min(${schema.minimum})`;
-                if (schema.maximum) numValidation += `.max(${schema.maximum})`;
-                return numValidation;
-            case 'boolean':
-                return 'z.boolean()';
-            case 'array':
-                const itemType = schema.items ? this.getZodTypeFromSchema(schema.items) : 'z.unknown()';
-                return `z.array(${itemType})`;
-            case 'object':
-                if (schema.properties) {
-                    return 'z.object({})'; // Simplified for now
-                }
-                return 'z.record(z.unknown())';
-            default:
-                return 'z.unknown()';
-        }
-    }
-
-    /**
-     * Extract operations from path item
-     */
-    extractOperations(pathItem, methods) {
-        const operations = {};
-
-        methods.forEach(method => {
-            const operation = pathItem[method.toLowerCase()];
-            if (operation) {
-                operations[method] = {
-                    summary: operation.summary || '',
-                    description: operation.description || '',
-                    parameters: operation.parameters || [],
-                    requestBody: operation.requestBody || null,
-                    responses: operation.responses || {}
-                };
+        return {
+            generator: this.constructor.name,
+            timestamp: new Date().toISOString(),
+            duration: Math.round(duration),
+            summary: {
+                filesGenerated: this.state.metrics.filesGenerated,
+                filesModified: this.state.metrics.filesModified,
+                filesSkipped: this.state.metrics.filesSkipped,
+                totalSize: this.state.metrics.totalSize,
+                conflicts: this.state.conflicts.length
+            },
+            files: {
+                generated: this.state.generatedFiles.map(f => f.path),
+                modified: this.state.modifiedFiles.map(f => f.path),
+                skipped: this.state.skippedFiles.map(f => f.path)
             }
-        });
-
-        return operations;
+        };
     }
 
     /**
-     * Determine if a page should be generated for this path
+     * Rollback changes
      */
-    shouldGeneratePage(swaggerPath) {
-        // Generate pages for paths that seem user-facing
-        const userFacingPatterns = [
-            '/users',
-            '/profile',
-            '/dashboard',
-            '/settings',
-            '/orders',
-            '/products'
+    async rollback() {
+        this.logger.warn('Rolling back changes');
+
+        try {
+            // Remove created files
+            for (const filePath of this.rollbackData.createdFiles) {
+                if (await fs.pathExists(filePath)) {
+                    await fs.remove(filePath);
+                    this.logger.debug(`Removed ${filePath}`);
+                }
+            }
+
+            // Restore modified files
+            for (const [filePath, originalContent] of this.rollbackData.modifiedFiles) {
+                await fs.writeFile(filePath, originalContent);
+                this.logger.debug(`Restored ${filePath}`);
+            }
+
+            this.emit('rolledback', {
+                created: this.rollbackData.createdFiles.size,
+                restored: this.rollbackData.modifiedFiles.size
+            });
+
+        } catch (error) {
+            this.logger.error('Rollback failed:', error);
+            throw new GeneratorError(`Rollback failed: ${error.message}`);
+        }
+    }
+
+    /**
+     * Add lifecycle hook
+     */
+    addHook(event, handler) {
+        if (this.hooks[event]) {
+            this.hooks[event].push(handler);
+        } else {
+            throw new GeneratorError(`Unknown hook event: ${event}`);
+        }
+        return this;
+    }
+
+    /**
+     * Register extension
+     */
+    registerExtension(name, extension) {
+        this.extensions.set(name, extension);
+        this.logger.debug(`Registered extension: ${name}`);
+        return this;
+    }
+
+    // ============================================================================
+    // Abstract methods - must be implemented by subclasses
+    // ============================================================================
+
+    /**
+     * Load templates - must be implemented
+     */
+    async loadTemplates() {
+        throw new GeneratorError('loadTemplates() must be implemented by subclass');
+    }
+
+    /**
+     * Validate implementation - must be implemented
+     */
+    async doValidate(context) {
+        throw new GeneratorError('doValidate() must be implemented by subclass');
+    }
+
+    /**
+     * Prepare implementation - must be implemented
+     */
+    async doPrepare(context) {
+        throw new GeneratorError('doPrepare() must be implemented by subclass');
+    }
+
+    /**
+     * Generate implementation - must be implemented
+     */
+    async doGenerate(context) {
+        throw new GeneratorError('doGenerate() must be implemented by subclass');
+    }
+
+    // ============================================================================
+    // Protected methods
+    // ============================================================================
+
+    /**
+     * Run lifecycle hooks
+     */
+    async _runHooks(event, data) {
+        const hooks = this.hooks[event] || [];
+
+        for (const hook of hooks) {
+            try {
+                await hook(data, this);
+            } catch (error) {
+                this.logger.error(`Hook error in ${event}:`, error);
+                // Don't throw - hooks shouldn't break generation
+            }
+        }
+    }
+
+    /**
+     * Handle errors
+     */
+    async _handleError(error) {
+        this.logger.error('Generation error:', error);
+
+        // Run error hooks
+        for (const handler of this.hooks.onError) {
+            try {
+                await handler(error, this);
+            } catch (hookError) {
+                this.logger.error('Error hook failed:', hookError);
+            }
+        }
+
+        this.emit('error', error);
+    }
+
+    /**
+     * Resolve file conflicts
+     */
+    async _resolveConflict(file) {
+        const conflict = {
+            file: file.path,
+            strategy: this.options.conflictStrategy,
+            timestamp: new Date().toISOString()
+        };
+
+        this.state.conflicts.push(conflict);
+
+        // Run conflict hooks
+        for (const handler of this.hooks.onConflict) {
+            const resolution = await handler(file, this);
+            if (resolution) {
+                return resolution;
+            }
+        }
+
+        // Default strategy
+        return this.options.conflictStrategy === 'prompt'
+            ? 'skip' // In non-interactive mode, default to skip
+            : this.options.conflictStrategy;
+    }
+
+    /**
+     * Check if file is formattable
+     */
+    _isFormattable(file) {
+        const formattableExtensions = [
+            '.js', '.jsx', '.ts', '.tsx',
+            '.json', '.css', '.scss', '.less',
+            '.html', '.md', '.yml', '.yaml'
         ];
 
-        return userFacingPatterns.some(pattern =>
-            swaggerPath.toLowerCase().includes(pattern)
-        );
+        return formattableExtensions.some(ext => file.path.endsWith(ext));
     }
 
     /**
-     * Log generation progress
+     * Format file content
      */
-    logProgress(message, details = null) {
-        console.log(`🔧 ${message}`);
-        if (details) {
-            console.log(`   ${details}`);
+    async _formatFile(file) {
+        try {
+            const formatted = await this.codeFormatter.format(file.content, {
+                filepath: file.path,
+                parser: this._getParser(file.path)
+            });
+
+            return {
+                ...file,
+                content: formatted,
+                formatted: true
+            };
+        } catch (error) {
+            this.logger.warn(`Failed to format ${file.path}:`, error.message);
+            return file;
         }
     }
 
     /**
-     * Log error with context
+     * Get parser for file type
      */
-    logError(message, error = null) {
-        console.error(`❌ ${message}`);
-        if (error) {
-            console.error(`   ${error.message}`);
-            if (process.env.DEBUG) {
-                console.error(`   ${error.stack}`);
-            }
+    _getParser(filepath) {
+        const ext = path.extname(filepath);
+        const parserMap = {
+            '.js': 'babel',
+            '.jsx': 'babel',
+            '.ts': 'typescript',
+            '.tsx': 'typescript',
+            '.json': 'json',
+            '.css': 'css',
+            '.scss': 'scss',
+            '.less': 'less',
+            '.html': 'html',
+            '.md': 'markdown',
+            '.yml': 'yaml',
+            '.yaml': 'yaml'
+        };
+
+        return parserMap[ext] || 'babel';
+    }
+
+    /**
+     * Write file
+     */
+    async _writeFile(file) {
+        const fullPath = path.resolve(file.path);
+        await fs.ensureDir(path.dirname(fullPath));
+        await fs.writeFile(fullPath, file.content, file.encoding || 'utf8');
+        this.logger.debug(`Wrote ${file.path}`);
+    }
+
+    /**
+     * Backup file
+     */
+    async _backupFile(filePath) {
+        if (this.options.rollbackEnabled) {
+            const content = await fs.readFile(filePath, 'utf8');
+            this.rollbackData.modifiedFiles.set(filePath, content);
         }
     }
 
     /**
-     * Log warning
+     * Backup and write file
      */
-    logWarning(message) {
-        console.warn(`⚠️  ${message}`);
+    async _backupAndWrite(file) {
+        const fullPath = path.resolve(file.path);
+        const backupPath = `${fullPath}.backup.${Date.now()}`;
+
+        await fs.copy(fullPath, backupPath);
+        await this._writeFile(file);
+
+        this.logger.info(`Backed up ${file.path} to ${backupPath}`);
+    }
+
+    /**
+     * Save metrics
+     */
+    async saveMetrics(report) {
+        // Subclasses can override to save metrics
+        this.emit('metrics', report);
+    }
+
+    /**
+     * Cleanup temporary files
+     */
+    async cleanup() {
+        // Subclasses can override for cleanup
+        this.emit('cleanup');
     }
 }
 
-module.exports = BaseGenerator;
+export default BaseGenerator;

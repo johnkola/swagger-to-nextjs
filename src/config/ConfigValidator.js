@@ -1,15 +1,26 @@
 /**
- * ===AI PROMPT ==============================================================
+ * ============================================================================
+ * SWAGGER-TO-NEXTJS GENERATOR - AI PROMPT
+ * ============================================================================
  * FILE: src/config/ConfigValidator.js
- * VERSION: 2025-05-25 13:22:11
+ * VERSION: 2025-05-28 15:14:56
+ * PHASE: PHASE 5: Enhanced Configuration System
+ * CATEGORY: ⚙️ Advanced Configuration Management
  * ============================================================================
  *
  * AI GENERATION PROMPT:
- * Build a configuration validator using JSON Schema or Zod to validate user
- * configuration files. Include detailed error messages, default value
- * injection, and migration support for config schema changes.
  *
- * ---
+ * Build an advanced configuration validator that:
+ * - Uses JSON Schema for validation with custom keywords 
+ * - Provides intelligent error messages with fix suggestions 
+ * - Implements configuration migration between versions 
+ * - Validates interdependent configuration options 
+ * - Supports environment-specific validation rules 
+ * - Implements type coercion with warnings 
+ * - Provides configuration linting 
+ * - Generates configuration documentation 
+ * - Supports dynamic validation rules 
+ * - Implements performance profiling
  *
- * ===PROMPT END ==============================================================
+ * ============================================================================
  */
