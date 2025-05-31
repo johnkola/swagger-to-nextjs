@@ -3,7 +3,7 @@
 SWAGGER-TO-NEXTJS GENERATOR - AI PROMPT
 ==============================================================================
 FILE: src/templates/files/api/route.ts.template
-VERSION: 2025-05-28 15:14:56
+VERSION: 2025-05-30 11:34:23
 PHASE: PHASE 4: Template Files
 CATEGORY: 📋 API Template Files
 ==============================================================================
@@ -18,7 +18,7 @@ routes that includes:
 - Authentication and authorization middleware 
 - Error handling with proper status codes 
 - Request/response logging 
-- Rate limiting implementation 
+- Rate-limiting implementation 
 - CORS configuration 
 - File upload support 
 - Response caching strategies

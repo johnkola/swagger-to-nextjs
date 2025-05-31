@@ -3,7 +3,7 @@
  * SWAGGER-TO-NEXTJS GENERATOR - AI PROMPT
  * ============================================================================
  * FILE: src/core/SwaggerLoader.js
- * VERSION: 2025-05-28 15:14:56
+ * VERSION: 2025-05-30 11:34:23
  * PHASE: PHASE 2: Core System Components
  * CATEGORY: 🔍 Core Infrastructure
  * ============================================================================
@@ -11,20 +11,20 @@
  * AI GENERATION PROMPT:
  *
  * Create an advanced SwaggerLoader class that:
- * - Loads OpenAPI/Swagger specs from multiple sources (URL, file, stdin)
- * - Supports authentication for protected endpoints (Bearer, API key, Basic)
- * - Implements smart caching with ETags and cache invalidation
- * - Handles large specifications with streaming support
- * - Resolves external references ($ref) recursively
- * - Supports both JSON and YAML with automatic detection
- * - Implements retry logic with exponential backoff
- * - Provides progress callbacks for large downloads
- * - Validates spec format before processing
+ * - Loads OpenAPI/Swagger specs from multiple sources (URL, file, stdin) 
+ * - Supports authentication for protected endpoints (Bearer, API key,
+ *   Basic) 
+ * - Implements smart caching with ETags and cache invalidation 
+ * - Handles large specifications with streaming support 
+ * - Resolves external references ($ref) recursively 
+ * - Supports both JSON and YAML with automatic detection 
+ * - Implements retry logic with exponential backoff 
+ * - Provides progress callbacks for large downloads 
+ * - Validates a spec format before processing 
  * - Supports OpenAPI 3.0, 3.1, and Swagger 2.0
  *
  * ============================================================================
  */
-
 const fs = require('fs').promises;
 const path = require('path');
 const axios = require('axios');

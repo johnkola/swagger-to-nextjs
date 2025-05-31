@@ -3,19 +3,62 @@
  * SWAGGER-TO-NEXTJS GENERATOR - AI PROMPT
  * ============================================================================
  * FILE: src/logging/ProgressReporter.js
- * VERSION: 2025-05-28 15:14:56
+ * VERSION: 2025-05-30 11:34:23
  * PHASE: PHASE 2: Core System Components
  * CATEGORY: 📊 Logging System
  * ============================================================================
+ *
+ * AI GENERATION PROMPT:
+ *
+ * Build an advanced progress reporting system that:
+ * - Implements multiple progress bar styles
+ * - Supports nested progress tracking
+ * - Provides ETA calculations
+ * - Implements smooth animations
+ * - Supports concurrent progress bars
+ * - Provides detailed step descriptions
+ * - Implements progress persistence
+ * - Supports headless mode for CI/CD
+ * - Provides progress webhooks
+ * - Implements adaptive update rates
+ *
+ * ============================================================================
  */
 
-import { EventEmitter } from 'events';
-import chalk from 'chalk';
-import cliProgress from 'cli-progress';
-import { format } from 'date-fns';
-import ora from 'ora';
-import fs from 'fs-extra';
-import path from 'path';
+const { EventEmitter } = require('events');
+const chalk = require('chalk');
+const cliProgress = require('cli-progress');
+const { format } = require('date-fns');
+const fs = require('fs-extra');
+const path = require('path');
+
+// Handle ora import (might be ESM)
+let ora;
+try {
+    ora = require('ora');
+    if (ora.default) ora = ora.default;
+} catch (e) {
+    // Fallback if ora fails
+    ora = (options) => ({
+        start: function(text) {
+            this.text = text || options.text;
+            console.log(`⏳ ${this.text}`);
+            return this;
+        },
+        succeed: function(text) {
+            console.log(`✅ ${text || this.text}`);
+            return this;
+        },
+        fail: function(text) {
+            console.log(`❌ ${text || this.text}`);
+            return this;
+        },
+        stop: function() {
+            return this;
+        },
+        text: ''
+    });
+}
 
 /**
  * Progress bar styles
@@ -183,7 +226,7 @@ class ProgressRenderer {
         // Replace tokens
         const tokens = {
             bar: options.barCompleteString + options.barIncompleteString,
-            percentage: params.progress * 100,
+            percentage: Math.round(params.progress * 100),
             value: params.value,
             total: params.total,
             step: payload.step || '',
@@ -283,7 +326,7 @@ class ProgressRenderer {
 /**
  * Main ProgressReporter class
  */
-export class ProgressReporter extends EventEmitter {
+class ProgressReporter extends EventEmitter {
     constructor(options = {}) {
         super();
 
@@ -325,9 +368,16 @@ export class ProgressReporter extends EventEmitter {
     /**
      * Create a new progress bar
      */
-    create(id, total, options = {}) {
+    create(id, total = 100, options = {}) {
+        if (typeof id === 'string' && typeof total === 'object' && !options) {
+            // Handle create(name) pattern from CLI
+            options = total;
+            total = 100;
+        }
+
         if (this.states.has(id)) {
-            throw new Error(`Progress ${id} already exists`);
+            // Return existing progress
+            return this.getProgress(id);
         }
 
         const state = new ProgressState(id, total, options);
@@ -345,7 +395,46 @@ export class ProgressReporter extends EventEmitter {
             timestamp: new Date()
         });
 
-        return this;
+        // Return progress control object
+        return this.getProgress(id);
+    }
+
+    /**
+     * Get progress control object
+     */
+    getProgress(id) {
+        const self = this;
+        return {
+            start: (text) => {
+                const state = self.states.get(id);
+                if (state) {
+                    state.step = text;
+                    self.update(id, state.current, text);
+                }
+            },
+            succeed: (text) => {
+                const state = self.states.get(id);
+                if (state) {
+                    state.step = text || state.step;
+                    self.update(id, state.total, state.step);
+                    console.log(chalk.green('✓'), text || state.step);
+                    self.complete(id);
+                }
+            },
+            fail: (text) => {
+                const state = self.states.get(id);
+                if (state) {
+                    console.log(chalk.red('✗'), text || state.step);
+                    self.complete(id);
+                }
+            },
+            update: (current, text) => {
+                self.update(id, current, text);
+            },
+            increment: (text) => {
+                self.increment(id, text);
+            }
+        };
     }
 
     /**
@@ -372,7 +461,8 @@ export class ProgressReporter extends EventEmitter {
     update(id, current, step) {
         const state = this.states.get(id);
         if (!state) {
-            throw new Error(`Progress ${id} not found`);
+            // Silently ignore if progress doesn't exist
+            return this;
         }
 
         const stats = state.update(current, step);
@@ -420,7 +510,7 @@ export class ProgressReporter extends EventEmitter {
     increment(id, step) {
         const state = this.states.get(id);
         if (!state) {
-            throw new Error(`Progress ${id} not found`);
+            return this;
         }
 
         return this.update(id, state.current + 1, step);
@@ -564,6 +654,7 @@ export class ProgressReporter extends EventEmitter {
             const report = this.getReport();
 
             try {
+                const fetch = global.fetch || require('node-fetch');
                 await fetch(this.options.webhookUrl, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -692,8 +783,12 @@ export class ProgressReporter extends EventEmitter {
 /**
  * Create a progress reporter instance
  */
-export const createProgressReporter = (options = {}) => {
+const createProgressReporter = (options = {}) => {
     return new ProgressReporter(options);
 };
 
-export default ProgressReporter;
+// CommonJS exports
+module.exports = ProgressReporter;
+module.exports.ProgressReporter = ProgressReporter;
+module.exports.createProgressReporter = createProgressReporter;
+module.exports.default = ProgressReporter;

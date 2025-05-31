@@ -3,7 +3,7 @@
  * SWAGGER-TO-NEXTJS GENERATOR - AI PROMPT
  * ============================================================================
  * FILE: config/defaults.js
- * VERSION: 2025-05-28 15:14:56
+ * VERSION: 2025-05-30 11:34:23
  * PHASE: PHASE 1: Foundation Components
  * CATEGORY: 🎯 Main Entry Points
  * ============================================================================
@@ -11,20 +11,19 @@
  * AI GENERATION PROMPT:
  *
  * Create a comprehensive default configuration module that exports:
- * - Output directory settings with intelligent defaults
- * - Template engine preferences and options
- * - Code generation settings (TypeScript strictness, formatting rules)
- * - File naming conventions (kebab-case, camelCase options)
- * - API client configuration (fetch, axios preferences)
- * - Authentication handling defaults
- * - Component generation preferences (UI library, styling approach)
- * - Build tool configuration (webpack, vite compatibility)
- * - Environment-specific overrides
+ * - Output directory settings with intelligent defaults 
+ * - Template engine preferences and options 
+ * - Code generation settings (TypeScript strictness, formatting rules) 
+ * - File naming conventions (kebab-case, camelCase options) 
+ * - API client configuration (fetch, axios preferences) 
+ * - Authentication handling defaults 
+ * - Component generation preferences (UI library, styling approach) 
+ * - Build tool configuration (webpack, vite compatibility) 
+ * - Environment-specific overrides 
  * - Feature flags for experimental functionality
  *
  * ============================================================================
  */
-
 const path = require('path');
 const os = require('os');
 

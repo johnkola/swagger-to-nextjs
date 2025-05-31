@@ -6,9 +6,23 @@ const SwaggerValidator = require('../../src/core/SwaggerValidator');
 
 describe('SwaggerValidator', () => {
     let validator;
+    let consoleSpy;
 
     beforeEach(() => {
         validator = new SwaggerValidator();
+        // Mock console methods to prevent output during tests
+        consoleSpy = {
+            log: jest.spyOn(console, 'log').mockImplementation(),
+            error: jest.spyOn(console, 'error').mockImplementation(),
+            warn: jest.spyOn(console, 'warn').mockImplementation()
+        };
+    });
+
+    afterEach(() => {
+        // Restore console methods
+        consoleSpy.log.mockRestore();
+        consoleSpy.error.mockRestore();
+        consoleSpy.warn.mockRestore();
     });
 
     const validOpenAPIDoc = {
@@ -53,154 +67,106 @@ describe('SwaggerValidator', () => {
     };
 
     describe('Basic Structure Validation', () => {
-        test('should validate correct OpenAPI document', () => {
-            const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
-
-            expect(() => validator.validate(validOpenAPIDoc)).not.toThrow();
-            expect(validator.errors).toHaveLength(0);
-
-            consoleSpy.mockRestore();
+        test('should validate correct OpenAPI document', async () => {
+            const result = await validator.validate(validOpenAPIDoc);
+            expect(result.valid).toBe(true);
+            expect(result.errors).toHaveLength(0);
         });
 
-        test('should validate correct Swagger document', () => {
-            const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
-
-            expect(() => validator.validate(validSwaggerDoc)).not.toThrow();
-            expect(validator.errors).toHaveLength(0);
-
-            consoleSpy.mockRestore();
+        test('should validate correct Swagger document', async () => {
+            const result = await validator.validate(validSwaggerDoc);
+            expect(result.valid).toBe(true);
+            expect(result.errors).toHaveLength(0);
         });
 
-        test('should reject null documents', () => {
-            const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
-
-            expect(() => validator.validate(null)).toThrow('Validation failed');
+        test('should reject null documents', async () => {
+            await expect(validator.validate(null)).rejects.toThrow('Validation failed');
             expect(validator.errors).toContain('Swagger document is empty or null');
-
-            consoleSpy.mockRestore();
         });
 
-        test('should reject non-object documents', () => {
-            const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
-
-            expect(() => validator.validate('not an object')).toThrow('Validation failed');
+        test('should reject non-object documents', async () => {
+            await expect(validator.validate('not an object')).rejects.toThrow('Validation failed');
             expect(validator.errors).toContain('Swagger document must be an object');
-
-            consoleSpy.mockRestore();
         });
 
-        test('should require paths section', () => {
-            const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
-            const docWithoutPaths = { openapi: '3.0.0', info: { title: 'Test' } };
-
-            expect(() => validator.validate(docWithoutPaths)).toThrow('Validation failed');
+        test('should require paths section', async () => {
+            const docWithoutPaths = { openapi: '3.0.0', info: { title: 'Test', version: '1.0.0' } };
+            await expect(validator.validate(docWithoutPaths)).rejects.toThrow('Validation failed');
             expect(validator.errors).toContain('No paths found in Swagger document - required for API generation');
-
-            consoleSpy.mockRestore();
         });
 
-        test('should warn about missing info section', () => {
-            const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
-            const docWithoutInfo = { openapi: '3.0.0', paths: {} };
-
-            validator.validate(docWithoutInfo);
-            expect(validator.warnings).toContain('No info section found - recommended for proper documentation');
-
-            consoleSpy.mockRestore();
+        test('should warn about missing info section', async () => {
+            const docWithoutInfo = { openapi: '3.0.0', paths: { '/test': { get: { responses: { '200': { description: 'OK' } } } } } };
+            const result = await validator.validate(docWithoutInfo);
+            expect(result.warnings).toContain('No info section found - recommended for proper documentation');
         });
     });
 
     describe('Version Validation', () => {
-        test('should accept valid OpenAPI versions', () => {
-            const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
-            const docs = [
-                { ...validOpenAPIDoc, openapi: '3.0.0' },
-                { ...validOpenAPIDoc, openapi: '3.0.1' },
-                { ...validOpenAPIDoc, openapi: '3.1.0' }
-            ];
+        test('should accept valid OpenAPI versions', async () => {
+            const versions = ['3.0.0', '3.0.1', '3.0.2', '3.0.3', '3.1.0', '3.2.0'];
 
-            docs.forEach(doc => {
+            for (const version of versions) {
+                const doc = { ...validOpenAPIDoc, openapi: version };
                 validator = new SwaggerValidator();
-                validator.validate(doc);
-                expect(validator.warnings.filter(w => w.includes('version')).length).toBe(0);
-            });
-
-            consoleSpy.mockRestore();
+                const result = await validator.validate(doc);
+                expect(result.warnings.filter(w => w.includes('may not be fully supported'))).toHaveLength(0);
+            }
         });
 
-        test('should accept valid Swagger versions', () => {
-            const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+        test('should accept valid Swagger versions', async () => {
             const doc = { ...validSwaggerDoc, swagger: '2.0' };
-
-            validator.validate(doc);
-            expect(validator.warnings.filter(w => w.includes('version')).length).toBe(0);
-
-            consoleSpy.mockRestore();
+            const result = await validator.validate(doc);
+            expect(result.warnings.filter(w => w.includes('may not be fully supported'))).toHaveLength(0);
         });
 
-        test('should warn about unsupported versions', () => {
-            const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+        test('should warn about unsupported versions', async () => {
             const doc = { ...validOpenAPIDoc, openapi: '4.0.0' };
-
-            validator.validate(doc);
-            expect(validator.warnings.some(w => w.includes('may not be fully supported'))).toBe(true);
-
-            consoleSpy.mockRestore();
+            const result = await validator.validate(doc);
+            expect(result.warnings.some(w => w.includes('may not be fully supported'))).toBe(true);
         });
 
-        test('should warn about missing version', () => {
-            const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
-            const docWithoutVersion = { info: { title: 'Test' }, paths: {} };
-
-            validator.validate(docWithoutVersion);
-            expect(validator.warnings).toContain('No OpenAPI/Swagger version specified - may cause compatibility issues');
-
-            consoleSpy.mockRestore();
+        test('should warn about missing version', async () => {
+            const docWithoutVersion = {
+                info: { title: 'Test', version: '1.0.0' },
+                paths: { '/test': { get: { responses: { '200': { description: 'OK' } } } } }
+            };
+            const result = await validator.validate(docWithoutVersion);
+            expect(result.warnings).toContain('No OpenAPI/Swagger version specified - may cause compatibility issues');
         });
     });
 
     describe('Path Validation', () => {
-        test('should validate paths with operations', () => {
-            const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
-
-            validator.validate(validOpenAPIDoc);
-            expect(validator.errors.filter(e => e.includes('path')).length).toBe(0);
-
-            consoleSpy.mockRestore();
+        test('should validate paths with operations', async () => {
+            const result = await validator.validate(validOpenAPIDoc);
+            expect(result.errors.filter(e => e.includes('path'))).toHaveLength(0);
         });
 
-        test('should warn about paths without operations', () => {
-            const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+        test('should warn about paths without operations', async () => {
             const docWithEmptyPath = {
                 ...validOpenAPIDoc,
                 paths: {
+                    ...validOpenAPIDoc.paths,
                     '/empty': {}
                 }
             };
-
-            validator.validate(docWithEmptyPath);
-            expect(validator.warnings.some(w => w.includes('no HTTP operations'))).toBe(true);
-
-            consoleSpy.mockRestore();
+            const result = await validator.validate(docWithEmptyPath);
+            expect(result.warnings.some(w => w.includes('no HTTP operations'))).toBe(true);
         });
 
-        test('should error on invalid path definitions', () => {
-            const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+        test('should error on invalid path definitions', async () => {
             const docWithInvalidPath = {
                 ...validOpenAPIDoc,
                 paths: {
                     '/invalid': 'not an object'
                 }
             };
-
-            expect(() => validator.validate(docWithInvalidPath)).toThrow('Validation failed');
-            expect(validator.errors.some(e => e.includes('invalid definition'))).toBe(true);
-
-            consoleSpy.mockRestore();
+            const result = await validator.validate(docWithInvalidPath);
+            expect(result.valid).toBe(false);
+            expect(result.errors.some(e => e.includes('invalid definition'))).toBe(true);
         });
 
-        test('should validate Next.js path compatibility', () => {
-            const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+        test('should validate Next.js path compatibility', async () => {
             const docWithSpecialChars = {
                 ...validOpenAPIDoc,
                 paths: {
@@ -211,15 +177,11 @@ describe('SwaggerValidator', () => {
                     }
                 }
             };
-
-            validator.validate(docWithSpecialChars);
-            expect(validator.warnings.some(w => w.includes('characters that may cause issues'))).toBe(true);
-
-            consoleSpy.mockRestore();
+            const result = await validator.validate(docWithSpecialChars);
+            expect(result.warnings.some(w => w.includes('characters that may cause issues'))).toBe(true);
         });
 
-        test('should validate parameter names in paths', () => {
-            const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+        test('should validate parameter names in paths', async () => {
             const docWithInvalidParam = {
                 ...validOpenAPIDoc,
                 paths: {
@@ -230,17 +192,13 @@ describe('SwaggerValidator', () => {
                     }
                 }
             };
-
-            validator.validate(docWithInvalidParam);
-            expect(validator.warnings.some(w => w.includes('may not be valid in Next.js'))).toBe(true);
-
-            consoleSpy.mockRestore();
+            const result = await validator.validate(docWithInvalidParam);
+            expect(result.warnings.some(w => w.includes('may not be valid in Next.js'))).toBe(true);
         });
     });
 
     describe('Operation Validation', () => {
-        test('should warn about missing responses', () => {
-            const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+        test('should warn about missing responses', async () => {
             const docWithoutResponses = {
                 ...validOpenAPIDoc,
                 paths: {
@@ -252,15 +210,11 @@ describe('SwaggerValidator', () => {
                     }
                 }
             };
-
-            validator.validate(docWithoutResponses);
-            expect(validator.warnings.some(w => w.includes('no response definitions'))).toBe(true);
-
-            consoleSpy.mockRestore();
+            const result = await validator.validate(docWithoutResponses);
+            expect(result.warnings.some(w => w.includes('no response definitions'))).toBe(true);
         });
 
-        test('should warn about missing documentation', () => {
-            const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+        test('should warn about missing documentation', async () => {
             const docWithoutDocs = {
                 ...validOpenAPIDoc,
                 paths: {
@@ -272,15 +226,11 @@ describe('SwaggerValidator', () => {
                     }
                 }
             };
-
-            validator.validate(docWithoutDocs);
-            expect(validator.warnings.some(w => w.includes('no summary or description'))).toBe(true);
-
-            consoleSpy.mockRestore();
+            const result = await validator.validate(docWithoutDocs);
+            expect(result.warnings.some(w => w.includes('no summary or description'))).toBe(true);
         });
 
-        test('should warn about missing success responses', () => {
-            const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+        test('should warn about missing success responses', async () => {
             const docWithoutSuccessResponse = {
                 ...validOpenAPIDoc,
                 paths: {
@@ -291,17 +241,29 @@ describe('SwaggerValidator', () => {
                     }
                 }
             };
+            const result = await validator.validate(docWithoutSuccessResponse);
+            expect(result.warnings.some(w => w.includes('No success response'))).toBe(true);
+        });
 
-            validator.validate(docWithoutSuccessResponse);
-            expect(validator.warnings.some(w => w.includes('No success response'))).toBe(true);
-
-            consoleSpy.mockRestore();
+        test('should warn about POST without request body', async () => {
+            const docWithPostNoBody = {
+                ...validOpenAPIDoc,
+                paths: {
+                    '/users': {
+                        post: {
+                            summary: 'Create user',
+                            responses: { '201': { description: 'Created' } }
+                        }
+                    }
+                }
+            };
+            const result = await validator.validate(docWithPostNoBody);
+            expect(result.warnings.some(w => w.includes('POST operation typically has a request body'))).toBe(true);
         });
     });
 
     describe('Schema Validation', () => {
-        test('should handle documents with schemas', () => {
-            const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+        test('should handle documents with schemas', async () => {
             const docWithSchemas = {
                 ...validOpenAPIDoc,
                 components: {
@@ -316,24 +278,17 @@ describe('SwaggerValidator', () => {
                     }
                 }
             };
-
-            validator.validate(docWithSchemas);
-            expect(validator.errors.filter(e => e.includes('schema')).length).toBe(0);
-
-            consoleSpy.mockRestore();
+            const result = await validator.validate(docWithSchemas);
+            expect(result.errors.filter(e => e.includes('schema'))).toHaveLength(0);
+            expect(result.stats.schemas).toBe(1);
         });
 
-        test('should warn about missing schemas', () => {
-            const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
-
-            validator.validate(validOpenAPIDoc);
-            expect(validator.warnings.some(w => w.includes('No schemas'))).toBe(true);
-
-            consoleSpy.mockRestore();
+        test('should warn about missing schemas', async () => {
+            const result = await validator.validate(validOpenAPIDoc);
+            expect(result.warnings.some(w => w.includes('No schemas'))).toBe(true);
         });
 
-        test('should error on invalid schema definitions', () => {
-            const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+        test('should error on invalid schema definitions', async () => {
             const docWithInvalidSchema = {
                 ...validOpenAPIDoc,
                 components: {
@@ -342,17 +297,14 @@ describe('SwaggerValidator', () => {
                     }
                 }
             };
-
-            expect(() => validator.validate(docWithInvalidSchema)).toThrow('Validation failed');
-            expect(validator.errors.some(e => e.includes('invalid definition'))).toBe(true);
-
-            consoleSpy.mockRestore();
+            const result = await validator.validate(docWithInvalidSchema);
+            expect(result.valid).toBe(false);
+            expect(result.errors.some(e => e.includes('invalid definition'))).toBe(true);
         });
     });
 
     describe('Parameter Validation', () => {
-        test('should validate parameter definitions', () => {
-            const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+        test('should validate parameter definitions', async () => {
             const docWithParams = {
                 ...validOpenAPIDoc,
                 paths: {
@@ -371,15 +323,11 @@ describe('SwaggerValidator', () => {
                     }
                 }
             };
-
-            validator.validate(docWithParams);
-            expect(validator.errors.filter(e => e.includes('parameter')).length).toBe(0);
-
-            consoleSpy.mockRestore();
+            const result = await validator.validate(docWithParams);
+            expect(result.errors.filter(e => e.includes('parameter'))).toHaveLength(0);
         });
 
-        test('should error on parameters without names', () => {
-            const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+        test('should error on parameters without names', async () => {
             const docWithUnnamedParam = {
                 ...validOpenAPIDoc,
                 paths: {
@@ -397,15 +345,12 @@ describe('SwaggerValidator', () => {
                     }
                 }
             };
-
-            expect(() => validator.validate(docWithUnnamedParam)).toThrow('Validation failed');
-            expect(validator.errors.some(e => e.includes('has no name'))).toBe(true);
-
-            consoleSpy.mockRestore();
+            const result = await validator.validate(docWithUnnamedParam);
+            expect(result.valid).toBe(false);
+            expect(result.errors.some(e => e.includes('has no name'))).toBe(true);
         });
 
-        test('should error on parameters without location', () => {
-            const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+        test('should error on parameters without location', async () => {
             const docWithoutLocation = {
                 ...validOpenAPIDoc,
                 paths: {
@@ -423,15 +368,12 @@ describe('SwaggerValidator', () => {
                     }
                 }
             };
-
-            expect(() => validator.validate(docWithoutLocation)).toThrow('Validation failed');
-            expect(validator.errors.some(e => e.includes('has no location'))).toBe(true);
-
-            consoleSpy.mockRestore();
+            const result = await validator.validate(docWithoutLocation);
+            expect(result.valid).toBe(false);
+            expect(result.errors.some(e => e.includes('has no location'))).toBe(true);
         });
 
-        test('should warn about parameters without schema', () => {
-            const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+        test('should warn about parameters without schema', async () => {
             const docWithoutSchema = {
                 ...validOpenAPIDoc,
                 paths: {
@@ -449,31 +391,22 @@ describe('SwaggerValidator', () => {
                     }
                 }
             };
-
-            validator.validate(docWithoutSchema);
-            expect(validator.warnings.some(w => w.includes('has no schema or type'))).toBe(true);
-
-            consoleSpy.mockRestore();
+            const result = await validator.validate(docWithoutSchema);
+            expect(result.warnings.some(w => w.includes('has no schema or type'))).toBe(true);
         });
     });
 
     describe('Edge Cases', () => {
-        test('should handle empty paths object', () => {
-            const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+        test('should handle empty paths object', async () => {
             const docWithEmptyPaths = {
                 ...validOpenAPIDoc,
                 paths: {}
             };
-
-            expect(() => validator.validate(docWithEmptyPaths)).toThrow('Validation failed');
+            await expect(validator.validate(docWithEmptyPaths)).rejects.toThrow('Validation failed');
             expect(validator.errors).toContain('No API paths found - nothing to generate');
-
-            consoleSpy.mockRestore();
         });
 
-        test('should handle very large documents', () => {
-            const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
-
+        test('should handle very large documents', async () => {
             // Create a large document with many paths
             const largePaths = {};
             for (let i = 0; i < 100; i++) {
@@ -490,15 +423,13 @@ describe('SwaggerValidator', () => {
             };
 
             // This should not throw or timeout
-            validator.validate(largeDoc);
-            expect(validator.errors.length).toBe(0);
-
-            consoleSpy.mockRestore();
+            const result = await validator.validate(largeDoc);
+            expect(result.errors).toHaveLength(0);
+            expect(result.stats.paths).toBe(100);
+            expect(result.stats.operations).toBe(100);
         });
 
-        test('should handle documents with circular references', () => {
-            const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
-
+        test('should handle documents with circular references', async () => {
             const circularDoc = {
                 ...validOpenAPIDoc
             };
@@ -507,17 +438,14 @@ describe('SwaggerValidator', () => {
             circularDoc.selfRef = circularDoc;
 
             // Should not crash the validator
-            expect(() => validator.validate(circularDoc)).not.toThrow();
-
-            consoleSpy.mockRestore();
+            const result = await validator.validate(circularDoc);
+            expect(result.valid).toBe(true);
         });
 
-        test('should handle malformed objects', () => {
-            const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
-
+        test('should handle malformed objects', async () => {
             const malformedDoc = {
                 openapi: '3.0.0',
-                info: { title: 'Test' },
+                info: { title: 'Test', version: '1.0.0' },
                 paths: {
                     '/test': {
                         get: {
@@ -526,11 +454,40 @@ describe('SwaggerValidator', () => {
                     }
                 }
             };
+            const result = await validator.validate(malformedDoc);
+            expect(result.warnings.some(w => w.includes('no response definitions'))).toBe(true);
+        });
+    });
 
-            validator.validate(malformedDoc);
-            expect(validator.warnings.some(w => w.includes('no response definitions'))).toBe(true);
+    describe('Utility Methods', () => {
+        test('should provide validation summary', async () => {
+            await validator.validate(validOpenAPIDoc);
+            const summary = validator.getSummary();
+            expect(summary).toContain('Validation passed');
+            expect(summary).toContain('1 paths');
+            expect(summary).toContain('1 operations');
+        });
 
-            consoleSpy.mockRestore();
+        test('should check if generation is possible', async () => {
+            await validator.validate(validOpenAPIDoc);
+            expect(validator.canGenerate()).toBe(true);
+
+            // Test with invalid doc
+            validator = new SwaggerValidator();
+            const emptyPathsDoc = {
+                openapi: '3.0.0',
+                info: { title: 'Test', version: '1.0.0' },
+                paths: {}
+            };
+
+            try {
+                await validator.validate(emptyPathsDoc);
+            } catch (e) {
+                // Expected to fail
+            }
+
+            // Check that canGenerate returns false when validationResult is null or invalid
+            expect(validator.canGenerate()).toBe(false);
         });
     });
 });

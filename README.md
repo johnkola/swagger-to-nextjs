@@ -3,14 +3,14 @@
 SWAGGER-TO-NEXTJS GENERATOR - AI PROMPT
 ==============================================================================
 FILE: README.md
-VERSION: 2025-05-28 15:14:56
+VERSION: 2025-05-30 11:34:23
 PHASE: PHASE 1: Foundation Components
 CATEGORY: 🚀 CLI Executable
 ==============================================================================
 
 AI GENERATION PROMPT:
 
-Write professional documentation for a Swagger-to-NextJS generator tool that
+Write professional documentation for a Swagger-to-Next.js generator tool that
 includes:
 - Clear project description and key features 
 - Prerequisites and system requirements 

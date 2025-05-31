@@ -3,7 +3,7 @@
  * SWAGGER-TO-NEXTJS GENERATOR - AI PROMPT
  * ============================================================================
  * FILE: src/errors/TemplateError.js
- * VERSION: 2025-05-28 15:14:56
+ * VERSION: 2025-05-30 11:34:23
  * PHASE: PHASE 2: Core System Components
  * CATEGORY: 🚨 Error Handling System
  * ============================================================================
@@ -11,20 +11,19 @@
  * AI GENERATION PROMPT:
  *
  * Create a detailed TemplateError class that:
- * - Pinpoints exact error location in templates
- * - Provides syntax highlighting for error context
- * - Includes variable scope information
- * - Shows template inheritance chain
- * - Provides helper function documentation
- * - Suggests common fixes
- * - Validates template syntax
- * - Checks for undefined variables
- * - Provides template debugging tips
+ * - Pinpoints exact error location in templates 
+ * - Provides syntax highlighting for error context 
+ * - Includes variable scope information 
+ * - Shows a template inheritance chain 
+ * - Provides helper function documentation 
+ * - Suggests common fixes 
+ * - Validates template syntax 
+ * - Checks for undefined variables 
+ * - Provides template debugging tips 
  * - Integrates with template engine errors
  *
  * ============================================================================
  */
-
 const GeneratorError = require('./GeneratorError');
 const chalk = require('chalk');
 const fs = require('fs').promises;

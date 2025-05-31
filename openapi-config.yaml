@@ -1,0 +1,25 @@
+inputSpec: http://localhost:8090/v3/api-docs
+outputDir: ./src/lib/api-client
+generatorName: typescript-axios
+skipValidateSpec: true
+additionalProperties:
+supportsES6: true
+withInterfaces: true
+useSingleRequestParameter: true
+prependFormOrBodyParameters: true
+useObjectParameters: true
+ensureUniqueParams: true
+modelPropertyNaming: camelCase
+enumPropertyNaming: UPPERCASE
+withSeparateModelsAndApi: true
+apiPackage: api
+modelPackage: model
+withoutPrefixEnums: true
+stringEnums: true
+withNodeImports: false
+withoutRuntimeChecks: false
+paramNaming: camelCase
+removeEnumValuePrefix: true
+typeMappings:
+DateTime: Date
+date: Date

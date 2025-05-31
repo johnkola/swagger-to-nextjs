@@ -3,7 +3,7 @@
  * SWAGGER-TO-NEXTJS GENERATOR - AI PROMPT
  * ============================================================================
  * FILE: src/migration/SpecComparator.js
- * VERSION: 2025-05-28 15:14:56
+ * VERSION: 2025-05-30 11:34:23
  * PHASE: PHASE 6: Performance & Optimization
  * CATEGORY: 🚀 Caching System
  * ============================================================================
@@ -12,7 +12,7 @@
  *
  * Build a specification comparison system that:
  * - Implements deep structural comparison of OpenAPI specs 
- * - Identifies breaking vs non-breaking changes 
+ * - Identifies breaking vs. non-breaking changes 
  * - Generates detailed change reports 
  * - Provides semantic versioning recommendations 
  * - Implements change categorization 

@@ -3,12 +3,27 @@
  * SWAGGER-TO-NEXTJS GENERATOR - AI PROMPT
  * ============================================================================
  * FILE: src/logging/LogFormatter.js
- * VERSION: 2025-05-28 15:14:56
+ * VERSION: 2025-05-30 11:34:23
  * PHASE: PHASE 3: Code Generation Engine
  * CATEGORY: 🏗️ Base Generators
  * ============================================================================
+ *
+ * AI GENERATION PROMPT:
+ *
+ * Create flexible log formatters that:
+ * - Implement colorized console output with themes 
+ * - Provide structured JSON formatting 
+ * - Support for custom timestamp formats 
+ * - Implement log level indicators 
+ * - Provide stack trace formatting 
+ * - Support multi-line log entries 
+ * - Implement context highlighting 
+ * - Provide compact and verbose modes 
+ * - Support emoji indicators 
+ * - Implement platform-specific formatting
+ *
+ * ============================================================================
  */
-
 import chalk from 'chalk';
 import { format } from 'date-fns';
 import stripAnsi from 'strip-ansi';

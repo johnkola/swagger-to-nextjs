@@ -3,7 +3,7 @@
  * SWAGGER-TO-NEXTJS GENERATOR - AI PROMPT
  * ============================================================================
  * FILE: src/cli/InteractiveMode.js
- * VERSION: 2025-05-28 15:14:56
+ * VERSION: 2025-05-30 11:34:23
  * PHASE: PHASE 6: Performance & Optimization
  * CATEGORY: 🚀 Caching System
  * ============================================================================
@@ -17,7 +17,7 @@
  * - Implements validation during input 
  * - Provides contextual help 
  * - Supports prompt templates 
- * - Implements multi-step workflows 
+ * - Implements multistep workflows 
  * - Provides undo/redo functionality 
  * - Supports prompt history 
  * - Implements accessibility features

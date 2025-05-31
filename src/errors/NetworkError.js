@@ -3,7 +3,7 @@
  * SWAGGER-TO-NEXTJS GENERATOR - AI PROMPT
  * ============================================================================
  * FILE: src/errors/NetworkError.js
- * VERSION: 2025-05-28 15:14:56
+ * VERSION: 2025-05-30 11:34:23
  * PHASE: PHASE 2: Core System Components
  * CATEGORY: 🚨 Error Handling System
  * ============================================================================
@@ -11,20 +11,19 @@
  * AI GENERATION PROMPT:
  *
  * Create a robust NetworkError class that:
- * - Handles various network failure scenarios
- * - Captures HTTP status codes and headers
- * - Implements retry recommendations
- * - Provides timeout context
- * - Includes proxy configuration hints
- * - Handles DNS resolution failures
- * - Provides offline mode suggestions
- * - Captures request/response details
- * - Implements circuit breaker patterns
+ * - Handles various network failure scenarios 
+ * - Captures HTTP status codes and headers 
+ * - Implements retry recommendations 
+ * - Provides timeout context 
+ * - Includes proxy configuration hints 
+ * - Handles DNS resolution failures 
+ * - Provides offline mode suggestions 
+ * - Captures request/response details 
+ * - Implements circuit breaker patterns 
  * - Provides network diagnostics
  *
  * ============================================================================
  */
-
 const GeneratorError = require('./GeneratorError');
 const dns = require('dns').promises;
 const url = require('url');

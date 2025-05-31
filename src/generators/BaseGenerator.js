@@ -3,7 +3,7 @@
  * SWAGGER-TO-NEXTJS GENERATOR - AI PROMPT
  * ============================================================================
  * FILE: src/generators/BaseGenerator.js
- * VERSION: 2025-05-28 15:14:56
+ * VERSION: 2025-05-30 11:34:23
  * PHASE: PHASE 3: Code Generation Engine
  * CATEGORY: 🏗️ Base Generators
  * ============================================================================
@@ -11,7 +11,7 @@
  * AI GENERATION PROMPT:
  *
  * Create a sophisticated abstract base generator class that:
- * - Implements template method pattern for generation workflow
+ * - Implements a template method pattern for generation workflow
  * - Provides lifecycle hooks (before, during, after generation)
  * - Implements dependency injection for services
  * - Provides template variable resolution
@@ -24,21 +24,23 @@
  *
  * ============================================================================
  */
+const { EventEmitter } = require('events');
+const path = require('path');
+const fs = require('fs').promises;
+const { performance } = require('perf_hooks');
 
-import { EventEmitter } from 'events';
-import path from 'path';
-import fs from 'fs-extra';
-import { Logger } from '../logging/Logger.js';
-import { GeneratorError } from '../errors/GeneratorError.js';
-import { TemplateEngine } from '../templates/TemplateEngine.js';
-import { FileWriter } from '../utils/FileWriter.js';
-import { CodeFormatter } from '../utils/CodeFormatter.js';
-import { performance } from 'perf_hooks';
+// Phase 2 components
+const Logger = require('../logging/Logger');
+const GeneratorError = require('../errors/GeneratorError');
+const DirectoryManager = require('../core/DirectoryManager');
+
+// Phase 3 components
+const TemplateEngine = require('../templates/TemplateEngine');
 
 /**
- * Abstract base generator class implementing template method pattern
+ * Abstract base generator class implementing a template method pattern
  */
-export class BaseGenerator extends EventEmitter {
+class BaseGenerator extends EventEmitter {
     constructor(options = {}) {
         super();
 
@@ -49,14 +51,22 @@ export class BaseGenerator extends EventEmitter {
             conflictStrategy: 'prompt', // 'prompt' | 'overwrite' | 'skip' | 'backup'
             metricsEnabled: true,
             rollbackEnabled: true,
+            templateDir: 'templates',
+            outputSubdir: '',
             ...options
         };
 
         // Dependencies injection
         this.logger = options.logger || new Logger({ context: this.constructor.name });
-        this.templateEngine = options.templateEngine || new TemplateEngine();
-        this.fileWriter = options.fileWriter || new FileWriter();
-        this.codeFormatter = options.codeFormatter || new CodeFormatter();
+        this.templateEngine = options.templateEngine || new TemplateEngine(options);
+        this.directoryManager = options.directoryManager || new DirectoryManager(options);
+        this.templateLoader = options.templateLoader; // Optional, from Phase 3
+
+        // Output directory
+        this.outputDir = path.join(
+            options.outputDir || process.cwd(),
+            this.options.outputSubdir
+        );
 
         // Generation state
         this.state = {
@@ -107,7 +117,9 @@ export class BaseGenerator extends EventEmitter {
      */
     async generate(context) {
         if (this.state.generating) {
-            throw new GeneratorError('Generation already in progress');
+            throw new GeneratorError('Generation already in progress', {
+                code: 'GENERATION_IN_PROGRESS'
+            });
         }
 
         try {
@@ -155,7 +167,7 @@ export class BaseGenerator extends EventEmitter {
             this.state.generating = false;
             await this._handleError(error);
 
-            if (this.options.rollbackEnabled) {
+            if (this.options.rollbackEnabled && !this.options.dryRun) {
                 await this.rollback();
             }
 
@@ -168,16 +180,26 @@ export class BaseGenerator extends EventEmitter {
      */
     async initialize(context) {
         this.logger.debug('Initializing generator');
-        this.state.initialized = true;
+
+        // Initialize template engine if needed
+        if (this.templateEngine.initialize) {
+            await this.templateEngine.initialize();
+        }
 
         // Load templates
         await this.loadTemplates();
 
-        // Setup working directory
+        // Setup output directory
         if (context.outputDir) {
-            await fs.ensureDir(context.outputDir);
+            this.outputDir = path.join(context.outputDir, this.options.outputSubdir);
         }
 
+        // Ensure output directory exists
+        if (!this.options.dryRun) {
+            await this.directoryManager.ensureDirectory(this.outputDir);
+        }
+
+        this.state.initialized = true;
         this.emit('initialized', { generator: this.constructor.name });
     }
 
@@ -188,11 +210,15 @@ export class BaseGenerator extends EventEmitter {
         this.logger.debug('Validating context');
 
         if (!context) {
-            throw new GeneratorError('Context is required');
+            throw new GeneratorError('Context is required', {
+                code: 'MISSING_CONTEXT'
+            });
         }
 
-        if (!context.swagger) {
-            throw new GeneratorError('Swagger specification is required');
+        if (!context.swagger && !context.openapi) {
+            throw new GeneratorError('Swagger/OpenAPI specification is required', {
+                code: 'MISSING_SPEC'
+            });
         }
 
         // Subclasses should implement specific validation
@@ -210,6 +236,7 @@ export class BaseGenerator extends EventEmitter {
         // Default preparation
         const prepared = {
             ...context,
+            outputDir: this.outputDir,
             generator: {
                 name: this.constructor.name,
                 version: this.options.version || '1.0.0',
@@ -236,9 +263,15 @@ export class BaseGenerator extends EventEmitter {
             try {
                 let processedFile = { ...file };
 
-                // Format code if enabled
-                if (this.options.formatCode && this._isFormattable(file)) {
-                    processedFile = await this._formatFile(processedFile);
+                // Ensure file has required properties
+                if (!processedFile.path) {
+                    throw new GeneratorError('File path is required', {
+                        code: 'MISSING_FILE_PATH'
+                    });
+                }
+
+                if (!processedFile.content) {
+                    processedFile.content = '';
                 }
 
                 // Apply extensions
@@ -256,7 +289,10 @@ export class BaseGenerator extends EventEmitter {
 
             } catch (error) {
                 this.logger.error(`Error processing file ${file.path}:`, error);
-                throw new GeneratorError(`Failed to process ${file.path}: ${error.message}`);
+                throw new GeneratorError(`Failed to process ${file.path}: ${error.message}`, {
+                    code: 'PROCESS_ERROR',
+                    file: file.path
+                });
             }
         }
 
@@ -273,7 +309,7 @@ export class BaseGenerator extends EventEmitter {
         for (const file of files) {
             try {
                 const fullPath = path.resolve(file.path);
-                const exists = await fs.pathExists(fullPath);
+                const exists = await this._fileExists(fullPath);
 
                 if (exists) {
                     // Handle conflict
@@ -300,7 +336,9 @@ export class BaseGenerator extends EventEmitter {
                             break;
 
                         default:
-                            throw new GeneratorError(`Unknown conflict resolution: ${resolution}`);
+                            throw new GeneratorError(`Unknown conflict resolution: ${resolution}`, {
+                                code: 'UNKNOWN_RESOLUTION'
+                            });
                     }
                 } else {
                     // New file
@@ -312,7 +350,10 @@ export class BaseGenerator extends EventEmitter {
 
             } catch (error) {
                 this.logger.error(`Error writing file ${file.path}:`, error);
-                throw new GeneratorError(`Failed to write ${file.path}: ${error.message}`);
+                throw new GeneratorError(`Failed to write ${file.path}: ${error.message}`, {
+                    code: 'WRITE_ERROR',
+                    file: file.path
+                });
             }
         }
 
@@ -392,8 +433,8 @@ export class BaseGenerator extends EventEmitter {
         try {
             // Remove created files
             for (const filePath of this.rollbackData.createdFiles) {
-                if (await fs.pathExists(filePath)) {
-                    await fs.remove(filePath);
+                if (await this._fileExists(filePath)) {
+                    await fs.unlink(filePath);
                     this.logger.debug(`Removed ${filePath}`);
                 }
             }
@@ -411,7 +452,9 @@ export class BaseGenerator extends EventEmitter {
 
         } catch (error) {
             this.logger.error('Rollback failed:', error);
-            throw new GeneratorError(`Rollback failed: ${error.message}`);
+            throw new GeneratorError(`Rollback failed: ${error.message}`, {
+                code: 'ROLLBACK_ERROR'
+            });
         }
     }
 
@@ -419,11 +462,13 @@ export class BaseGenerator extends EventEmitter {
      * Add lifecycle hook
      */
     addHook(event, handler) {
-        if (this.hooks[event]) {
-            this.hooks[event].push(handler);
-        } else {
-            throw new GeneratorError(`Unknown hook event: ${event}`);
+        if (!this.hooks[event]) {
+            throw new GeneratorError(`Unknown hook event: ${event}`, {
+                code: 'UNKNOWN_HOOK'
+            });
         }
+
+        this.hooks[event].push(handler);
         return this;
     }
 
@@ -444,28 +489,34 @@ export class BaseGenerator extends EventEmitter {
      * Load templates - must be implemented
      */
     async loadTemplates() {
-        throw new GeneratorError('loadTemplates() must be implemented by subclass');
+        // Default implementation - subclasses can override
+        this.logger.debug('No templates to load in base generator');
     }
 
     /**
      * Validate implementation - must be implemented
      */
     async doValidate(context) {
-        throw new GeneratorError('doValidate() must be implemented by subclass');
+        throw new GeneratorError('doValidate() must be implemented by subclass', {
+            code: 'NOT_IMPLEMENTED'
+        });
     }
 
     /**
      * Prepare implementation - must be implemented
      */
     async doPrepare(context) {
-        throw new GeneratorError('doPrepare() must be implemented by subclass');
+        // Default implementation - return context as-is
+        return context;
     }
 
     /**
      * Generate implementation - must be implemented
      */
     async doGenerate(context) {
-        throw new GeneratorError('doGenerate() must be implemented by subclass');
+        throw new GeneratorError('doGenerate() must be implemented by subclass', {
+            code: 'NOT_IMPLEMENTED'
+        });
     }
 
     // ============================================================================
@@ -533,60 +584,15 @@ export class BaseGenerator extends EventEmitter {
     }
 
     /**
-     * Check if file is formattable
+     * Check if file exists
      */
-    _isFormattable(file) {
-        const formattableExtensions = [
-            '.js', '.jsx', '.ts', '.tsx',
-            '.json', '.css', '.scss', '.less',
-            '.html', '.md', '.yml', '.yaml'
-        ];
-
-        return formattableExtensions.some(ext => file.path.endsWith(ext));
-    }
-
-    /**
-     * Format file content
-     */
-    async _formatFile(file) {
+    async _fileExists(filePath) {
         try {
-            const formatted = await this.codeFormatter.format(file.content, {
-                filepath: file.path,
-                parser: this._getParser(file.path)
-            });
-
-            return {
-                ...file,
-                content: formatted,
-                formatted: true
-            };
-        } catch (error) {
-            this.logger.warn(`Failed to format ${file.path}:`, error.message);
-            return file;
+            await fs.access(filePath);
+            return true;
+        } catch {
+            return false;
         }
-    }
-
-    /**
-     * Get parser for file type
-     */
-    _getParser(filepath) {
-        const ext = path.extname(filepath);
-        const parserMap = {
-            '.js': 'babel',
-            '.jsx': 'babel',
-            '.ts': 'typescript',
-            '.tsx': 'typescript',
-            '.json': 'json',
-            '.css': 'css',
-            '.scss': 'scss',
-            '.less': 'less',
-            '.html': 'html',
-            '.md': 'markdown',
-            '.yml': 'yaml',
-            '.yaml': 'yaml'
-        };
-
-        return parserMap[ext] || 'babel';
     }
 
     /**
@@ -594,8 +600,13 @@ export class BaseGenerator extends EventEmitter {
      */
     async _writeFile(file) {
         const fullPath = path.resolve(file.path);
-        await fs.ensureDir(path.dirname(fullPath));
-        await fs.writeFile(fullPath, file.content, file.encoding || 'utf8');
+
+        // Use DirectoryManager for safe file writing
+        await this.directoryManager.writeFile(fullPath, file.content, {
+            encoding: file.encoding || 'utf8',
+            ...file.options
+        });
+
         this.logger.debug(`Wrote ${file.path}`);
     }
 
@@ -604,8 +615,12 @@ export class BaseGenerator extends EventEmitter {
      */
     async _backupFile(filePath) {
         if (this.options.rollbackEnabled) {
-            const content = await fs.readFile(filePath, 'utf8');
-            this.rollbackData.modifiedFiles.set(filePath, content);
+            try {
+                const content = await fs.readFile(filePath, 'utf8');
+                this.rollbackData.modifiedFiles.set(filePath, content);
+            } catch (error) {
+                this.logger.warn(`Could not backup ${filePath}: ${error.message}`);
+            }
         }
     }
 
@@ -616,7 +631,11 @@ export class BaseGenerator extends EventEmitter {
         const fullPath = path.resolve(file.path);
         const backupPath = `${fullPath}.backup.${Date.now()}`;
 
-        await fs.copy(fullPath, backupPath);
+        // Create backup
+        const content = await fs.readFile(fullPath, 'utf8');
+        await fs.writeFile(backupPath, content);
+
+        // Write new content
         await this._writeFile(file);
 
         this.logger.info(`Backed up ${file.path} to ${backupPath}`);
@@ -626,17 +645,28 @@ export class BaseGenerator extends EventEmitter {
      * Save metrics
      */
     async saveMetrics(report) {
-        // Subclasses can override to save metrics
+        // Default implementation - emit metrics
         this.emit('metrics', report);
+
+        // Subclasses can override to save metrics to file/database
+        if (this.options.metricsFile) {
+            const metricsPath = path.join(this.outputDir, this.options.metricsFile);
+            await this.directoryManager.writeFile(
+                metricsPath,
+                JSON.stringify(report, null, 2)
+            );
+        }
     }
 
     /**
-     * Cleanup temporary files
+     * Clean up temporary files
      */
     async cleanup() {
-        // Subclasses can override for cleanup
+        // Default implementation - emit cleanup event
         this.emit('cleanup');
+
+        // Subclasses can override for specific cleanup
     }
 }
 
-export default BaseGenerator;
+module.exports = BaseGenerator;

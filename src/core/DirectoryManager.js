@@ -3,7 +3,7 @@
  * SWAGGER-TO-NEXTJS GENERATOR - AI PROMPT
  * ============================================================================
  * FILE: src/core/DirectoryManager.js
- * VERSION: 2025-05-28 15:14:56
+ * VERSION: 2025-05-30 11:34:23
  * PHASE: PHASE 2: Core System Components
  * CATEGORY: 🚨 Error Handling System
  * ============================================================================
@@ -11,21 +11,20 @@
  * AI GENERATION PROMPT:
  *
  * Create an intelligent DirectoryManager class that:
- * - Creates nested directory structures efficiently
- * - Handles platform-specific path separators
- * - Implements atomic file operations
- * - Provides rollback capabilities
- * - Checks available disk space
- * - Manages file permissions appropriately
- * - Implements safe overwrites with backups
- * - Provides dry-run capabilities
- * - Tracks created files for cleanup
- * - Supports symbolic links and junctions
+ * - Creates nested directory structures efficiently 
+ * - Handles platform-specific path separators 
+ * - Implements atomic file operations 
+ * - Provides rollback capabilities 
+ * - Checks available disk space 
+ * - Manages file permissions appropriately 
+ * - Implements safe overwrites with backups 
+ * - Provides dry-run capabilities 
+ * - Tracks created files for cleanup 
+ * - Supports symbolic links and junctions 
  * - Implements file locking for concurrent access
  *
  * ============================================================================
  */
-
 const fs = require('fs').promises;
 const path = require('path');
 const crypto = require('crypto');

@@ -3,7 +3,7 @@
  * SWAGGER-TO-NEXTJS GENERATOR - AI PROMPT
  * ============================================================================
  * FILE: src/utils/TypeScriptUtils.js
- * VERSION: 2025-05-28 15:14:56
+ * VERSION: 2025-05-30 11:34:23
  * PHASE: PHASE 6: Performance & Optimization
  * CATEGORY: 🚀 Caching System
  * ============================================================================
@@ -12,10 +12,10 @@
  *
  * Create advanced TypeScript utilities that:
  * - Implement complex generic type generation 
- * - Support conditional types and mapped types 
+ * - Support for conditional types and mapped types 
  * - Handle recursive type definitions 
  * - Implement type guard generation 
- * - Support branded types creation 
+ * - Support for branded types creation 
  * - Provide type inference helpers 
  * - Implement AST manipulation for precise control 
  * - Support module augmentation 

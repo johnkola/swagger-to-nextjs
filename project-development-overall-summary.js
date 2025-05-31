@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const chalk = require('chalk');
 
-// Define all files from Phases 1, 2, 3, and 4
+// Define all files from all phases
 const PHASE_FILES = {
     // PHASE 1: Foundation Components
     phase1: {
@@ -100,13 +100,136 @@ const PHASE_FILES = {
             'src/templates/files/config/globals.css.template',
             'src/templates/files/config/tsconfig.json.template',
             'src/templates/files/config/next.config.js.template',
-            'src/templates/files/config/dependencies.md.template'
+            'src/templates/files/config/dependencies.md.template',
+            'src/templates/files/config/docker.template',
+            'src/templates/files/config/eslint.config.js.template',
+            'src/templates/files/config/github-actions.yml.template',
+            'src/templates/files/config/prettier.config.js.template'
+        ]
+    },
+
+    // PHASE 5: Enhanced Configuration System
+    phase5: {
+        name: 'Phase 5: Enhanced Configuration System',
+        files: [
+            // Advanced Configuration Management
+            'src/config/ConfigValidator.js',
+            'src/config/ConfigMerger.js',
+            'src/config/EnvironmentConfig.js'
+        ]
+    },
+
+    // PHASE 6: Performance & Optimization
+    phase6: {
+        name: 'Phase 6: Performance & Optimization',
+        files: [
+            // Caching System
+            'src/cache/SpecCache.js',
+            'src/cache/TemplateCache.js',
+            'src/performance/GenerationOptimizer.js'
+        ]
+    },
+
+    // Additional Components
+    phase7: {
+        name: 'Phase 7: Additional Components',
+        files: [
+            // Analytics
+            'src/analytics/UsageTracker.js',
+
+            // CLI Components
+            'src/cli/ConfigGenerator.js',
+            'src/cli/DiffMode.js',
+            'src/cli/InteractiveMode.js',
+            'src/cli/WatchMode.js',
+
+            // Hooks System
+            'src/hooks/HookSystem.js',
+
+            // Migration System
+            'src/migration/BackupManager.js',
+            'src/migration/CodeMigrator.js',
+            'src/migration/SpecComparator.js',
+
+            // Monitoring
+            'src/monitoring/HealthChecker.js',
+
+            // Plugin System
+            'src/plugins/BasePlugin.js',
+            'src/plugins/PluginManager.js',
+            'src/plugins/PluginRegistry.js',
+
+            // Security
+            'src/security/CodeValidator.js',
+            'src/security/SpecSanitizer.js',
+
+            // Template System Components
+            'src/templates/ConditionalGenerator.js',
+            'src/templates/CustomHelpers.js',
+            'src/templates/TemplateInheritance.js',
+            'src/templates/TemplateValidator.js',
+
+            // Advanced Utilities
+            'src/utils/CodeFormatter.js',
+            'src/utils/DependencyAnalyzer.js',
+            'src/utils/OpenApiUtils.js',
+            'src/utils/TypeScriptUtils.js'
+        ]
+    },
+
+    // Example Files
+    phase8: {
+        name: 'Phase 8: Example Files',
+        files: [
+            // Pet Store Example
+            'examples/petstore-config/openapi-config.yaml',
+            'examples/petstore-config/README.md',
+
+            // Simple API Example
+            'examples/simple-api-config/openapi-config.yaml',
+            'examples/simple-api-config/README.md',
+
+            // Enterprise Example
+            'examples/enterprise-config/openapi-config.yaml',
+            'examples/enterprise-config/README.md',
+
+            // Microservices Example
+            'examples/microservices-config/openapi-config.yaml',
+            'examples/microservices-config/README.md',
+
+            // Plugin Development
+            'examples/plugin-development/README.md'
         ]
     }
 };
 
 // Minimum size in bytes to consider a file as "implemented" (not just a shell)
 const MIN_FILE_SIZE = 50;
+
+// Check if file contains only comments and whitespace
+function isCommentOnlyFile(filePath) {
+    try {
+        const content = fs.readFileSync(filePath, 'utf8');
+
+        // Remove all comments and whitespace
+        let cleanedContent = content
+            // Remove single-line comments
+            .replace(/\/\/.*$/gm, '')
+            // Remove multi-line comments
+            .replace(/\/\*[\s\S]*?\*\//g, '')
+            // Remove HTML/JSX comments
+            .replace(/<!--[\s\S]*?-->/g, '')
+            // Remove hash comments (for shell scripts, YAML, etc.)
+            .replace(/^#.*$/gm, '')
+            // Remove all whitespace
+            .replace(/\s/g, '');
+
+        // If nothing left after removing comments and whitespace, it's comment-only
+        return cleanedContent.length === 0;
+    } catch (error) {
+        return false;
+    }
+}
 
 // Check if a file exists and is not empty
 function checkFile(filePath) {
@@ -115,10 +238,13 @@ function checkFile(filePath) {
             return { exists: false, size: 0 };
         }
         const stats = fs.statSync(filePath);
+        const isCommentOnly = isCommentOnlyFile(filePath);
+
         return {
             exists: true,
             size: stats.size,
-            isImplemented: stats.size >= MIN_FILE_SIZE
+            isImplemented: stats.size >= MIN_FILE_SIZE && !isCommentOnly,
+            isCommentOnly: isCommentOnly
         };
     } catch (error) {
         return { exists: false, size: 0 };
@@ -153,9 +279,52 @@ function createTestFile(testPath, originalFile) {
 
     // Generate test content based on file type
     const className = path.basename(originalFile, path.extname(originalFile));
-    const testContent = `// Unit tests for ${originalFile}
+    const isTemplate = originalFile.endsWith('.template');
+    const isExample = originalFile.startsWith('examples/');
 
-describe('${className}', () => {
+    let testContent;
+
+    if (isTemplate) {
+        testContent = `// Unit tests for ${originalFile}
+
+describe('${className} Template', () => {
+  let templateEngine;
+  
+  beforeEach(() => {
+    // Setup template engine
+    templateEngine = new TemplateEngine();
+  });
+
+  afterEach(() => {
+    // Cleanup
+  });
+
+  describe('template compilation', () => {
+    test('should compile without errors', () => {
+      // TODO: Implement template compilation test
+      expect(true).toBe(true);
+    });
+    
+    test('should render with default context', () => {
+      // TODO: Test template rendering
+      expect(true).toBe(true);
+    });
+  });
+
+  describe('template variables', () => {
+    test('should handle all required variables', () => {
+      // TODO: Test variable substitution
+      expect(true).toBe(true);
+    });
+  });
+
+  // TODO: Add more template-specific tests
+});
+`;
+    } else if (isExample) {
+        testContent = `// Unit tests for ${originalFile}
+
+describe('${className} Example', () => {
   beforeEach(() => {
     // Setup
   });
@@ -164,16 +333,72 @@ describe('${className}', () => {
     // Cleanup
   });
 
-  describe('constructor', () => {
-    test('should initialize correctly', () => {
-      // TODO: Implement test
+  describe('example validation', () => {
+    test('should be valid YAML/JSON', () => {
+      // TODO: Validate example file format
+      expect(true).toBe(true);
+    });
+    
+    test('should contain required fields', () => {
+      // TODO: Validate example structure
       expect(true).toBe(true);
     });
   });
 
-  // TODO: Add more tests
+  // TODO: Add more example-specific tests
 });
 `;
+    } else {
+        // Standard JavaScript/TypeScript file
+        testContent = `// Unit tests for ${originalFile}
+
+describe('${className}', () => {
+  let instance;
+  
+  beforeEach(() => {
+    // Setup
+  });
+
+  afterEach(() => {
+    // Cleanup
+    jest.clearAllMocks();
+  });
+
+  describe('constructor', () => {
+    test('should initialize with default options', () => {
+      // TODO: Implement constructor test
+      expect(true).toBe(true);
+    });
+    
+    test('should accept custom options', () => {
+      // TODO: Test with custom configuration
+      expect(true).toBe(true);
+    });
+  });
+
+  describe('main functionality', () => {
+    test('should perform primary operation', () => {
+      // TODO: Implement main functionality test
+      expect(true).toBe(true);
+    });
+    
+    test('should handle edge cases', () => {
+      // TODO: Test edge cases
+      expect(true).toBe(true);
+    });
+  });
+
+  describe('error handling', () => {
+    test('should handle invalid input gracefully', () => {
+      // TODO: Test error scenarios
+      expect(true).toBe(true);
+    });
+  });
+
+  // TODO: Add more specific tests for ${className}
+});
+`;
+    }
 
     fs.writeFileSync(testPath, testContent);
     return true;
@@ -200,14 +425,17 @@ function checkImplementation(baseDir = '.', options = {}) {
     console.log(chalk.bold.blue('\n📊 Swagger-to-NextJS Implementation Status Check\n'));
     console.log(chalk.gray(`Base directory: ${path.resolve(baseDir)}`));
     console.log(chalk.gray(`Minimum file size: ${MIN_FILE_SIZE} bytes`));
-    console.log(chalk.gray(`Create test files: ${createTests}\n`));
+    console.log(chalk.gray(`Create test files: ${createTests}`));
+    console.log(chalk.gray(`Total phases: 8\n`));
 
     let totalFiles = 0;
     let implementedFiles = 0;
     let emptyFiles = 0;
+    let commentOnlyFiles = 0;
     let createdTests = 0;
     const missingFiles = [];
     const shellFiles = [];
+    const commentFiles = [];
 
     // Check each phase
     Object.values(PHASE_FILES).forEach(phase => {
@@ -216,8 +444,10 @@ function checkImplementation(baseDir = '.', options = {}) {
 
         let phaseImplemented = 0;
         let phaseEmpty = 0;
+        let phaseCommentOnly = 0;
         let phaseMissing = [];
         let phaseShells = [];
+        let phaseComments = [];
 
         phase.files.forEach(file => {
             const filePath = path.join(baseDir, file);
@@ -232,6 +462,14 @@ function checkImplementation(baseDir = '.', options = {}) {
                 status = 'MISSING';
                 missingFiles.push(file);
                 phaseMissing.push(file);
+            } else if (fileInfo.isCommentOnly) {
+                icon = '💬';
+                color = 'yellow';
+                status = `COMMENT-ONLY (${formatSize(fileInfo.size)})`;
+                commentOnlyFiles++;
+                phaseCommentOnly++;
+                commentFiles.push(file);
+                phaseComments.push(file);
             } else if (!fileInfo.isImplemented) {
                 icon = '○';
                 color = 'yellow';
@@ -254,7 +492,7 @@ function checkImplementation(baseDir = '.', options = {}) {
                 chalk[color](status)
             );
 
-            // Create test file if requested and source exists
+            // Create test file if requested and source exists (including empty files)
             if (createTests && fileInfo.exists && file.startsWith('src/')) {
                 const testPath = getTestFilePath(file);
                 const fullTestPath = path.join(baseDir, testPath);
@@ -274,6 +512,7 @@ function checkImplementation(baseDir = '.', options = {}) {
         console.log(chalk.gray('\n' + '─'.repeat(60)));
         console.log(
             `Phase Progress: ${chalk.bold.green(phaseImplemented)}/${phase.files.length} implemented, ` +
+            `${chalk.bold.yellow(phaseCommentOnly)} comment-only, ` +
             `${chalk.bold.yellow(phaseEmpty)} empty, ` +
             `${chalk.bold.red(phaseMissing.length)} missing ` +
             `(${phasePercentage}% complete)`
@@ -286,8 +525,9 @@ function checkImplementation(baseDir = '.', options = {}) {
 
     const overallPercentage = ((implementedFiles / totalFiles) * 100).toFixed(1);
     console.log(`Total Files: ${chalk.bold(totalFiles)}`);
-    console.log(`Implemented: ${chalk.bold.green(implementedFiles)} (non-empty files ≥ ${MIN_FILE_SIZE} bytes)`);
-    console.log(`Empty Shells: ${chalk.bold.yellow(emptyFiles)}`);
+    console.log(`Implemented: ${chalk.bold.green(implementedFiles)} (non-empty files ≥ ${MIN_FILE_SIZE} bytes with code)`);
+    console.log(`Comment-Only: ${chalk.bold.yellow(commentOnlyFiles)} (files with only comments)`);
+    console.log(`Empty Shells: ${chalk.bold.yellow(emptyFiles)} (files < ${MIN_FILE_SIZE} bytes)`);
     console.log(`Missing: ${chalk.bold.red(missingFiles.length)}`);
     console.log(`Implementation Progress: ${chalk.bold(overallPercentage + '%')}`);
 
@@ -295,19 +535,58 @@ function checkImplementation(baseDir = '.', options = {}) {
         console.log(`Test Files Created: ${chalk.bold.cyan(createdTests)}`);
     }
 
+    // Check for existing tests
+    let existingTests = 0;
+    let missingTests = [];
+
+    Object.values(PHASE_FILES).forEach(phase => {
+        phase.files.forEach(file => {
+            if (file.startsWith('src/')) {
+                const testPath = getTestFilePath(file);
+                const fullTestPath = path.join(baseDir, testPath);
+                if (fs.existsSync(fullTestPath)) {
+                    existingTests++;
+                } else {
+                    const srcPath = path.join(baseDir, file);
+                    if (fs.existsSync(srcPath)) {
+                        missingTests.push(testPath);
+                    }
+                }
+            }
+        });
+    });
+
+    const totalTestableFiles = Object.values(PHASE_FILES)
+        .flatMap(phase => phase.files)
+        .filter(file => file.startsWith('src/')).length;
+
+    console.log(`Test Coverage: ${chalk.bold.cyan(existingTests)}/${totalTestableFiles} ` +
+        `(${((existingTests / totalTestableFiles) * 100).toFixed(1)}%)`);
+
     // Progress bar
     const progressBarLength = 40;
     const implementedLength = Math.round((implementedFiles / totalFiles) * progressBarLength);
+    const commentLength = Math.round((commentOnlyFiles / totalFiles) * progressBarLength);
     const emptyLength = Math.round((emptyFiles / totalFiles) * progressBarLength);
     const progressBar =
         chalk.green('█'.repeat(implementedLength)) +
+        chalk.yellow('▓'.repeat(commentLength)) +
         chalk.yellow('▒'.repeat(emptyLength)) +
-        chalk.gray('░'.repeat(progressBarLength - implementedLength - emptyLength));
+        chalk.gray('░'.repeat(progressBarLength - implementedLength - commentLength - emptyLength));
 
     console.log(`\n[${progressBar}] ${overallPercentage}%`);
-    console.log(chalk.gray(`Green: Implemented | Yellow: Empty | Gray: Missing`));
+    console.log(chalk.gray(`Green: Implemented | Yellow ▓: Comment-only | Yellow ▒: Empty | Gray: Missing`));
 
     // List problematic files
+    if (commentFiles.length > 0) {
+        console.log(chalk.bold.yellow('\n\n💬 Comment-Only Files'));
+        console.log(chalk.gray('═'.repeat(60)));
+        console.log(chalk.gray('These files contain only comments and need implementation:'));
+
+        const groupedComments = groupByDirectory(commentFiles);
+        printGroupedFiles(groupedComments, chalk.yellow);
+    }
+
     if (shellFiles.length > 0) {
         console.log(chalk.bold.yellow('\n\n⚠️  Empty Shell Files'));
         console.log(chalk.gray('═'.repeat(60)));
@@ -325,7 +604,7 @@ function checkImplementation(baseDir = '.', options = {}) {
     }
 
     // Quick setup commands
-    if (missingFiles.length > 0 || shellFiles.length > 0) {
+    if (missingFiles.length > 0 || shellFiles.length > 0 || commentFiles.length > 0) {
         console.log(chalk.bold.blue('\n\n🛠️  Quick Setup Commands'));
         console.log(chalk.gray('═'.repeat(60)));
 
@@ -349,13 +628,23 @@ function checkImplementation(baseDir = '.', options = {}) {
         }
     }
 
+    // Show missing tests summary
+    if (!createTests && missingTests.length > 0) {
+        console.log(chalk.bold.cyan('\n\n🧪 Missing Test Files'));
+        console.log(chalk.gray('═'.repeat(60)));
+        console.log(chalk.yellow(`Found ${missingTests.length} source files without tests.`));
+        console.log(chalk.gray('Run with --create-tests to generate them automatically.'));
+    }
+
     // Return results for programmatic use
     return {
         totalFiles,
         implementedFiles,
         emptyFiles,
+        commentOnlyFiles,
         missingFiles,
         shellFiles,
+        commentFiles,
         createdTests,
         percentage: overallPercentage,
         phases: Object.entries(PHASE_FILES).map(([key, phase]) => ({
@@ -365,9 +654,13 @@ function checkImplementation(baseDir = '.', options = {}) {
                 const info = checkFile(path.join(baseDir, f));
                 return info.exists && info.isImplemented;
             }).length,
+            commentOnly: phase.files.filter(f => {
+                const info = checkFile(path.join(baseDir, f));
+                return info.exists && info.isCommentOnly;
+            }).length,
             empty: phase.files.filter(f => {
                 const info = checkFile(path.join(baseDir, f));
-                return info.exists && !info.isImplemented;
+                return info.exists && !info.isImplemented && !info.isCommentOnly;
             }).length,
             missing: phase.files.filter(f => !checkFile(path.join(baseDir, f)).exists)
         }))
@@ -406,6 +699,7 @@ function generateReport(results) {
             totalFiles: results.totalFiles,
             implementedFiles: results.implementedFiles,
             emptyFiles: results.emptyFiles,
+            commentOnlyFiles: results.commentOnlyFiles,
             missingFiles: results.missingFiles.length,
             completionPercentage: results.percentage,
             testFilesCreated: results.createdTests
@@ -413,6 +707,7 @@ function generateReport(results) {
         phases: results.phases,
         missingFiles: results.missingFiles,
         emptyShellFiles: results.shellFiles,
+        commentOnlyFiles: results.commentFiles,
         minimumFileSize: MIN_FILE_SIZE
     };
 
@@ -456,11 +751,11 @@ if (require.main === module) {
     }
 
     // Exit with error code if files are missing or empty
-    if (results.missingFiles.length > 0 || results.emptyFiles > 0) {
+    if (results.missingFiles.length > 0 || results.emptyFiles > 0 || results.commentOnlyFiles > 0) {
         console.log(chalk.yellow('\n⚠️  Implementation incomplete. Use --help for options.'));
         process.exit(1);
     } else {
-        console.log(chalk.green('\n✅ All Phase 1-4 files are fully implemented!'));
+        console.log(chalk.green('\n✅ All Phase 1-8 files are fully implemented!'));
         process.exit(0);
     }
 }

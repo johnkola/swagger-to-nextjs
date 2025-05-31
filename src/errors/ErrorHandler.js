@@ -3,7 +3,7 @@
  * SWAGGER-TO-NEXTJS GENERATOR - AI PROMPT
  * ============================================================================
  * FILE: src/errors/ErrorHandler.js
- * VERSION: 2025-05-28 15:14:56
+ * VERSION: 2025-05-30 11:34:23
  * PHASE: PHASE 2: Core System Components
  * CATEGORY: 📊 Logging System
  * ============================================================================
@@ -11,20 +11,19 @@
  * AI GENERATION PROMPT:
  *
  * Build a centralized error handler that:
- * - Implements error classification and routing
- * - Provides multiple output formatters (CLI, JSON, HTML)
- * - Implements error aggregation for bulk operations
- * - Provides contextual error grouping
- * - Implements error recovery strategies
- * - Integrates with monitoring services
- * - Provides error statistics and analytics
- * - Implements rate limiting for error reporting
- * - Supports custom error handlers
+ * - Implements error classification and routing 
+ * - Provides multiple output formatters (CLI, JSON, HTML) 
+ * - Implements error aggregation for bulk operations 
+ * - Provides contextual error grouping 
+ * - Implements error recovery strategies 
+ * - Integrates with monitoring services 
+ * - Provides error statistics and analytics 
+ * - Implements rate limiting for error reporting 
+ * - Supports custom error handlers 
  * - Provides debug mode with stack traces
  *
  * ============================================================================
  */
-
 const { EventEmitter } = require('events');
 const chalk = require('chalk');
 const fs = require('fs').promises;

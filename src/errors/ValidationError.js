@@ -3,7 +3,7 @@
  * SWAGGER-TO-NEXTJS GENERATOR - AI PROMPT
  * ============================================================================
  * FILE: src/errors/ValidationError.js
- * VERSION: 2025-05-28 15:14:56
+ * VERSION: 2025-05-30 11:34:23
  * PHASE: PHASE 2: Core System Components
  * CATEGORY: 🚨 Error Handling System
  * ============================================================================
@@ -11,20 +11,19 @@
  * AI GENERATION PROMPT:
  *
  * Build a specialized ValidationError class that:
- * - Captures field-level validation failures
- * - Provides JSON Pointer references to error locations
- * - Includes schema snippets for context
- * - Suggests corrections for common patterns
- * - Groups related errors intelligently
- * - Formats errors for CLI and JSON output
- * - Implements error severity levels
- * - Provides links to documentation
- * - Supports custom validation rules
+ * - Captures field-level validation failures 
+ * - Provides JSON Pointer references to error locations 
+ * - Includes schema snippets for context 
+ * - Suggests corrections for common patterns 
+ * - Groups related errors intelligently 
+ * - Formats errors for CLI and JSON output 
+ * - Implements error severity levels 
+ * - Provides links to documentation 
+ * - Supports custom validation rules 
  * - Integrates with IDE error formats
  *
  * ============================================================================
  */
-
 const GeneratorError = require('./GeneratorError');
 const chalk = require('chalk');
 

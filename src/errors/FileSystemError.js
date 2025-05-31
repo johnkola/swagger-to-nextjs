@@ -3,7 +3,7 @@
  * SWAGGER-TO-NEXTJS GENERATOR - AI PROMPT
  * ============================================================================
  * FILE: src/errors/FileSystemError.js
- * VERSION: 2025-05-28 15:14:56
+ * VERSION: 2025-05-30 11:34:23
  * PHASE: PHASE 2: Core System Components
  * CATEGORY: 🚨 Error Handling System
  * ============================================================================
@@ -11,20 +11,19 @@
  * AI GENERATION PROMPT:
  *
  * Build a comprehensive FileSystemError class that:
- * - Handles permission denied scenarios
- * - Provides platform-specific solutions
- * - Includes disk space warnings
- * - Handles path length limitations
- * - Provides file lock information
- * - Suggests alternative locations
- * - Implements recovery strategies
- * - Handles symbolic link issues
- * - Provides cleanup instructions
+ * - Handles permission denied scenarios 
+ * - Provides platform-specific solutions 
+ * - Includes disk space warnings 
+ * - Handles path length limitations 
+ * - Provides file lock information 
+ * - Suggests alternative locations 
+ * - Implements recovery strategies 
+ * - Handles symbolic link issues 
+ * - Provides cleanup instructions 
  * - Integrates with OS-specific error codes
  *
  * ============================================================================
  */
-
 const GeneratorError = require('./GeneratorError');
 const os = require('os');
 const path = require('path');

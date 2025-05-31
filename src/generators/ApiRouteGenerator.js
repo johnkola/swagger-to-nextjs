@@ -3,7 +3,7 @@
  * SWAGGER-TO-NEXTJS GENERATOR - AI PROMPT
  * ============================================================================
  * FILE: src/generators/ApiRouteGenerator.js
- * VERSION: 2025-05-28 15:14:56
+ * VERSION: 2025-05-30 11:34:23
  * PHASE: PHASE 3: Code Generation Engine
  * CATEGORY: 🏗️ Base Generators
  * ============================================================================
@@ -11,32 +11,31 @@
  * AI GENERATION PROMPT:
  *
  * Build an intelligent API route generator that:
- * - Generates Next.js 13+ App Router API routes 
- * - Implements proper TypeScript typing from OpenAPI schemas 
- * - Generates request/response validation using Zod 
- * - Implements error handling middleware 
- * - Generates authentication guards 
- * - Supports file upload handling 
- * - Implements rate limiting 
- * - Generates API documentation 
- * - Supports WebSocket endpoints 
+ * - Generates Next.js 13+ App Router API routes
+ * - Implements proper TypeScript typing from OpenAPI schemas
+ * - Generates request/response validation using Zod
+ * - Implements error handling middleware
+ * - Generates authentication guards
+ * - Supports file upload handling
+ * - Implements rate limiting
+ * - Generates API documentation
+ * - Supports WebSocket endpoints
  * - Implements request/response logging
  *
  * ============================================================================
  */
-
-import path from 'path';
-import { BaseGenerator } from './BaseGenerator.js';
-import { GeneratorError } from '../errors/GeneratorError.js';
-import { PathUtils } from '../utils/PathUtils.js';
-import { SchemaUtils } from '../utils/SchemaUtils.js';
-import { StringUtils } from '../utils/StringUtils.js';
-import { TypeScriptUtils } from '../utils/TypeScriptUtils.js';
+const path = require('path');
+const BaseGenerator = require('./BaseGenerator');
+const GeneratorError = require('../errors/GeneratorError');
+const PathUtils = require('../utils/PathUtils');
+const SchemaUtils = require('../utils/SchemaUtils');
+const StringUtils = require('../utils/StringUtils');
+const ValidationUtils = require('../utils/ValidationUtils');
 
 /**
  * Generates Next.js 13+ App Router API routes from OpenAPI specs
  */
-export class ApiRouteGenerator extends BaseGenerator {
+class ApiRouteGenerator extends BaseGenerator {
     constructor(options = {}) {
         super({
             ...options,
@@ -44,10 +43,11 @@ export class ApiRouteGenerator extends BaseGenerator {
             outputSubdir: 'app/api'
         });
 
+        // Initialize utilities
         this.pathUtils = new PathUtils();
         this.schemaUtils = new SchemaUtils();
         this.stringUtils = new StringUtils();
-        this.tsUtils = new TypeScriptUtils();
+        this.validationUtils = new ValidationUtils();
 
         // Route generation options
         this.routeOptions = {
@@ -75,17 +75,28 @@ export class ApiRouteGenerator extends BaseGenerator {
     }
 
     /**
+     * Initialize the generator
+     */
+    async initialize() {
+        await super.initialize();
+        await this.loadTemplates();
+    }
+
+    /**
      * Load API route templates
      */
     async loadTemplates() {
         this.logger.debug('Loading API route templates');
 
-        this.templates.route = await this.templateEngine.load('api/route.ts.template');
-        this.templates.validation = await this.templateEngine.load('api/validation.ts.template');
-        this.templates.auth = await this.templateEngine.load('api/auth.ts.template');
-        this.templates.middleware = await this.templateEngine.load('api/middleware.ts.template');
-        this.templates.error = await this.templateEngine.load('api/error.ts.template');
-        this.templates.types = await this.templateEngine.load('api/types.ts.template');
+        // Load templates using the template loader
+        const templateLoader = this.templateLoader || this.templateEngine;
+
+        this.templates.route = await templateLoader.load('route.ts.template');
+        this.templates.validation = await templateLoader.load('validation.ts.template');
+        this.templates.auth = await templateLoader.load('auth.ts.template');
+        this.templates.middleware = await templateLoader.load('middleware.ts.template');
+        this.templates.error = await templateLoader.load('error.ts.template');
+        this.templates.types = await templateLoader.load('types.ts.template');
 
         // Register custom helpers
         this._registerTemplateHelpers();
@@ -95,16 +106,26 @@ export class ApiRouteGenerator extends BaseGenerator {
      * Validate API route generation context
      */
     async doValidate(context) {
+        if (!context.swagger) {
+            throw new GeneratorError('Swagger specification is required', {
+                code: 'MISSING_SWAGGER'
+            });
+        }
+
         if (!context.swagger.paths || Object.keys(context.swagger.paths).length === 0) {
-            throw new GeneratorError('No API paths found in specification');
+            throw new GeneratorError('No API paths found in specification', {
+                code: 'NO_PATHS'
+            });
         }
 
+        // Use SchemaUtils to extract schemas if not provided
         if (!context.schemas) {
-            throw new GeneratorError('Schemas are required for API generation');
+            context.schemas = this.schemaUtils.extractSchemas(context.swagger);
         }
 
-        if (!context.routes) {
-            throw new GeneratorError('Routes analysis is required for API generation');
+        // Use PathUtils to extract paths if not provided
+        if (!context.paths) {
+            context.paths = this.pathUtils.extractPaths(context.swagger);
         }
     }
 
@@ -120,7 +141,7 @@ export class ApiRouteGenerator extends BaseGenerator {
                 security: this._extractSecuritySchemes(context.swagger),
                 globalHeaders: this._extractGlobalHeaders(context.swagger)
             },
-            routeGroups: this._groupRoutesByPath(context.routes),
+            routeGroups: this._groupRoutesByPath(context.paths),
             sharedTypes: this._extractSharedTypes(context.schemas),
             middleware: this._prepareMiddleware(context)
         };
@@ -155,44 +176,48 @@ export class ApiRouteGenerator extends BaseGenerator {
         // Generate shared types
         if (this.routeOptions.typescript) {
             files.push({
-                path: path.join(context.outputDir, this.options.outputSubdir, 'types.ts'),
-                content: await this.templates.types.render({
+                path: path.join(this.outputDir, 'types.ts'),
+                content: await this._renderTemplate(this.templates.types, {
                     types: context.sharedTypes,
                     imports: this._generateTypeImports(context),
                     apiConfig: context.apiConfig
-                })
+                }),
+                options: { overwrite: true }
             });
         }
 
         // Generate error handler
         files.push({
-            path: path.join(context.outputDir, this.options.outputSubdir, 'error.ts'),
-            content: await this.templates.error.render({
+            path: path.join(this.outputDir, 'error.ts'),
+            content: await this._renderTemplate(this.templates.error, {
                 errorHandling: this.routeOptions.errorHandling,
                 logging: this.routeOptions.logging
-            })
+            }),
+            options: { overwrite: true }
         });
 
         // Generate auth middleware
         if (this.routeOptions.generateAuth && context.apiConfig.security) {
             files.push({
-                path: path.join(context.outputDir, this.options.outputSubdir, 'auth.ts'),
-                content: await this.templates.auth.render({
+                path: path.join(this.outputDir, 'auth.ts'),
+                content: await this._renderTemplate(this.templates.auth, {
                     security: context.apiConfig.security,
                     typescript: this.routeOptions.typescript
-                })
+                }),
+                options: { overwrite: true }
             });
         }
 
         // Generate shared middleware
         if (this.routeOptions.generateMiddleware) {
             files.push({
-                path: path.join(context.outputDir, this.options.outputSubdir, 'middleware.ts'),
-                content: await this.templates.middleware.render({
+                path: path.join(this.outputDir, 'middleware.ts'),
+                content: await this._renderTemplate(this.templates.middleware, {
                     middleware: context.middleware,
                     rateLimit: this.routeOptions.generateRateLimit,
                     logging: this.routeOptions.logging
-                })
+                }),
+                options: { overwrite: true }
             });
         }
 
@@ -207,20 +232,22 @@ export class ApiRouteGenerator extends BaseGenerator {
 
         // Convert OpenAPI path to Next.js directory structure
         const nextjsPath = this.pathUtils.openApiToNextJs(routePath);
-        const routeDir = path.join(context.outputDir, this.options.outputSubdir, ...nextjsPath);
+        const routeDir = path.join(this.outputDir, ...nextjsPath);
 
         // Generate main route file
         const routeFile = await this._generateRouteFile(routeGroup, context);
         files.push({
             path: path.join(routeDir, 'route.ts'),
-            content: routeFile
+            content: routeFile,
+            options: { overwrite: true }
         });
 
         // Generate validation schemas
         if (this.routeOptions.generateValidation && this._hasValidation(routeGroup)) {
             files.push({
                 path: path.join(routeDir, 'validation.ts'),
-                content: await this._generateValidationFile(routeGroup, context)
+                content: await this._generateValidationFile(routeGroup, context),
+                options: { overwrite: true }
             });
         }
 
@@ -228,7 +255,8 @@ export class ApiRouteGenerator extends BaseGenerator {
         if (this.routeOptions.typescript && this._hasRouteTypes(routeGroup)) {
             files.push({
                 path: path.join(routeDir, 'types.ts'),
-                content: await this._generateRouteTypes(routeGroup, context)
+                content: await this._generateRouteTypes(routeGroup, context),
+                options: { overwrite: true }
             });
         }
 
@@ -236,7 +264,8 @@ export class ApiRouteGenerator extends BaseGenerator {
         if (this.routeOptions.generateTests) {
             files.push({
                 path: path.join(routeDir, 'route.test.ts'),
-                content: await this._generateRouteTests(routeGroup, context)
+                content: await this._generateRouteTests(routeGroup, context),
+                options: { overwrite: true }
             });
         }
 
@@ -244,7 +273,8 @@ export class ApiRouteGenerator extends BaseGenerator {
         if (this.routeOptions.generateDocs) {
             files.push({
                 path: path.join(routeDir, 'README.md'),
-                content: await this._generateRouteDocs(routeGroup, context)
+                content: await this._generateRouteDocs(routeGroup, context),
+                options: { overwrite: true }
             });
         }
 
@@ -264,7 +294,7 @@ export class ApiRouteGenerator extends BaseGenerator {
             handlers[method] = await this._generateMethodHandler(method, operation, context);
         }
 
-        return await this.templates.route.render({
+        return await this._renderTemplate(this.templates.route, {
             imports,
             methods,
             handlers,
@@ -333,7 +363,7 @@ export class ApiRouteGenerator extends BaseGenerator {
             schemas[method] = validationSchemas;
         }
 
-        return await this.templates.validation.render({
+        return await this._renderTemplate(this.templates.validation, {
             schemas,
             imports: this._generateValidationImports(context),
             typescript: this.routeOptions.typescript
@@ -354,7 +384,7 @@ export class ApiRouteGenerator extends BaseGenerator {
         };
 
         for (const param of pathParams) {
-            schema.properties[param.name] = this.schemaUtils.convertToZodSchema(param.schema);
+            schema.properties[param.name] = param.schema || { type: 'string' };
             if (param.required) {
                 schema.required.push(param.name);
             }
@@ -377,7 +407,7 @@ export class ApiRouteGenerator extends BaseGenerator {
         };
 
         for (const param of queryParams) {
-            schema.properties[param.name] = this.schemaUtils.convertToZodSchema(param.schema);
+            schema.properties[param.name] = param.schema || { type: 'string' };
             if (param.required) {
                 schema.required.push(param.name);
             }
@@ -402,7 +432,7 @@ export class ApiRouteGenerator extends BaseGenerator {
         for (const param of headerParams) {
             // Convert header names to lowercase for consistency
             const headerName = param.name.toLowerCase();
-            schema.properties[headerName] = this.schemaUtils.convertToZodSchema(param.schema);
+            schema.properties[headerName] = param.schema || { type: 'string' };
             if (param.required) {
                 schema.required.push(headerName);
             }
@@ -441,7 +471,7 @@ export class ApiRouteGenerator extends BaseGenerator {
     async _generateResponseSchemas(responses, context) {
         const schemas = {};
 
-        for (const [statusCode, response] of Object.entries(responses)) {
+        for (const [statusCode, response] of Object.entries(responses || {})) {
             if (response.content?.['application/json']?.schema) {
                 schemas[statusCode] = this.schemaUtils.generateZodSchema(
                     response.content['application/json'].schema
@@ -461,18 +491,21 @@ export class ApiRouteGenerator extends BaseGenerator {
         for (const [method, operation] of Object.entries(routeGroup.operations)) {
             // Request types
             if (operation.parameters?.length > 0) {
-                types.push(await this._generateParamTypes(operation, method));
+                const paramTypes = await this._generateParamTypes(operation, method);
+                if (paramTypes) types.push(paramTypes);
             }
 
             if (operation.requestBody) {
-                types.push(await this._generateRequestBodyType(operation, method));
+                const requestType = await this._generateRequestBodyType(operation, method);
+                if (requestType) types.push(requestType);
             }
 
             // Response types
-            types.push(await this._generateResponseTypes(operation, method));
+            const responseTypes = await this._generateResponseTypes(operation, method);
+            types.push(...responseTypes);
         }
 
-        return this.tsUtils.generateTypeDefinitions(types);
+        return this._formatTypeDefinitions(types);
     }
 
     /**
@@ -490,7 +523,7 @@ export class ApiRouteGenerator extends BaseGenerator {
             });
         }
 
-        return this.templateEngine.render('api/route.test.ts.template', {
+        return await this._renderTemplate('route.test.ts.template', {
             routePath: routeGroup.path,
             testCases,
             imports: this._generateTestImports(context)
@@ -523,7 +556,7 @@ export class ApiRouteGenerator extends BaseGenerator {
             content: await this._generateExamples(routeGroup, context)
         });
 
-        return this.templateEngine.render('api/README.md.template', {
+        return await this._renderTemplate('README.md.template', {
             title: `API Route: ${routeGroup.path}`,
             sections
         });
@@ -537,15 +570,17 @@ export class ApiRouteGenerator extends BaseGenerator {
 
         // API index with route listing
         files.push({
-            path: path.join(context.outputDir, this.options.outputSubdir, 'index.ts'),
-            content: await this._generateApiIndex(context)
+            path: path.join(this.outputDir, 'index.ts'),
+            content: await this._generateApiIndex(context),
+            options: { overwrite: true }
         });
 
         // API documentation
         if (this.routeOptions.generateDocs) {
             files.push({
-                path: path.join(context.outputDir, this.options.outputSubdir, 'README.md'),
-                content: await this._generateApiDocumentation(context)
+                path: path.join(this.outputDir, 'README.md'),
+                content: await this._generateApiDocumentation(context),
+                options: { overwrite: true }
             });
         }
 
@@ -557,9 +592,42 @@ export class ApiRouteGenerator extends BaseGenerator {
     // ============================================================================
 
     /**
+     * Render template with error handling
+     */
+    async _renderTemplate(template, data) {
+        if (!template) {
+            throw new GeneratorError('Template not loaded', {
+                code: 'TEMPLATE_NOT_LOADED'
+            });
+        }
+
+        try {
+            if (typeof template === 'string') {
+                // If template is a string path, load and render it
+                const loadedTemplate = await this.templateEngine.load(template);
+                return await loadedTemplate.render(data);
+            } else if (template.render) {
+                // If template has a render method, use it
+                return await template.render(data);
+            } else {
+                // Otherwise, use the template engine to render
+                return await this.templateEngine.render(template, data);
+            }
+        } catch (error) {
+            throw new GeneratorError('Template rendering failed', {
+                code: 'TEMPLATE_RENDER_ERROR',
+                template: template.name || 'unknown',
+                error: error.message
+            });
+        }
+    }
+
+    /**
      * Register template helpers
      */
     _registerTemplateHelpers() {
+        if (!this.templateEngine) return;
+
         this.templateEngine.registerHelper('httpMethod', (method) => {
             return method.toUpperCase();
         });
@@ -573,7 +641,7 @@ export class ApiRouteGenerator extends BaseGenerator {
         });
 
         this.templateEngine.registerHelper('tsType', (schema) => {
-            return this.tsUtils.schemaToType(schema);
+            return this.schemaUtils.schemaToTypeScript(schema);
         });
 
         this.templateEngine.registerHelper('camelCase', (str) => {
@@ -620,17 +688,22 @@ export class ApiRouteGenerator extends BaseGenerator {
     /**
      * Group routes by path
      */
-    _groupRoutesByPath(routes) {
+    _groupRoutesByPath(paths) {
         const groups = {};
 
-        for (const route of routes) {
-            if (!groups[route.path]) {
-                groups[route.path] = {
-                    path: route.path,
+        for (const pathInfo of paths) {
+            const { path: routePath, operations } = pathInfo;
+
+            if (!groups[routePath]) {
+                groups[routePath] = {
+                    path: routePath,
                     operations: {}
                 };
             }
-            groups[route.path].operations[route.method] = route.operation;
+
+            for (const [method, operation] of Object.entries(operations)) {
+                groups[routePath].operations[method] = operation;
+            }
         }
 
         return groups;
@@ -672,7 +745,7 @@ export class ApiRouteGenerator extends BaseGenerator {
         middleware.push({
             name: 'cors',
             config: {
-                origin: context.config?.cors?.origin || '*',
+                origin: context.options?.cors?.origin || '*',
                 methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
                 allowedHeaders: ['Content-Type', 'Authorization'],
                 credentials: true
@@ -833,7 +906,7 @@ export class ApiRouteGenerator extends BaseGenerator {
     async _processResponses(responses, context) {
         const processed = {};
 
-        for (const [statusCode, response] of Object.entries(responses)) {
+        for (const [statusCode, response] of Object.entries(responses || {})) {
             processed[statusCode] = {
                 description: response.description,
                 content: response.content,
@@ -1005,14 +1078,16 @@ export class ApiRouteGenerator extends BaseGenerator {
      * Generate parameter types
      */
     async _generateParamTypes(operation, method) {
-        const typeName = `${this.stringUtils.toPascalCase(operation.operationId)}Params`;
+        const typeName = `${this.stringUtils.toPascalCase(operation.operationId || method)}Params`;
         const properties = {};
 
         for (const param of operation.parameters || []) {
             if (param.in === 'path' || param.in === 'query') {
-                properties[param.name] = this.tsUtils.schemaToType(param.schema);
+                properties[param.name] = this.schemaUtils.schemaToTypeScript(param.schema || { type: 'string' });
             }
         }
+
+        if (Object.keys(properties).length === 0) return null;
 
         return {
             name: typeName,
@@ -1025,7 +1100,7 @@ export class ApiRouteGenerator extends BaseGenerator {
      * Generate request body type
      */
     async _generateRequestBodyType(operation, method) {
-        const typeName = `${this.stringUtils.toPascalCase(operation.operationId)}Request`;
+        const typeName = `${this.stringUtils.toPascalCase(operation.operationId || method)}Request`;
         const content = operation.requestBody?.content?.['application/json'];
 
         if (!content?.schema) {
@@ -1035,7 +1110,7 @@ export class ApiRouteGenerator extends BaseGenerator {
         return {
             name: typeName,
             type: 'type',
-            definition: this.tsUtils.schemaToType(content.schema)
+            definition: this.schemaUtils.schemaToTypeScript(content.schema)
         };
     }
 
@@ -1044,7 +1119,7 @@ export class ApiRouteGenerator extends BaseGenerator {
      */
     async _generateResponseTypes(operation, method) {
         const types = [];
-        const baseTypeName = `${this.stringUtils.toPascalCase(operation.operationId)}Response`;
+        const baseTypeName = `${this.stringUtils.toPascalCase(operation.operationId || method)}Response`;
 
         for (const [statusCode, response] of Object.entries(operation.responses || {})) {
             const content = response.content?.['application/json'];
@@ -1052,7 +1127,7 @@ export class ApiRouteGenerator extends BaseGenerator {
                 types.push({
                     name: `${baseTypeName}${statusCode}`,
                     type: 'type',
-                    definition: this.tsUtils.schemaToType(content.schema)
+                    definition: this.schemaUtils.schemaToTypeScript(content.schema)
                 });
             }
         }
@@ -1067,6 +1142,28 @@ export class ApiRouteGenerator extends BaseGenerator {
         }
 
         return types;
+    }
+
+    /**
+     * Format type definitions
+     */
+    _formatTypeDefinitions(types) {
+        const lines = [];
+
+        for (const type of types) {
+            if (type.type === 'interface') {
+                lines.push(`export interface ${type.name} {`);
+                for (const [key, value] of Object.entries(type.properties || {})) {
+                    lines.push(`  ${key}: ${value};`);
+                }
+                lines.push('}');
+            } else if (type.type === 'type') {
+                lines.push(`export type ${type.name} = ${type.definition};`);
+            }
+            lines.push('');
+        }
+
+        return lines.join('\n');
     }
 
     /**
@@ -1173,7 +1270,9 @@ export class ApiRouteGenerator extends BaseGenerator {
      * Generate test value for schema
      */
     _generateTestValue(schema) {
-        switch (schema?.type) {
+        if (!schema) return 'test';
+
+        switch (schema.type) {
             case 'string':
                 return 'test-string';
             case 'number':
@@ -1305,7 +1404,7 @@ export class ApiRouteGenerator extends BaseGenerator {
             }
         }
 
-        return this.templateEngine.render('api/index.ts.template', {
+        return await this._renderTemplate('index.ts.template', {
             routes,
             apiConfig: context.apiConfig
         });
@@ -1343,7 +1442,7 @@ export class ApiRouteGenerator extends BaseGenerator {
             content: this._generateCommonResponseDocs()
         });
 
-        return this.templateEngine.render('api/README.md.template', {
+        return await this._renderTemplate('README.md.template', {
             title: context.swagger.info?.title || 'API Documentation',
             version: context.apiConfig.version,
             sections
@@ -1412,4 +1511,4 @@ export class ApiRouteGenerator extends BaseGenerator {
     }
 }
 
-export default ApiRouteGenerator;
+module.exports = ApiRouteGenerator;

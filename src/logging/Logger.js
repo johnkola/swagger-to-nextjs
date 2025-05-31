@@ -3,25 +3,125 @@
  * SWAGGER-TO-NEXTJS GENERATOR - AI PROMPT
  * ============================================================================
  * FILE: src/logging/Logger.js
- * VERSION: 2025-05-28 15:14:56
+ * VERSION: 2025-05-30 11:34:23
  * PHASE: PHASE 2: Core System Components
  * CATEGORY: 📊 Logging System
  * ============================================================================
+ *
+ * AI GENERATION PROMPT:
+ *
+ * Create an enterprise-grade logging system that:
+ * - Implements multiple log levels with filtering 
+ * - Supports structured logging with metadata 
+ * - Provides multiple transports (console, file, syslog) 
+ * - Implements log rotation and archiving 
+ * - Supports async logging for performance 
+ * - Provides contextual logging with correlation IDs 
+ * - Implements redaction for sensitive data 
+ * - Supports custom formatters and filters 
+ * - Integrates with log aggregation services 
+ * - Provides performance metrics logging
+ *
+ * ============================================================================
+ */
+/**
+ * ============================================================================
+ * SWAGGER-TO-NEXTJS GENERATOR - AI PROMPT
+ * ============================================================================
+ * FILE: src/logging/Logger.js
+ * VERSION: 2025-05-30 11:34:23
+ * PHASE: PHASE 2: Core System Components
+ * CATEGORY: 📊 Logging System
+ * ============================================================================
+ *
+ * AI GENERATION PROMPT:
+ *
+ * Create an enterprise-grade logging system that:
+ * - Implements multiple log levels with filtering
+ * - Supports structured logging with metadata
+ * - Provides multiple transports (console, file, syslog)
+ * - Implements log rotation and archiving
+ * - Supports async logging for performance
+ * - Provides contextual logging with correlation IDs
+ * - Implements redaction for sensitive data
+ * - Supports custom formatters and filters
+ * - Integrates with log aggregation services
+ * - Provides performance metrics logging
+ *
+ * ============================================================================
  */
 
-import { EventEmitter } from 'events';
-import fs from 'fs-extra';
-import path from 'path';
-import { v4 as uuidv4 } from 'uuid';
-import { format } from 'date-fns';
-import AsyncQueue from '../utils/AsyncQueue.js';
-import { LogFormatter } from './LogFormatter.js';
-import crypto from 'crypto';
+const { EventEmitter } = require('events');
+const fs = require('fs-extra');
+const path = require('path');
+const { v4: uuidv4 } = require('uuid');
+const { format } = require('date-fns');
+const crypto = require('crypto');
+const zlib = require('zlib');
+const { pipeline } = require('stream/promises');
+
+// Placeholder for AsyncQueue - create a simple implementation
+class AsyncQueue {
+    constructor() {
+        this.queue = [];
+        this.processing = false;
+    }
+
+    async enqueue(fn) {
+        this.queue.push(fn);
+        if (!this.processing) {
+            this.process();
+        }
+    }
+
+    async process() {
+        this.processing = true;
+        while (this.queue.length > 0) {
+            const fn = this.queue.shift();
+            try {
+                await fn();
+            } catch (error) {
+                console.error('Queue processing error:', error);
+            }
+        }
+        this.processing = false;
+    }
+
+    async flush() {
+        await this.process();
+    }
+}
+
+// Placeholder for LogFormatter if not available
+class LogFormatter {
+    constructor(options = {}) {
+        this.options = {
+            mode: 'text',
+            useColor: true,
+            ...options
+        };
+    }
+
+    format(entry) {
+        if (this.options.mode === 'json') {
+            return JSON.stringify(entry);
+        }
+
+        const timestamp = format(entry.timestamp, 'yyyy-MM-dd HH:mm:ss');
+        const level = entry.level.toUpperCase().padEnd(5);
+        const message = entry.message;
+        const metadata = Object.keys(entry.metadata).length > 0
+            ? ' ' + JSON.stringify(entry.metadata)
+            : '';
+
+        return `[${timestamp}] ${level} ${message}${metadata}`;
+    }
+}
 
 /**
  * Log levels with numeric priorities
  */
-export const LogLevel = {
+const LogLevel = {
     DEBUG: 0,
     INFO: 1,
     SUCCESS: 2,
@@ -165,9 +265,6 @@ class FileTransport extends Transport {
     }
 
     async compressFile(filename) {
-        const zlib = await import('zlib');
-        const pipeline = await import('stream/promises').then(m => m.pipeline);
-
         const gzip = zlib.createGzip();
         const source = fs.createReadStream(filename);
         const destination = fs.createWriteStream(`${filename}.gz`);
@@ -263,6 +360,9 @@ class WebhookTransport extends Transport {
 
         for (let attempt = 0; attempt < this.options.retries; attempt++) {
             try {
+                // Using node-fetch or built-in fetch if available
+                const fetch = global.fetch || require('node-fetch');
+
                 const response = await fetch(this.options.url, {
                     method: 'POST',
                     headers: {
@@ -355,7 +455,7 @@ class Redactor {
 /**
  * Main Logger class
  */
-export class Logger extends EventEmitter {
+class Logger extends EventEmitter {
     constructor(options = {}) {
         super();
 
@@ -488,7 +588,11 @@ export class Logger extends EventEmitter {
         if (message instanceof Error) {
             return this.log(LogLevel.ERROR, message.message, {
                 ...metadata,
-                error: message
+                error: {
+                    message: message.message,
+                    stack: message.stack,
+                    name: message.name
+                }
             });
         }
         return this.log(LogLevel.ERROR, message, metadata);
@@ -590,7 +694,7 @@ export class Logger extends EventEmitter {
 /**
  * Create default logger instance
  */
-export const createLogger = (options = {}) => {
+const createLogger = (options = {}) => {
     const logger = new Logger(options);
 
     // Add file transport in production
@@ -607,11 +711,18 @@ export const createLogger = (options = {}) => {
 /**
  * Export transports for custom configuration
  */
-export const Transports = {
+const Transports = {
     Console: ConsoleTransport,
     File: FileTransport,
     Syslog: SyslogTransport,
     Webhook: WebhookTransport
 };
 
-export default Logger;
+// CommonJS exports
+module.exports = Logger;
+module.exports.Logger = Logger;
+module.exports.LogLevel = LogLevel;
+module.exports.createLogger = createLogger;
+module.exports.Transports = Transports;
+module.exports.LogFormatter = LogFormatter;
+module.exports.default = Logger;

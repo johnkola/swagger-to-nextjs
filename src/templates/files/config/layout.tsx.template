@@ -3,7 +3,7 @@
 SWAGGER-TO-NEXTJS GENERATOR - AI PROMPT
 ==============================================================================
 FILE: src/templates/files/config/layout.tsx.template
-VERSION: 2025-05-28 15:14:56
+VERSION: 2025-05-30 11:34:23
 PHASE: PHASE 4: Template Files
 CATEGORY: ⚙️ Configuration Template Files
 ==============================================================================
@@ -12,7 +12,7 @@ AI GENERATION PROMPT:
 
 Create a Next.js root layout template that includes:
 - Global providers setup (Theme, Auth, i18n) 
-- Navigation component with dynamic menu 
+- Navigation component with a dynamic menu 
 - Authentication state management 
 - Global error boundaries 
 - Loading states management 

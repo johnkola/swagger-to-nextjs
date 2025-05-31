@@ -3,7 +3,7 @@
  * SWAGGER-TO-NEXTJS GENERATOR - AI PROMPT
  * ============================================================================
  * FILE: src/index.js
- * VERSION: 2025-05-28 15:14:56
+ * VERSION: 2025-05-30 11:34:23
  * PHASE: PHASE 1: Foundation Components
  * CATEGORY: 🎯 Main Entry Points
  * ============================================================================
@@ -23,41 +23,60 @@
  *
  * ============================================================================
  */
-
 const { EventEmitter } = require('events');
 const path = require('path');
 const fs = require('fs').promises;
 const { Worker } = require('worker_threads');
 const pLimit = require('p-limit');
 
-// Core components
-const ConfigLoader = require('./config/ConfigLoader');
-const SwaggerLoader = require('./loaders/SwaggerLoader');
-const SwaggerValidator = require('./validators/SwaggerValidator');
-const SchemaParser = require('./parsers/SchemaParser');
-const RouteAnalyzer = require('./parsers/RouteAnalyzer');
-const TypeGenerator = require('./generators/TypeGenerator');
-const ApiClientGenerator = require('./generators/ApiClientGenerator');
-const ComponentGenerator = require('./generators/ComponentGenerator');
-const HookGenerator = require('./generators/HookGenerator');
-const TestGenerator = require('./generators/TestGenerator');
+// Core components from Phase 2
+const SwaggerLoader = require('./core/SwaggerLoader');
+const SwaggerValidator = require('./core/SwaggerValidator');
+const DirectoryManager = require('./core/DirectoryManager');
+
+// Error handling from Phase 2
+const ErrorHandler = require('./errors/ErrorHandler');
+const GeneratorError = require('./errors/GeneratorError');
+
+// Logging from Phase 2
+const Logger = require('./logging/Logger');
+const ProgressReporter = require('./logging/ProgressReporter');
+
+// Generators from Phase 3
+const BaseGenerator = require('./generators/BaseGenerator');
+const ApiRouteGenerator = require('./generators/ApiRouteGenerator');
+const PageComponentGenerator = require('./generators/PageComponentGenerator');
+const ConfigFileGenerator = require('./generators/ConfigFileGenerator');
+
+// Template system from Phase 3
 const TemplateEngine = require('./templates/TemplateEngine');
-const FileWriter = require('./utils/FileWriter');
-const Logger = require('./utils/Logger');
-const { createUsageTracker } = require('./analytics/UsageTracker');
+const TemplateLoader = require('./templates/TemplateLoader');
+
+// Utilities from Phase 3
+const PathUtils = require('./utils/PathUtils');
+const SchemaUtils = require('./utils/SchemaUtils');
+const ValidationUtils = require('./utils/ValidationUtils');
+const StringUtils = require('./utils/StringUtils');
+
+// Configuration from Phase 5
+const ConfigValidator = require('./config/ConfigValidator');
+const ConfigMerger = require('./config/ConfigMerger');
+const EnvironmentConfig = require('./config/EnvironmentConfig');
+
+// Plugin system from Phase 6
 const PluginManager = require('./plugins/PluginManager');
-const DependencyContainer = require('./utils/DependencyContainer');
+const HookSystem = require('./hooks/HookSystem');
+
+// Analytics
+const UsageTracker = require('./analytics/UsageTracker');
 
 /**
- * Main orchestrator class for Swagger to Next.js generation
+ * The main orchestrator class for Swagger to Next.js generation
  * Implements a fluent API with comprehensive lifecycle management
  */
 class SwaggerToNextjs extends EventEmitter {
     constructor(options = {}) {
         super();
-
-        // Initialize dependency container
-        this.container = new DependencyContainer();
 
         // Configuration
         this.options = options;
@@ -75,16 +94,8 @@ class SwaggerToNextjs extends EventEmitter {
             warnings: []
         };
 
-        // Lifecycle hooks
-        this.hooks = {
-            beforeInit: [],
-            afterInit: [],
-            beforeGenerate: [],
-            afterGenerate: [],
-            beforeCleanup: [],
-            afterCleanup: [],
-            onError: []
-        };
+        // Hook system
+        this.hookSystem = new HookSystem();
 
         // Concurrency control
         this.concurrencyLimit = options.concurrency || 5;
@@ -98,9 +109,18 @@ class SwaggerToNextjs extends EventEmitter {
         this.pluginManager = new PluginManager();
 
         // Usage tracking
-        this.usageTracker = createUsageTracker({
+        this.usageTracker = new UsageTracker({
             enabled: options.telemetry !== false
         });
+
+        // Error handler
+        this.errorHandler = new ErrorHandler({
+            logger: null, // Will be set after logger initialization
+            eventBus: this
+        });
+
+        // Progress reporter
+        this.progressReporter = null;
 
         // Setup error handlers
         this._setupErrorHandlers();
@@ -113,22 +133,30 @@ class SwaggerToNextjs extends EventEmitter {
      */
     async initialize(configPath) {
         try {
-            this.emit('lifecycle:beforeInit');
-            await this._runHooks('beforeInit');
+            await this.hookSystem.runHooks('beforeInit', { generator: this });
 
-            // Load configuration
-            const configLoader = this._createComponent('configLoader', ConfigLoader);
-            this.config = await configLoader.load(configPath);
+            // Load and merge configuration
+            this.config = await this._loadConfiguration(configPath);
 
             // Validate configuration
-            const validation = configLoader.validate(this.config);
+            const configValidator = new ConfigValidator();
+            const validation = await configValidator.validate(this.config);
             if (!validation.valid) {
-                throw new Error(`Invalid configuration: ${validation.errors.join(', ')}`);
+                throw new GeneratorError('Invalid configuration', {
+                    errors: validation.errors,
+                    code: 'CONFIG_INVALID'
+                });
             }
 
             // Initialize logger
-            this._createComponent('logger', Logger, this.config.logging);
-            this.logger = this.components.logger;
+            this.logger = new Logger(this.config.logging || {});
+            this.errorHandler.logger = this.logger;
+
+            // Initialize progress reporter
+            this.progressReporter = new ProgressReporter({
+                logger: this.logger,
+                ...this.config.progress
+            });
 
             // Initialize all components
             await this._initializeComponents();
@@ -139,14 +167,16 @@ class SwaggerToNextjs extends EventEmitter {
             // Mark as initialized
             this.state.initialized = true;
 
-            this.emit('lifecycle:afterInit');
-            await this._runHooks('afterInit');
+            await this.hookSystem.runHooks('afterInit', {
+                generator: this,
+                config: this.config
+            });
 
             this.logger.info('SwaggerToNextjs initialized successfully');
 
             return this;
         } catch (error) {
-            await this._handleError(error, 'initialization');
+            await this.errorHandler.handle(error, 'initialization');
             throw error;
         }
     }
@@ -168,7 +198,7 @@ class SwaggerToNextjs extends EventEmitter {
      */
     toDirectory(outputDir) {
         if (this.config) {
-            this.config.output.baseDir = outputDir;
+            this.config.output = { ...this.config.output, baseDir: outputDir };
         } else {
             this.options.outputDir = outputDir;
         }
@@ -193,11 +223,7 @@ class SwaggerToNextjs extends EventEmitter {
      * @returns {SwaggerToNextjs} Self for chaining
      */
     addHook(event, handler) {
-        if (this.hooks[event]) {
-            this.hooks[event].push(handler);
-        } else {
-            this.on(event, handler);
-        }
+        this.hookSystem.register(event, handler);
         return this;
     }
 
@@ -223,62 +249,85 @@ class SwaggerToNextjs extends EventEmitter {
      */
     async generate(options = {}) {
         if (!this.state.initialized) {
-            throw new Error('Generator not initialized. Call initialize() first.');
+            throw new GeneratorError('Generator not initialized. Call initialize() first.', {
+                code: 'NOT_INITIALIZED'
+            });
         }
 
         if (this.state.generating) {
-            throw new Error('Generation already in progress');
+            throw new GeneratorError('Generation already in progress', {
+                code: 'GENERATION_IN_PROGRESS'
+            });
         }
 
         try {
             this.state.generating = true;
-            this.emit('lifecycle:beforeGenerate');
-            await this._runHooks('beforeGenerate');
+
+            await this.hookSystem.runHooks('beforeGenerate', {
+                generator: this,
+                options
+            });
 
             const startTime = Date.now();
 
             // Track generation start
-            this.usageTracker.trackGeneration('start', {
+            await this.usageTracker.trackGeneration('start', {
                 source: this.swaggerSource,
                 options: options
             });
 
+            // Initialize progress tracking
+            const progress = this.progressReporter.createProgress('generation', {
+                total: 6,
+                description: 'Generating Next.js application from Swagger'
+            });
+
             // Load Swagger specification
-            this.logger.info('Loading Swagger specification...');
+            progress.update(1, 'Loading Swagger specification...');
             const swagger = await this._loadSwagger();
 
             // Validate Swagger
-            this.logger.info('Validating Swagger specification...');
+            progress.update(2, 'Validating Swagger specification...');
             await this._validateSwagger(swagger);
 
-            // Parse schemas
-            this.logger.info('Parsing schemas...');
-            const schemas = await this._parseSchemas(swagger);
+            // Prepare generation context
+            progress.update(3, 'Preparing generation context...');
+            const context = await this._prepareContext(swagger, options);
 
-            // Analyze routes
-            this.logger.info('Analyzing routes...');
-            const routes = await this._analyzeRoutes(swagger);
+            // Generate API routes
+            progress.update(4, 'Generating API routes...');
+            const apiResults = await this._generateApiRoutes(context);
 
-            // Generate code
-            this.logger.info('Generating code...');
-            const results = await this._generateCode({
-                swagger,
-                schemas,
-                routes,
-                options
-            });
+            // Generate page components
+            progress.update(5, 'Generating page components...');
+            const pageResults = await this._generatePageComponents(context);
+
+            // Generate configuration files
+            progress.update(6, 'Generating configuration files...');
+            const configResults = await this._generateConfigFiles(context);
+
+            // Combine results
+            const results = {
+                files: [
+                    ...apiResults.files,
+                    ...pageResults.files,
+                    ...configResults.files
+                ],
+                stats: {
+                    api: apiResults.stats,
+                    pages: pageResults.stats,
+                    config: configResults.stats
+                }
+            };
 
             // Write files
-            this.logger.info('Writing files...');
             await this._writeFiles(results);
 
-            // Run post-generation tasks
-            await this._runPostGeneration(results);
-
             const duration = Date.now() - startTime;
+            progress.complete(`Generation completed in ${duration}ms`);
 
             // Track generation completion
-            this.usageTracker.trackGeneration('complete', {
+            await this.usageTracker.trackGeneration('complete', {
                 duration,
                 filesGenerated: results.files.length,
                 errors: this.state.errors.length,
@@ -288,8 +337,10 @@ class SwaggerToNextjs extends EventEmitter {
             this.state.completed = true;
             this.state.generating = false;
 
-            this.emit('lifecycle:afterGenerate', results);
-            await this._runHooks('afterGenerate', results);
+            await this.hookSystem.runHooks('afterGenerate', {
+                generator: this,
+                results
+            });
 
             this.logger.info(`Generation completed in ${duration}ms`);
 
@@ -303,7 +354,7 @@ class SwaggerToNextjs extends EventEmitter {
             };
         } catch (error) {
             this.state.generating = false;
-            await this._handleError(error, 'generation');
+            await this.errorHandler.handle(error, 'generation');
             throw error;
         }
     }
@@ -314,18 +365,21 @@ class SwaggerToNextjs extends EventEmitter {
      */
     async cleanup() {
         try {
-            this.emit('lifecycle:beforeCleanup');
-            await this._runHooks('beforeCleanup');
+            await this.hookSystem.runHooks('beforeCleanup', { generator: this });
 
             // Stop workers
             await this._stopWorkers();
 
             // Clean up components
-            for (const component of Object.values(this.components)) {
-                if (component.cleanup) {
+            for (const [name, component] of Object.entries(this.components)) {
+                if (component.cleanup && typeof component.cleanup === 'function') {
                     await component.cleanup();
+                    this.logger?.debug(`Component ${name} cleaned up`);
                 }
             }
+
+            // Clean up plugin manager
+            await this.pluginManager.cleanup();
 
             // Clear state
             this.state = {
@@ -336,12 +390,11 @@ class SwaggerToNextjs extends EventEmitter {
                 warnings: []
             };
 
-            this.emit('lifecycle:afterCleanup');
-            await this._runHooks('afterCleanup');
+            await this.hookSystem.runHooks('afterCleanup', { generator: this });
 
             this.logger?.info('Cleanup completed');
         } catch (error) {
-            await this._handleError(error, 'cleanup');
+            await this.errorHandler.handle(error, 'cleanup');
         }
     }
 
@@ -372,74 +425,81 @@ class SwaggerToNextjs extends EventEmitter {
     // ============================================================================
 
     /**
-     * Initialize all components with dependency injection
+     * Load and merge configuration
+     */
+    async _loadConfiguration(configPath) {
+        const configMerger = new ConfigMerger();
+        const environmentConfig = new EnvironmentConfig();
+
+        // Load base configuration
+        let config = {};
+
+        if (typeof configPath === 'string') {
+            const configContent = await fs.readFile(configPath, 'utf8');
+            config = configPath.endsWith('.json')
+                ? JSON.parse(configContent)
+                : require('js-yaml').load(configContent);
+        } else if (typeof configPath === 'object') {
+            config = configPath;
+        }
+
+        // Merge with defaults
+        const defaultConfig = require('../config/defaults');
+        config = await configMerger.merge(defaultConfig, config);
+
+        // Apply environment overrides
+        config = await environmentConfig.apply(config);
+
+        // Merge with constructor options
+        if (this.options.outputDir) {
+            config.output = { ...config.output, baseDir: this.options.outputDir };
+        }
+
+        return config;
+    }
+
+    /**
+     * Initialize all components
      */
     async _initializeComponents() {
-        // Register core services in container
-        this.container.register('config', () => this.config);
-        this.container.register('logger', () => this.logger);
-        this.container.register('eventBus', () => this);
-
-        // Create components with dependencies
-        const components = [
+        // Create components map
+        const componentsToCreate = [
             { name: 'swaggerLoader', class: SwaggerLoader },
             { name: 'swaggerValidator', class: SwaggerValidator },
-            { name: 'schemaParser', class: SchemaParser },
-            { name: 'routeAnalyzer', class: RouteAnalyzer },
+            { name: 'directoryManager', class: DirectoryManager },
             { name: 'templateEngine', class: TemplateEngine },
-            { name: 'typeGenerator', class: TypeGenerator },
-            { name: 'apiClientGenerator', class: ApiClientGenerator },
-            { name: 'componentGenerator', class: ComponentGenerator },
-            { name: 'hookGenerator', class: HookGenerator },
-            { name: 'testGenerator', class: TestGenerator },
-            { name: 'fileWriter', class: FileWriter }
+            { name: 'templateLoader', class: TemplateLoader },
+            { name: 'apiRouteGenerator', class: ApiRouteGenerator },
+            { name: 'pageComponentGenerator', class: PageComponentGenerator },
+            { name: 'configFileGenerator', class: ConfigFileGenerator },
+            { name: 'pathUtils', class: PathUtils },
+            { name: 'schemaUtils', class: SchemaUtils },
+            { name: 'validationUtils', class: ValidationUtils },
+            { name: 'stringUtils', class: StringUtils }
         ];
 
-        for (const { name, class: ComponentClass } of components) {
-            this._createComponent(name, ComponentClass);
+        // Create components with shared dependencies
+        const sharedDeps = {
+            config: this.config,
+            logger: this.logger,
+            eventBus: this,
+            hookSystem: this.hookSystem
+        };
+
+        for (const { name, class: ComponentClass } of componentsToCreate) {
+            this.components[name] = new ComponentClass({
+                ...sharedDeps,
+                ...this.config[name]
+            });
         }
 
-        // Initialize all components
-        await Promise.all(
-            Object.entries(this.components).map(async ([name, component]) => {
-                if (component.initialize) {
-                    await component.initialize();
-                }
+        // Initialize components that need it
+        for (const [name, component] of Object.entries(this.components)) {
+            if (component.initialize && typeof component.initialize === 'function') {
+                await component.initialize();
                 this.logger.debug(`Component ${name} initialized`);
-            })
-        );
-    }
-
-    /**
-     * Create component with dependency injection
-     */
-    _createComponent(name, ComponentClass, options = {}) {
-        const dependencies = this._resolveDependencies(ComponentClass);
-        const component = new ComponentClass({
-            ...this.config?.[name],
-            ...options,
-            ...dependencies
-        });
-
-        this.components[name] = component;
-        this.container.register(name, () => component);
-
-        return component;
-    }
-
-    /**
-     * Resolve component dependencies
-     */
-    _resolveDependencies(ComponentClass) {
-        const deps = {};
-
-        if (ComponentClass.dependencies) {
-            for (const dep of ComponentClass.dependencies) {
-                deps[dep] = this.container.resolve(dep);
             }
         }
-
-        return deps;
     }
 
     /**
@@ -447,32 +507,19 @@ class SwaggerToNextjs extends EventEmitter {
      */
     async _loadPlugins() {
         if (this.config.plugins?.enabled) {
-            await this.pluginManager.loadAll(this.config.plugins);
+            await this.pluginManager.loadAll(this.config.plugins.list || []);
 
-            // Apply plugins to lifecycle
-            for (const plugin of this.pluginManager.getActive()) {
+            // Register plugin hooks
+            const plugins = this.pluginManager.getActive();
+            for (const plugin of plugins) {
                 if (plugin.hooks) {
                     for (const [event, handler] of Object.entries(plugin.hooks)) {
-                        this.addHook(event, handler.bind(plugin));
+                        this.hookSystem.register(event, handler.bind(plugin));
                     }
                 }
             }
-        }
-    }
 
-    /**
-     * Run lifecycle hooks
-     */
-    async _runHooks(event, data) {
-        const hooks = this.hooks[event] || [];
-
-        for (const hook of hooks) {
-            try {
-                await hook(data, this);
-            } catch (error) {
-                this.logger.error(`Hook error in ${event}:`, error);
-                this.state.warnings.push(`Hook error in ${event}: ${error.message}`);
-            }
+            this.logger.info(`Loaded ${plugins.length} plugins`);
         }
     }
 
@@ -495,107 +542,122 @@ class SwaggerToNextjs extends EventEmitter {
         const validation = await validator.validate(swagger);
 
         if (!validation.valid) {
-            throw new Error(`Invalid Swagger: ${validation.errors.join(', ')}`);
+            throw new GeneratorError('Invalid Swagger specification', {
+                errors: validation.errors,
+                code: 'SWAGGER_INVALID'
+            });
         }
 
         if (validation.warnings.length > 0) {
             this.state.warnings.push(...validation.warnings);
+            validation.warnings.forEach(warning => {
+                this.logger.warn(`Swagger validation warning: ${warning}`);
+            });
         }
 
         this.emit('swagger:validated', validation);
     }
 
     /**
-     * Parse schemas from Swagger
+     * Prepare generation context
      */
-    async _parseSchemas(swagger) {
-        const parser = this.components.schemaParser;
-        const schemas = await parser.parse(swagger);
-
-        this.emit('schemas:parsed', schemas);
-        return schemas;
-    }
-
-    /**
-     * Analyze routes from Swagger
-     */
-    async _analyzeRoutes(swagger) {
-        const analyzer = this.components.routeAnalyzer;
-        const routes = await analyzer.analyze(swagger);
-
-        this.emit('routes:analyzed', routes);
-        return routes;
-    }
-
-    /**
-     * Generate code with concurrency control
-     */
-    async _generateCode(context) {
-        const generators = [
-            { name: 'types', generator: 'typeGenerator' },
-            { name: 'apiClient', generator: 'apiClientGenerator' },
-            { name: 'components', generator: 'componentGenerator' },
-            { name: 'hooks', generator: 'hookGenerator' },
-            { name: 'tests', generator: 'testGenerator' }
-        ];
-
-        const results = {
-            files: [],
-            stats: {}
+    async _prepareContext(swagger, options) {
+        const context = {
+            swagger,
+            options: { ...this.config, ...options },
+            paths: this.components.pathUtils.extractPaths(swagger),
+            schemas: this.components.schemaUtils.extractSchemas(swagger),
+            metadata: {
+                generatedAt: new Date().toISOString(),
+                generatorVersion: require('../package.json').version,
+                swaggerVersion: swagger.openapi || swagger.swagger
+            }
         };
 
-        // Run generators with concurrency limit
-        const generatorTasks = generators.map(({ name, generator }) =>
-            this.limiter(async () => {
-                try {
-                    const startTime = Date.now();
-                    const component = this.components[generator];
+        await this.hookSystem.runHooks('contextPrepared', context);
 
-                    if (component && this.config.generation?.[name]?.enabled !== false) {
-                        const generatedFiles = await component.generate(context);
-                        results.files.push(...generatedFiles);
-                        results.stats[name] = {
-                            files: generatedFiles.length,
-                            duration: Date.now() - startTime
-                        };
+        return context;
+    }
 
-                        this.emit(`${name}:generated`, generatedFiles);
-                    }
-                } catch (error) {
-                    this.logger.error(`Error in ${name} generator:`, error);
-                    this.state.errors.push(`${name} generation failed: ${error.message}`);
-                }
-            })
-        );
+    /**
+     * Generate API routes
+     */
+    async _generateApiRoutes(context) {
+        const generator = this.components.apiRouteGenerator;
+        const startTime = Date.now();
 
-        await Promise.all(generatorTasks);
+        const files = await generator.generate(context);
 
-        return results;
+        return {
+            files,
+            stats: {
+                count: files.length,
+                duration: Date.now() - startTime
+            }
+        };
+    }
+
+    /**
+     * Generate page components
+     */
+    async _generatePageComponents(context) {
+        const generator = this.components.pageComponentGenerator;
+        const startTime = Date.now();
+
+        const files = await generator.generate(context);
+
+        return {
+            files,
+            stats: {
+                count: files.length,
+                duration: Date.now() - startTime
+            }
+        };
+    }
+
+    /**
+     * Generate configuration files
+     */
+    async _generateConfigFiles(context) {
+        const generator = this.components.configFileGenerator;
+        const startTime = Date.now();
+
+        const files = await generator.generate(context);
+
+        return {
+            files,
+            stats: {
+                count: files.length,
+                duration: Date.now() - startTime
+            }
+        };
     }
 
     /**
      * Write generated files
      */
     async _writeFiles(results) {
-        const writer = this.components.fileWriter;
+        const directoryManager = this.components.directoryManager;
 
-        // Group files by directory for batch operations
-        const filesByDir = results.files.reduce((acc, file) => {
-            const dir = path.dirname(file.path);
-            if (!acc[dir]) acc[dir] = [];
-            acc[dir].push(file);
-            return acc;
-        }, {});
+        // Prepare directories
+        const directories = new Set();
+        results.files.forEach(file => {
+            directories.add(path.dirname(file.path));
+        });
+
+        // Create directories
+        for (const dir of directories) {
+            await directoryManager.ensureDirectory(dir);
+        }
 
         // Write files with concurrency control
-        const writeTasks = Object.entries(filesByDir).map(([dir, files]) =>
+        const writeTasks = results.files.map(file =>
             this.limiter(async () => {
-                await fs.mkdir(dir, { recursive: true });
-
-                for (const file of files) {
-                    await writer.write(file.path, file.content, file.options);
-                    this.emit('file:written', file);
-                }
+                await directoryManager.writeFile(file.path, file.content, {
+                    ...file.options,
+                    backup: this.config.backup?.enabled
+                });
+                this.emit('file:written', file);
             })
         );
 
@@ -603,109 +665,71 @@ class SwaggerToNextjs extends EventEmitter {
     }
 
     /**
-     * Run post-generation tasks
-     */
-    async _runPostGeneration(results) {
-        const tasks = [];
-
-        // Format files if enabled
-        if (this.config.generation?.formatting?.prettier?.enabled) {
-            tasks.push(this._formatFiles(results.files));
-        }
-
-        // Run linter if enabled
-        if (this.config.generation?.formatting?.eslint?.enabled) {
-            tasks.push(this._lintFiles(results.files));
-        }
-
-        // Generate documentation if enabled
-        if (this.config.features?.advanced?.apiDocumentation) {
-            tasks.push(this._generateDocumentation(results));
-        }
-
-        await Promise.all(tasks);
-    }
-
-    /**
-     * Format files using Prettier
-     */
-    async _formatFiles(files) {
-        // Implementation would use prettier API
-        this.logger.debug('Formatting files...');
-    }
-
-    /**
-     * Lint files using ESLint
-     */
-    async _lintFiles(files) {
-        // Implementation would use ESLint API
-        this.logger.debug('Linting files...');
-    }
-
-    /**
-     * Generate API documentation
-     */
-    async _generateDocumentation(results) {
-        // Implementation would generate docs
-        this.logger.debug('Generating documentation...');
-    }
-
-    /**
      * Setup error handlers
      */
     _setupErrorHandlers() {
         process.on('unhandledRejection', (error) => {
-            this._handleError(error, 'unhandledRejection');
+            this.errorHandler?.handle(error, 'unhandledRejection');
         });
 
         process.on('uncaughtException', (error) => {
-            this._handleError(error, 'uncaughtException');
+            this.errorHandler?.handle(error, 'uncaughtException');
             process.exit(1);
         });
-    }
 
-    /**
-     * Handle errors
-     */
-    async _handleError(error, context) {
-        this.state.errors.push({
-            context,
-            message: error.message,
-            stack: error.stack,
-            timestamp: new Date().toISOString()
+        // Graceful shutdown
+        process.on('SIGINT', async () => {
+            this.logger?.info('Received SIGINT, shutting down gracefully...');
+            await this.cleanup();
+            process.exit(0);
         });
 
-        this.emit('error', error, context);
-
-        // Track error
-        this.usageTracker?.trackError(error, { context });
-
-        // Run error hooks
-        for (const handler of this.hooks.onError) {
-            try {
-                await handler(error, context, this);
-            } catch (hookError) {
-                console.error('Error in error hook:', hookError);
-            }
-        }
-
-        this.logger?.error(`Error in ${context}:`, error);
+        process.on('SIGTERM', async () => {
+            this.logger?.info('Received SIGTERM, shutting down gracefully...');
+            await this.cleanup();
+            process.exit(0);
+        });
     }
 
     /**
      * Create worker for CPU-intensive task
      */
     async _createWorker(task, data) {
+        if (this.workers.length >= this.maxWorkers) {
+            throw new GeneratorError('Worker pool exhausted', {
+                code: 'WORKER_POOL_EXHAUSTED',
+                maxWorkers: this.maxWorkers
+            });
+        }
+
         return new Promise((resolve, reject) => {
-            const worker = new Worker(path.join(__dirname, 'workers', `${task}.worker.js`), {
-                workerData: data
+            const worker = new Worker(
+                path.join(__dirname, 'workers', `${task}.worker.js`),
+                { workerData: data }
+            );
+
+            worker.on('message', (result) => {
+                const index = this.workers.indexOf(worker);
+                if (index > -1) {
+                    this.workers.splice(index, 1);
+                }
+                resolve(result);
             });
 
-            worker.on('message', resolve);
-            worker.on('error', reject);
+            worker.on('error', (error) => {
+                const index = this.workers.indexOf(worker);
+                if (index > -1) {
+                    this.workers.splice(index, 1);
+                }
+                reject(error);
+            });
+
             worker.on('exit', (code) => {
                 if (code !== 0) {
-                    reject(new Error(`Worker stopped with exit code ${code}`));
+                    reject(new GeneratorError(`Worker stopped with exit code ${code}`, {
+                        code: 'WORKER_EXIT_ERROR',
+                        exitCode: code
+                    }));
                 }
             });
 
@@ -717,9 +741,13 @@ class SwaggerToNextjs extends EventEmitter {
      * Stop all workers
      */
     async _stopWorkers() {
-        await Promise.all(
-            this.workers.map(worker => worker.terminate())
+        const terminationPromises = this.workers.map(worker =>
+            worker.terminate().catch(err =>
+                this.logger?.error('Error terminating worker:', err)
+            )
         );
+
+        await Promise.all(terminationPromises);
         this.workers = [];
     }
 }

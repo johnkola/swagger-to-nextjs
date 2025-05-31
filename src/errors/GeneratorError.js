@@ -3,7 +3,7 @@
  * SWAGGER-TO-NEXTJS GENERATOR - AI PROMPT
  * ============================================================================
  * FILE: src/errors/GeneratorError.js
- * VERSION: 2025-05-28 15:14:56
+ * VERSION: 2025-05-30 11:34:23
  * PHASE: PHASE 2: Core System Components
  * CATEGORY: 🚨 Error Handling System
  * ============================================================================
@@ -11,20 +11,19 @@
  * AI GENERATION PROMPT:
  *
  * Create a sophisticated GeneratorError base class that:
- * - Extends Error with rich metadata
- * - Implements error codes and categories
- * - Provides structured error context
- * - Supports error chaining and causation
- * - Implements serialization for different outputs
- * - Provides user-friendly messages
- * - Includes recovery suggestions
- * - Supports internationalization
- * - Integrates with logging systems
+ * - Extends Error with rich metadata 
+ * - Implements error codes and categories 
+ * - Provides structured error context 
+ * - Supports error chaining and causation 
+ * - Implements serialization for different outputs 
+ * - Provides user-friendly messages 
+ * - Includes recovery suggestions 
+ * - Supports internationalization 
+ * - Integrates with logging systems 
  * - Implements error fingerprinting for tracking
  *
  * ============================================================================
  */
-
 const crypto = require('crypto');
 const os = require('os');
 const { format } = require('util');
@@ -260,7 +259,7 @@ class GeneratorError extends Error {
     }
 
     /**
-     * Get localized message
+     * Get a localized message
      */
     getLocalizedMessage(locale = this.locale) {
         if (this.translations[locale]) {
@@ -270,7 +269,7 @@ class GeneratorError extends Error {
     }
 
     /**
-     * Check if error is of specific type
+     * Check if the error is of a specific type
      */
     is(errorCode) {
         return this.code === errorCode || this.code.startsWith(errorCode);
@@ -496,7 +495,7 @@ class GeneratorError extends Error {
     }
 
     /**
-     * Check if value is a GeneratorError
+     * Check if the value is a GeneratorError
      */
     static isGeneratorError(value) {
         return value instanceof GeneratorError;
@@ -510,7 +509,7 @@ class GeneratorError extends Error {
             return error;
         }
 
-        const wrapped = new GeneratorError(
+        return new GeneratorError(
             error.message || 'An unknown error occurred',
             code,
             {
@@ -522,8 +521,6 @@ class GeneratorError extends Error {
                 }
             }
         );
-
-        return wrapped;
     }
 }
 

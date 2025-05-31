@@ -3,7 +3,7 @@
 SWAGGER-TO-NEXTJS GENERATOR - AI PROMPT
 ==============================================================================
 FILE: src/templates/files/config/tsconfig.json.template
-VERSION: 2025-05-28 15:14:56
+VERSION: 2025-05-30 11:34:23
 PHASE: PHASE 4: Template Files
 CATEGORY: ⚙️ Configuration Template Files
 ==============================================================================
@@ -11,7 +11,7 @@ CATEGORY: ⚙️ Configuration Template Files
 AI GENERATION PROMPT:
 
 Create an optimized TypeScript configuration that includes:
-- Strict type checking settings 
+- Strict type-checking settings 
 - Path aliasing for clean imports 
 - Next.js specific configurations 
 - Module resolution settings 
