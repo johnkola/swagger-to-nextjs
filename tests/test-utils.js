@@ -1,17 +1,17 @@
 /**
  * ============================================================================
- * Enhanced Test Utilities
- * Central helper functions for all test suites
+ * Test Utilities for Node.js Test Runner
+ * Helper functions for test suites without mocking libraries
  * ============================================================================
  */
 
-const { spawn, fork } = require('child_process');
+const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 
 // ============================================================================
-// CLI Testing Utilities (from cli-test-utils.js)
+// CLI Testing Utilities
 // ============================================================================
 
 /**
@@ -78,95 +78,6 @@ function runScript(script, env = {}, options = {}) {
 
         child.on('error', reject);
     });
-}
-
-// ============================================================================
-// Mock Management Utilities
-// ============================================================================
-
-class MockManager {
-    constructor() {
-        this.mocks = new Map();
-        this.spies = new Map();
-    }
-
-    /**
-     * Create a mock function with tracking
-     * @param {string} name - Name for the mock
-     * @param {Function} implementation - Optional implementation
-     * @returns {jest.Mock}
-     */
-    createMock(name, implementation) {
-        const mock = jest.fn(implementation);
-        this.mocks.set(name, mock);
-        return mock;
-    }
-
-    /**
-     * Create multiple mocks from an object
-     * @param {Object} mockDefinitions - Object with mock definitions
-     * @returns {Object} Object with created mocks
-     */
-    createMocks(mockDefinitions) {
-        const mocks = {};
-        for (const [key, value] of Object.entries(mockDefinitions)) {
-            if (typeof value === 'function') {
-                mocks[key] = this.createMock(key, value);
-            } else {
-                mocks[key] = this.createMock(key, () => value);
-            }
-        }
-        return mocks;
-    }
-
-    /**
-     * Create a spy on an object method
-     * @param {Object} object - Object to spy on
-     * @param {string} method - Method name
-     * @param {Function} implementation - Optional implementation
-     * @returns {jest.SpyInstance}
-     */
-    createSpy(object, method, implementation) {
-        const spy = implementation
-            ? jest.spyOn(object, method).mockImplementation(implementation)
-            : jest.spyOn(object, method);
-        this.spies.set(`${object.constructor.name}.${method}`, spy);
-        return spy;
-    }
-
-    /**
-     * Reset all mocks and spies
-     */
-    resetAll() {
-        this.mocks.forEach(mock => mock.mockReset());
-        this.spies.forEach(spy => spy.mockReset());
-    }
-
-    /**
-     * Restore all spies
-     */
-    restoreAll() {
-        this.spies.forEach(spy => spy.mockRestore());
-        this.spies.clear();
-    }
-
-    /**
-     * Clear all mocks and spies
-     */
-    clearAll() {
-        this.mocks.forEach(mock => mock.mockClear());
-        this.spies.forEach(spy => spy.mockClear());
-    }
-
-    /**
-     * Get call history for a mock
-     * @param {string} name - Mock name
-     * @returns {Array} Call history
-     */
-    getCallHistory(name) {
-        const mock = this.mocks.get(name);
-        return mock ? mock.mock.calls : [];
-    }
 }
 
 // ============================================================================
@@ -356,34 +267,6 @@ class AsyncTestHelper {
 
         throw lastError;
     }
-
-    /**
-     * Run operations in parallel with concurrency limit
-     * @param {Array} items - Items to process
-     * @param {Function} operation - Async operation for each item
-     * @param {number} concurrency - Max concurrent operations
-     * @returns {Promise<Array>} Results
-     */
-    static async parallelLimit(items, operation, concurrency = 5) {
-        const results = [];
-        const executing = [];
-
-        for (const [index, item] of items.entries()) {
-            const promise = Promise.resolve()
-                .then(() => operation(item, index))
-                .then(result => results[index] = result);
-
-            executing.push(promise);
-
-            if (executing.length >= concurrency) {
-                await Promise.race(executing);
-                executing.splice(executing.findIndex(p => p === promise), 1);
-            }
-        }
-
-        await Promise.all(executing);
-        return results;
-    }
 }
 
 // ============================================================================
@@ -415,9 +298,9 @@ class ConsoleTestHelper {
     startCapture(methods = ['log', 'error', 'warn', 'info', 'debug']) {
         methods.forEach(method => {
             if (this.originalConsole[method]) {
-                console[method] = jest.fn((...args) => {
+                console[method] = (...args) => {
                     this.captured[method].push(args);
-                });
+                };
             }
         });
     }
@@ -446,22 +329,6 @@ class ConsoleTestHelper {
     clearCaptured() {
         Object.keys(this.captured).forEach(method => {
             this.captured[method] = [];
-        });
-    }
-
-    /**
-     * Find captured output matching pattern
-     * @param {string|RegExp} pattern - Pattern to match
-     * @param {string} method - Console method
-     * @returns {Array} Matching captures
-     */
-    findCaptured(pattern, method = 'log') {
-        const captures = this.getCaptured(method);
-        return captures.filter(args => {
-            const text = args.join(' ');
-            return pattern instanceof RegExp
-                ? pattern.test(text)
-                : text.includes(pattern);
         });
     }
 }
@@ -502,45 +369,6 @@ class TestDataGenerator {
     static randomEmail(domain = 'test.com') {
         return `${this.randomString(8)}@${domain}`;
     }
-
-    /**
-     * Generate random file path
-     * @param {string} extension - File extension
-     * @returns {string}
-     */
-    static randomFilePath(extension = 'json') {
-        return `/tmp/${this.randomString(8)}.${extension}`;
-    }
-
-    /**
-     * Generate test error
-     * @param {string} message - Error message
-     * @param {string} code - Error code
-     * @returns {Error}
-     */
-    static createError(message = 'Test error', code = 'TEST_ERROR') {
-        const error = new Error(message);
-        error.code = code;
-        return error;
-    }
-
-    /**
-     * Generate mock data structure
-     * @param {Object} template - Data template
-     * @param {number} count - Number of items
-     * @returns {Array}
-     */
-    static generateMockData(template, count = 10) {
-        const results = [];
-        for (let i = 0; i < count; i++) {
-            const item = {};
-            for (const [key, generator] of Object.entries(template)) {
-                item[key] = typeof generator === 'function' ? generator(i) : generator;
-            }
-            results.push(item);
-        }
-        return results;
-    }
 }
 
 // ============================================================================
@@ -550,8 +378,6 @@ class TestDataGenerator {
 class EnvironmentTestHelper {
     constructor() {
         this.originalEnv = { ...process.env };
-        this.originalPlatform = Object.getOwnPropertyDescriptor(process, 'platform');
-        this.originalVersion = Object.getOwnPropertyDescriptor(process, 'version');
     }
 
     /**
@@ -571,98 +397,88 @@ class EnvironmentTestHelper {
     }
 
     /**
-     * Mock process platform
-     * @param {string} platform - Platform name
-     */
-    mockPlatform(platform) {
-        Object.defineProperty(process, 'platform', {
-            value: platform,
-            configurable: true
-        });
-    }
-
-    /**
-     * Mock process version
-     * @param {string} version - Version string
-     */
-    mockVersion(version) {
-        Object.defineProperty(process, 'version', {
-            value: version,
-            configurable: true
-        });
-    }
-
-    /**
      * Restore original environment
      */
     restore() {
         process.env = { ...this.originalEnv };
-        if (this.originalPlatform) {
-            Object.defineProperty(process, 'platform', this.originalPlatform);
-        }
-        if (this.originalVersion) {
-            Object.defineProperty(process, 'version', this.originalVersion);
-        }
     }
 }
 
 // ============================================================================
-// Assertion Helpers
+// Simple Function Spies (No external mocking library)
 // ============================================================================
 
-class AssertionHelper {
-    /**
-     * Assert object matches shape
-     * @param {Object} actual - Actual object
-     * @param {Object} shape - Expected shape
-     */
-    static assertShape(actual, shape) {
-        expect(actual).toMatchObject(shape);
-        Object.keys(shape).forEach(key => {
-            expect(actual).toHaveProperty(key);
-        });
+class FunctionSpy {
+    constructor(originalFn = () => {}) {
+        this.originalFn = originalFn;
+        this.calls = [];
+        this.returnValue = undefined;
+        this.throwError = null;
+
+        // Create the spy function
+        this.spy = (...args) => {
+            const callInfo = {
+                args,
+                timestamp: Date.now(),
+                returnValue: undefined,
+                error: null
+            };
+
+            this.calls.push(callInfo);
+
+            if (this.throwError) {
+                callInfo.error = this.throwError;
+                throw this.throwError;
+            }
+
+            const result = this.returnValue !== undefined
+                ? this.returnValue
+                : this.originalFn(...args);
+
+            callInfo.returnValue = result;
+            return result;
+        };
     }
 
     /**
-     * Assert array contains items matching predicate
-     * @param {Array} array - Array to check
-     * @param {Function} predicate - Predicate function
-     * @param {number} count - Expected count (optional)
+     * Set return value for the spy
      */
-    static assertArrayContains(array, predicate, count = null) {
-        const matches = array.filter(predicate);
-        expect(matches.length).toBeGreaterThan(0);
-        if (count !== null) {
-            expect(matches.length).toBe(count);
-        }
+    returns(value) {
+        this.returnValue = value;
+        return this;
     }
 
     /**
-     * Assert async function throws
-     * @param {Function} asyncFn - Async function
-     * @param {string|RegExp} error - Expected error
+     * Make the spy throw an error
      */
-    static async assertAsyncThrows(asyncFn, error) {
-        await expect(asyncFn()).rejects.toThrow(error);
+    throws(error) {
+        this.throwError = error;
+        return this;
     }
 
     /**
-     * Assert function is called with pattern
-     * @param {jest.Mock} mockFn - Mock function
-     * @param {Array} patterns - Argument patterns
+     * Get number of times called
      */
-    static assertCalledWithPattern(mockFn, patterns) {
-        expect(mockFn).toHaveBeenCalled();
-        const calls = mockFn.mock.calls;
-        const hasMatch = calls.some(callArgs =>
-            patterns.every((pattern, index) => {
-                if (pattern instanceof RegExp) {
-                    return pattern.test(String(callArgs[index]));
-                }
-                return callArgs[index] === pattern;
-            })
+    get callCount() {
+        return this.calls.length;
+    }
+
+    /**
+     * Check if called with specific arguments
+     */
+    calledWith(...args) {
+        return this.calls.some(call =>
+            JSON.stringify(call.args) === JSON.stringify(args)
         );
-        expect(hasMatch).toBe(true);
+    }
+
+    /**
+     * Reset the spy
+     */
+    reset() {
+        this.calls = [];
+        this.returnValue = undefined;
+        this.throwError = null;
     }
 }
 
@@ -676,19 +492,18 @@ module.exports = {
     runScript,
 
     // Class-based utilities
-    MockManager,
     FileSystemTestHelper,
     AsyncTestHelper,
     ConsoleTestHelper,
     TestDataGenerator,
     EnvironmentTestHelper,
-    AssertionHelper,
+    FunctionSpy,
 
     // Factory functions
-    createMockManager: () => new MockManager(),
     createFileSystemHelper: (basePath) => new FileSystemTestHelper(basePath),
     createConsoleHelper: () => new ConsoleTestHelper(),
     createEnvironmentHelper: () => new EnvironmentTestHelper(),
+    createSpy: (fn) => new FunctionSpy(fn),
 
     // Commonly used patterns
     testPatterns: {

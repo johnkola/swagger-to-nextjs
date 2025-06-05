@@ -28,9 +28,6 @@ const fs = require('fs').promises;
 const path = require('path');
 const { EventEmitter } = require('events');
 const chokidar = require('chokidar');
-const glob = require('glob');
-const yaml = require('js-yaml');
-const crypto = require('crypto');
 const https = require('https');
 const http = require('http');
 const { URL } = require('url');
@@ -1007,6 +1004,66 @@ class TemplateLoader extends EventEmitter {
         }
 
         this.emit('stateImported', state);
+    }
+
+    addListener(eventName, listener) {
+        return undefined;
+    }
+
+    emit(eventName, ...args) {
+        return false;
+    }
+
+    eventNames() {
+        return undefined;
+    }
+
+    getMaxListeners() {
+        return 0;
+    }
+
+    listenerCount(eventName, listener) {
+        return 0;
+    }
+
+    listeners(eventName) {
+        return undefined;
+    }
+
+    off(eventName, listener) {
+        return undefined;
+    }
+
+    on(eventName, listener) {
+        return undefined;
+    }
+
+    once(eventName, listener) {
+        return undefined;
+    }
+
+    prependListener(eventName, listener) {
+        return undefined;
+    }
+
+    prependOnceListener(eventName, listener) {
+        return undefined;
+    }
+
+    rawListeners(eventName) {
+        return undefined;
+    }
+
+    removeAllListeners(eventName) {
+        return undefined;
+    }
+
+    removeListener(eventName, listener) {
+        return undefined;
+    }
+
+    setMaxListeners(n) {
+        return undefined;
     }
 }
 

@@ -1,794 +1,514 @@
-/**
- * ============================================================================
- * SWAGGER-TO-NEXTJS GENERATOR - AI PROMPT
- * ============================================================================
- * FILE: src/logging/ProgressReporter.js
- * VERSION: 2025-05-30 11:34:23
- * PHASE: PHASE 2: Core System Components
- * CATEGORY: 📊 Logging System
- * ============================================================================
- *
- * AI GENERATION PROMPT:
- *
- * Build an advanced progress reporting system that:
- * - Implements multiple progress bar styles
- * - Supports nested progress tracking
- * - Provides ETA calculations
- * - Implements smooth animations
- * - Supports concurrent progress bars
- * - Provides detailed step descriptions
- * - Implements progress persistence
- * - Supports headless mode for CI/CD
- * - Provides progress webhooks
- * - Implements adaptive update rates
- *
- * ============================================================================
- */
-
+// src/logging/ProgressReporter.js
 const { EventEmitter } = require('events');
-const chalk = require('chalk');
-const cliProgress = require('cli-progress');
-const { format } = require('date-fns');
-const fs = require('fs-extra');
-const path = require('path');
-
-// Handle ora import (might be ESM)
-let ora;
-try {
-    ora = require('ora');
-    if (ora.default) ora = ora.default;
-} catch (e) {
-    // Fallback if ora fails
-    ora = (options) => ({
-        start: function(text) {
-            this.text = text || options.text;
-            console.log(`⏳ ${this.text}`);
-            return this;
-        },
-        succeed: function(text) {
-            console.log(`✅ ${text || this.text}`);
-            return this;
-        },
-        fail: function(text) {
-            console.log(`❌ ${text || this.text}`);
-            return this;
-        },
-        stop: function() {
-            return this;
-        },
-        text: ''
-    });
-}
 
 /**
- * Progress bar styles
- */
-const PROGRESS_STYLES = {
-    default: {
-        format: '{bar} | {percentage}% | {value}/{total} | {step}',
-        barCompleteChar: '█',
-        barIncompleteChar: '░',
-        barsize: 40
-    },
-    minimal: {
-        format: '{percentage}% | {step}',
-        barCompleteChar: '●',
-        barIncompleteChar: '○',
-        barsize: 20
-    },
-    detailed: {
-        format: '[{bar}] {percentage}% | {value}/{total} | ETA: {eta}s | {step} | {duration}s',
-        barCompleteChar: '=',
-        barIncompleteChar: '-',
-        barsize: 50
-    },
-    fancy: {
-        format: '{spinner} {bar} {percentage}% | {step}',
-        barCompleteChar: '▓',
-        barIncompleteChar: '░',
-        barsize: 30
-    },
-    dots: {
-        format: '{dots} {percentage}% | {step}',
-        barCompleteChar: '⬤',
-        barIncompleteChar: '○',
-        barsize: 10
-    }
-};
-
-/**
- * Animation frames for spinners
- */
-const SPINNERS = {
-    dots: ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'],
-    line: ['―', '\\', '|', '/'],
-    circle: ['◐', '◓', '◑', '◒'],
-    box: ['▖', '▘', '▝', '▗'],
-    arrow: ['←', '↖', '↑', '↗', '→', '↘', '↓', '↙'],
-    bounce: ['⠁', '⠂', '⠄', '⡀', '⢀', '⠠', '⠐', '⠈']
-};
-
-/**
- * ETA calculator
- */
-class ETACalculator {
-    constructor(windowSize = 10) {
-        this.windowSize = windowSize;
-        this.samples = [];
-        this.startTime = Date.now();
-        this.lastUpdate = this.startTime;
-    }
-
-    update(current, total) {
-        const now = Date.now();
-        const elapsed = now - this.lastUpdate;
-
-        if (elapsed > 0) {
-            const rate = 1 / (elapsed / 1000);
-            this.samples.push({ time: now, rate, current });
-
-            // Keep only recent samples
-            if (this.samples.length > this.windowSize) {
-                this.samples.shift();
-            }
-        }
-
-        this.lastUpdate = now;
-
-        return this.calculate(current, total);
-    }
-
-    calculate(current, total) {
-        if (this.samples.length < 2 || current === 0) {
-            return Infinity;
-        }
-
-        // Calculate average rate
-        const recentSamples = this.samples.slice(-5);
-        const timeSpan = recentSamples[recentSamples.length - 1].time - recentSamples[0].time;
-        const progress = recentSamples[recentSamples.length - 1].current - recentSamples[0].current;
-
-        if (timeSpan === 0 || progress === 0) {
-            return Infinity;
-        }
-
-        const rate = progress / (timeSpan / 1000);
-        const remaining = total - current;
-
-        return remaining / rate;
-    }
-
-    getDuration() {
-        return (Date.now() - this.startTime) / 1000;
-    }
-}
-
-/**
- * Progress state manager
- */
-class ProgressState {
-    constructor(id, total, options = {}) {
-        this.id = id;
-        this.total = total;
-        this.current = 0;
-        this.step = '';
-        this.startTime = Date.now();
-        this.lastUpdate = this.startTime;
-        this.eta = new ETACalculator();
-        this.options = options;
-        this.children = new Map();
-        this.parentId = null;
-    }
-
-    update(current, step) {
-        this.current = Math.min(current, this.total);
-        this.step = step || this.step;
-        this.lastUpdate = Date.now();
-
-        const etaSeconds = this.eta.update(this.current, this.total);
-
-        return {
-            percentage: Math.round((this.current / this.total) * 100),
-            eta: etaSeconds === Infinity ? '?' : Math.round(etaSeconds),
-            duration: this.eta.getDuration()
-        };
-    }
-
-    isComplete() {
-        return this.current >= this.total;
-    }
-}
-
-/**
- * Progress bar renderer
- */
-class ProgressRenderer {
-    constructor(style = 'default', options = {}) {
-        this.style = { ...PROGRESS_STYLES[style], ...options };
-        this.multibar = null;
-        this.bars = new Map();
-        this.spinnerFrame = 0;
-        this.isCI = process.env.CI || !process.stdout.isTTY;
-
-        if (!this.isCI && options.concurrent) {
-            this.multibar = new cliProgress.MultiBar({
-                clearOnComplete: false,
-                hideCursor: true,
-                format: this.formatBar.bind(this),
-                barsize: this.style.barsize
-            }, cliProgress.Presets.shades_classic);
-        }
-    }
-
-    formatBar(options, params, payload) {
-        let format = this.style.format;
-
-        // Replace tokens
-        const tokens = {
-            bar: options.barCompleteString + options.barIncompleteString,
-            percentage: Math.round(params.progress * 100),
-            value: params.value,
-            total: params.total,
-            step: payload.step || '',
-            eta: payload.eta || '?',
-            duration: Math.round(payload.duration || 0),
-            spinner: this.getSpinnerFrame(payload.spinnerId),
-            dots: this.getDotsProgress(params.progress)
-        };
-
-        for (const [key, value] of Object.entries(tokens)) {
-            format = format.replace(`{${key}}`, value);
-        }
-
-        // Apply colors
-        if (params.progress === 1) {
-            return chalk.green(format);
-        } else if (params.progress > 0.7) {
-            return chalk.yellow(format);
-        }
-
-        return format;
-    }
-
-    getSpinnerFrame(spinnerId = 'dots') {
-        const frames = SPINNERS[spinnerId] || SPINNERS.dots;
-        return frames[this.spinnerFrame % frames.length];
-    }
-
-    getDotsProgress(progress) {
-        const filled = Math.round(progress * 10);
-        return '●'.repeat(filled) + '○'.repeat(10 - filled);
-    }
-
-    createBar(id, total, options = {}) {
-        if (this.isCI) {
-            return null;
-        }
-
-        if (this.multibar) {
-            const bar = this.multibar.create(total, 0, {
-                step: '',
-                spinnerId: options.spinner || 'dots'
-            });
-            this.bars.set(id, bar);
-            return bar;
-        }
-
-        // Single bar mode
-        const bar = new cliProgress.SingleBar({
-            format: this.formatBar.bind(this),
-            barCompleteChar: this.style.barCompleteChar,
-            barIncompleteChar: this.style.barIncompleteChar,
-            barsize: this.style.barsize,
-            hideCursor: true
-        });
-
-        bar.start(total, 0, { step: '' });
-        this.bars.set(id, bar);
-        return bar;
-    }
-
-    updateBar(id, current, payload) {
-        const bar = this.bars.get(id);
-        if (bar) {
-            bar.update(current, payload);
-        }
-    }
-
-    removeBar(id) {
-        const bar = this.bars.get(id);
-        if (bar) {
-            if (this.multibar) {
-                this.multibar.remove(bar);
-            } else {
-                bar.stop();
-            }
-            this.bars.delete(id);
-        }
-    }
-
-    stop() {
-        if (this.multibar) {
-            this.multibar.stop();
-        } else {
-            for (const bar of this.bars.values()) {
-                bar.stop();
-            }
-        }
-        this.bars.clear();
-    }
-
-    incrementSpinner() {
-        this.spinnerFrame++;
-    }
-}
-
-/**
- * Main ProgressReporter class
+ * @class ProgressReporter
+ * @extends EventEmitter
+ * @description Reports progress for long-running operations with visual feedback
  */
 class ProgressReporter extends EventEmitter {
+    /**
+     * @param {Object} options - Progress reporter options
+     * @param {Object} [options.getTime] - Logger instance for output
+     * @param {number} [options.total=100] - Total items to process
+     * @param {number} [options.barWidth=40] - Width of progress bar
+     * @param {boolean} [options.showPercentage=true] - Show percentage
+     * @param {boolean} [options.showETA=true] - Show estimated time
+     * @param {boolean} [options.showSpeed=true] - Show processing speed
+     * @param {boolean} [options.showSpinner=false] - Show spinner animation
+     * @param {number} [options.updateInterval=100] - Update interval in ms
+     * @param {string|Function} [options.format='default'] - Progress format
+     * @param {string} [options.barCompleteChar='█'] - Completed bar character
+     * @param {string} [options.barIncompleteChar='░'] - Incomplete bar character
+     * @param {string} [options.speedUnit='items/s'] - Speed unit label
+     * @param {Array} [options.spinner] - Custom spinner frames
+     * @param {Array} [options.logMilestones] - Percentage milestones to log
+     * @param {Object} [options.logger] - Logger instance for output
+     */
     constructor(options = {}) {
         super();
-
-        this.options = {
-            style: 'default',
-            concurrent: true,
-            persistence: false,
-            persistFile: '.progress.json',
-            webhookUrl: null,
-            webhookInterval: 5000,
-            updateRate: 100, // ms
-            headless: process.env.CI || !process.stdout.isTTY,
-            ...options
-        };
-
-        this.states = new Map();
-        this.renderer = new ProgressRenderer(this.options.style, {
-            concurrent: this.options.concurrent
-        });
-
-        this.updateTimer = null;
-        this.webhookTimer = null;
-        this.spinners = new Map();
-
-        // Load persisted state
-        if (this.options.persistence) {
-            this.loadState();
+        options.getTime = undefined;
+        // Validate total
+        if (options.total !== undefined && options.total <= 0) {
+            throw new Error('Total must be greater than 0');
         }
 
-        // Start webhook reporter
-        if (this.options.webhookUrl) {
-            this.startWebhookReporter();
-        }
+        // Basic properties
+        this.total = options.total || 100;
+        this.current = 0;
+        this.percentage = 0;
 
-        // Start update loop
-        this.startUpdateLoop();
+        // Display options
+        this.barWidth = options.barWidth || 40;
+        this.showPercentage = options.showPercentage !== false;
+        this.showETA = options.showETA !== false;
+        this.showSpeed = options.showSpeed !== false;
+        this.showSpinner = options.showSpinner || false;
+
+        // Formatting
+        this.format = options.format || 'default';
+        this.barCompleteChar = options.barCompleteChar || '█';
+        this.barIncompleteChar = options.barIncompleteChar || '░';
+        this.speedUnit = options.speedUnit || 'items/s';
+
+        // Spinner animation
+        this.spinner = options.spinner || ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+        this.spinnerIndex = 0;
+
+        // Timing
+        this.updateInterval = options.updateInterval || 100;
+        this.startTime = null;
+        this.endTime = null;
+// State
+        this.isRunning = false;
+        this.message = '';
+        this.renderInterval = null;
+
+        // Speed calculation
+        this.speed = 0;
+        this.eta = Infinity;
+
+        // Environment detection
+        this.isInteractive = this._detectInteractive();
+
+        // Non-interactive options
+        this.logMilestones = options.logMilestones || [];
+        this.lastMilestone = 0;
+
+        // External logger
+        this.logger = options.logger;
+
+        // For testing with fake timers
+        this._getTime = options.getTime || (() => Date.now());
     }
 
     /**
-     * Create a new progress bar
+     * Detect if running in an interactive environment
+     * @private
      */
-    create(id, total = 100, options = {}) {
-        if (typeof id === 'string' && typeof total === 'object' && !options) {
-            // Handle create(name) pattern from CLI
-            options = total;
-            total = 100;
-        }
-
-        if (this.states.has(id)) {
-            // Return existing progress
-            return this.getProgress(id);
-        }
-
-        const state = new ProgressState(id, total, options);
-        this.states.set(id, state);
-
-        // Create visual bar
-        if (!this.options.headless) {
-            this.renderer.createBar(id, total, options);
-        }
-
-        // Emit event
-        this.emit('progress:start', {
-            id,
-            total,
-            timestamp: new Date()
-        });
-
-        // Return progress control object
-        return this.getProgress(id);
+    _detectInteractive() {
+        // Check if stdout exists and is TTY, and not in CI
+        return !!(process.stdout && process.stdout.isTTY && !process.env.CI);
     }
 
     /**
-     * Get progress control object
+     * Start progress reporting
+     * @param {string} [message] - Initial message
      */
-    getProgress(id) {
-        const self = this;
-        return {
-            start: (text) => {
-                const state = self.states.get(id);
-                if (state) {
-                    state.step = text;
-                    self.update(id, state.current, text);
-                }
-            },
-            succeed: (text) => {
-                const state = self.states.get(id);
-                if (state) {
-                    state.step = text || state.step;
-                    self.update(id, state.total, state.step);
-                    console.log(chalk.green('✓'), text || state.step);
-                    self.complete(id);
-                }
-            },
-            fail: (text) => {
-                const state = self.states.get(id);
-                if (state) {
-                    console.log(chalk.red('✗'), text || state.step);
-                    self.complete(id);
-                }
-            },
-            update: (current, text) => {
-                self.update(id, current, text);
-            },
-            increment: (text) => {
-                self.increment(id, text);
-            }
-        };
-    }
+    start(message = '') {
+        if (this.isRunning) return;
 
-    /**
-     * Create nested progress
-     */
-    createNested(parentId, id, total, options = {}) {
-        const parent = this.states.get(parentId);
-        if (!parent) {
-            throw new Error(`Parent progress ${parentId} not found`);
+        this.isRunning = true;
+        this.startTime = this._getTime();
+        this.endTime = null;
+        this.message = message;
+        this.current = 0;
+        this.percentage = 0;
+        this.speed = 0;
+        this.eta = Infinity;
+
+        if (this.logger && message) {
+            this.logger.info(message);
         }
 
-        this.create(id, total, options);
+        if (this.isInteractive) {
+            // Set up interval for renders
+            this.renderInterval = setInterval(() => this._render(), this.updateInterval);
+            // Immediate initial render
+            this._render();
+        }
 
-        const child = this.states.get(id);
-        child.parentId = parentId;
-        parent.children.set(id, child);
-
-        return this;
+        this.emit('start', { total: this.total, message });
     }
 
     /**
      * Update progress
+     * @param {number} current - Current progress value
      */
-    update(id, current, step) {
-        const state = this.states.get(id);
-        if (!state) {
-            // Silently ignore if progress doesn't exist
-            return this;
+    update(current) {
+        // Clamp to valid range
+        current = Math.max(0, Math.min(current, this.total));
+
+        this.current = current;
+        this.percentage = this.total > 0 ? current / this.total : 0;
+
+        // Calculate speed and ETA
+        this._calculateSpeed();
+        this._calculateETA();
+
+        // Check for milestones in non-interactive mode
+        if (!this.isInteractive && this.logMilestones.length > 0) {
+            this._checkMilestones();
         }
 
-        const stats = state.update(current, step);
-
-        // Update visual bar
-        if (!this.options.headless) {
-            this.renderer.updateBar(id, current, {
-                step: step || state.step,
-                eta: stats.eta,
-                duration: stats.duration
-            });
-        }
-
-        // Update parent progress
-        if (state.parentId) {
-            this.updateParent(state.parentId);
-        }
-
-        // Emit event
-        this.emit('progress:update', {
-            id,
-            current,
-            total: state.total,
-            percentage: stats.percentage,
-            step,
-            timestamp: new Date()
+        // Emit progress event
+        this.emit('progress', {
+            current: this.current,
+            total: this.total,
+            percentage: this.percentage
         });
 
-        // Check completion
-        if (state.isComplete()) {
-            this.complete(id);
+        // Check for completion
+        if (this.current >= this.total) {
+            this._complete();
         }
-
-        // Persist state
-        if (this.options.persistence) {
-            this.saveState();
-        }
-
-        return this;
     }
 
     /**
-     * Increment progress
+     * Increment progress by delta
+     * @param {number} [delta=1] - Amount to increment
      */
-    increment(id, step) {
-        const state = this.states.get(id);
-        if (!state) {
-            return this;
-        }
-
-        return this.update(id, state.current + 1, step);
+    increment(delta = 1) {
+        this.update(this.current + delta);
     }
 
     /**
-     * Update parent based on children
+     * Set progress message
+     * @param {string} message - New message
      */
-    updateParent(parentId) {
-        const parent = this.states.get(parentId);
-        if (!parent || parent.children.size === 0) {
+    setMessage(message) {
+        this.message = message;
+    }
+
+    /**
+     * Stop progress reporting
+     */
+    stop() {
+        if (!this.isRunning) return;
+
+        this.isRunning = false;
+        this.endTime = this._getTime();
+
+        if (this.renderInterval) {
+            clearInterval(this.renderInterval);
+            this.renderInterval = null;
+        }
+
+        if (this.isInteractive) {
+            this._clearLine();
+        }
+
+        const duration = this.endTime - this.startTime;
+
+        if (this.logger) {
+            this.logger.info(`Complete in ${this._formatTime(duration / 1000)}`);
+        }
+
+        this.emit('stop', { duration });
+    }
+
+    /**
+     * Reset progress
+     */
+    reset() {
+        this.stop();
+        this.current = 0;
+        this.percentage = 0;
+        this.startTime = null;
+        this.endTime = null;
+        this.speed = 0;
+        this.eta = Infinity;
+        this.lastMilestone = 0;
+    }
+
+    /**
+     * Calculate current speed
+     * @private
+     */
+    _calculateSpeed() {
+        if (!this.startTime || this.current === 0) {
+            this.speed = 0;
             return;
         }
 
-        let totalProgress = 0;
-        for (const child of parent.children.values()) {
-            totalProgress += (child.current / child.total);
-        }
-
-        const avgProgress = totalProgress / parent.children.size;
-        const parentCurrent = Math.round(avgProgress * parent.total);
-
-        parent.current = parentCurrent;
-
-        if (!this.options.headless) {
-            const stats = parent.eta.update(parentCurrent, parent.total);
-            this.renderer.updateBar(parentId, parentCurrent, {
-                step: parent.step,
-                eta: stats.eta,
-                duration: stats.duration
-            });
-        }
+        const elapsed = (this._getTime() - this.startTime) / 1000; // seconds
+        this.speed = elapsed > 0 ? this.current / elapsed : 0;
     }
 
     /**
-     * Complete progress
+     * Calculate ETA
+     * @private
      */
-    complete(id) {
-        const state = this.states.get(id);
-        if (!state) {
+    _calculateETA() {
+        if (this.speed === 0 || this.current >= this.total) {
+            this.eta = Infinity;
             return;
         }
 
-        // Remove visual bar
-        if (!this.options.headless) {
-            this.renderer.removeBar(id);
-        }
+        const remaining = this.total - this.current;
+        this.eta = remaining / this.speed;
+    }
 
-        // Emit event
-        this.emit('progress:complete', {
-            id,
-            duration: (Date.now() - state.startTime) / 1000,
-            timestamp: new Date()
+    /**
+     * Check and log milestones
+     * @private
+     */
+    _checkMilestones() {
+        const currentPercentage = Math.floor(this.percentage * 100);
+
+        for (const milestone of this.logMilestones) {
+            if (currentPercentage >= milestone && this.lastMilestone < milestone) {
+                console.log(`Progress: ${milestone}% complete`);
+                this.lastMilestone = milestone;
+            }
+        }
+    }
+
+    /**
+     * Handle completion
+     * @private
+     */
+    _complete() {
+        const duration = this._getTime() - this.startTime;
+
+        this.emit('complete', {
+            total: this.total,
+            duration
         });
 
-        // Remove from parent
-        if (state.parentId) {
-            const parent = this.states.get(state.parentId);
-            if (parent) {
-                parent.children.delete(id);
-            }
-        }
-
-        // Clean up children
-        for (const childId of state.children.keys()) {
-            this.complete(childId);
-        }
-
-        this.states.delete(id);
-
-        // Save state
-        if (this.options.persistence) {
-            this.saveState();
-        }
+        this.stop();
     }
 
     /**
-     * Create a spinner
+     * Render progress bar
+     * @private
      */
-    spinner(id, text, options = {}) {
-        if (this.options.headless) {
-            console.log(`[${id}] ${text}`);
-            return {
-                update: (newText) => console.log(`[${id}] ${newText}`),
-                success: (finalText) => console.log(`[${id}] ✓ ${finalText || text}`),
-                fail: (finalText) => console.log(`[${id}] ✗ ${finalText || text}`),
-                stop: () => {}
-            };
-        }
+    _render() {
+        if (!this.isRunning || !this.isInteractive) return;
 
-        const spinner = ora({
-            text,
-            spinner: options.spinner || 'dots',
-            ...options
-        }).start();
-
-        this.spinners.set(id, spinner);
-
-        return {
-            update: (newText) => { spinner.text = newText; },
-            success: (finalText) => {
-                spinner.succeed(finalText);
-                this.spinners.delete(id);
-            },
-            fail: (finalText) => {
-                spinner.fail(finalText);
-                this.spinners.delete(id);
-            },
-            stop: () => {
-                spinner.stop();
-                this.spinners.delete(id);
-            }
-        };
-    }
-
-    /**
-     * Update loop for smooth animations
-     */
-    startUpdateLoop() {
-        this.updateTimer = setInterval(() => {
-            this.renderer.incrementSpinner();
-
-            // Force re-render for animations
-            for (const [id, state] of this.states) {
-                if (!state.isComplete()) {
-                    this.renderer.updateBar(id, state.current, {
-                        step: state.step,
-                        eta: state.eta.calculate(state.current, state.total),
-                        duration: state.eta.getDuration()
-                    });
-                }
-            }
-        }, this.options.updateRate);
-    }
-
-    /**
-     * Webhook reporter
-     */
-    startWebhookReporter() {
-        this.webhookTimer = setInterval(async () => {
-            const report = this.getReport();
-
-            try {
-                const fetch = global.fetch || require('node-fetch');
-                await fetch(this.options.webhookUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(report)
-                });
-            } catch (error) {
-                this.emit('error', error);
-            }
-        }, this.options.webhookInterval);
-    }
-
-    /**
-     * Get progress report
-     */
-    getReport() {
-        const report = {
-            timestamp: new Date(),
-            progress: []
-        };
-
-        for (const [id, state] of this.states) {
-            report.progress.push({
-                id,
-                current: state.current,
-                total: state.total,
-                percentage: Math.round((state.current / state.total) * 100),
-                step: state.step,
-                duration: (Date.now() - state.startTime) / 1000,
-                eta: state.eta.calculate(state.current, state.total),
-                children: Array.from(state.children.keys())
-            });
-        }
-
-        return report;
-    }
-
-    /**
-     * Save state to file
-     */
-    async saveState() {
-        const state = {
-            version: 1,
-            timestamp: new Date(),
-            progress: {}
-        };
-
-        for (const [id, progressState] of this.states) {
-            state.progress[id] = {
-                current: progressState.current,
-                total: progressState.total,
-                step: progressState.step,
-                startTime: progressState.startTime,
-                parentId: progressState.parentId,
-                children: Array.from(progressState.children.keys())
-            };
-        }
-
-        await fs.writeJson(this.options.persistFile, state, { spaces: 2 });
-    }
-
-    /**
-     * Load state from file
-     */
-    async loadState() {
         try {
-            if (await fs.pathExists(this.options.persistFile)) {
-                const state = await fs.readJson(this.options.persistFile);
-
-                // Restore progress bars
-                for (const [id, data] of Object.entries(state.progress)) {
-                    this.create(id, data.total);
-                    this.update(id, data.current, data.step);
-                }
-
-                // Restore parent-child relationships
-                for (const [id, data] of Object.entries(state.progress)) {
-                    if (data.parentId) {
-                        const progressState = this.states.get(id);
-                        const parent = this.states.get(data.parentId);
-                        if (progressState && parent) {
-                            progressState.parentId = data.parentId;
-                            parent.children.set(id, progressState);
-                        }
-                    }
-                }
-            }
+            const output = this._format();
+            this._clearLine();
+            process.stdout.write(output);
         } catch (error) {
             this.emit('error', error);
         }
     }
 
     /**
-     * Clear all progress
+     * Format progress output
+     * @private
      */
-    clear() {
-        for (const id of this.states.keys()) {
-            this.complete(id);
+    _format() {
+        if (typeof this.format === 'function') {
+            return this.format({
+                current: this.current,
+                total: this.total,
+                percentage: this.percentage,
+                speed: this.speed,
+                eta: this.eta,
+                message: this.message
+            });
+        }
+
+        switch (this.format) {
+            case 'minimal':
+                return this._formatMinimal();
+            case 'detailed':
+                return this._formatDetailed();
+            default:
+                return this._formatDefault();
         }
     }
 
     /**
-     * Destroy reporter
+     * Default format
+     * @private
      */
-    destroy() {
-        if (this.updateTimer) {
-            clearInterval(this.updateTimer);
+    _formatDefault() {
+        const parts = [];
+
+        // Spinner
+        if (this.showSpinner) {
+            parts.push(this.spinner[this.spinnerIndex]);
+            this.spinnerIndex = (this.spinnerIndex + 1) % this.spinner.length;
         }
 
-        if (this.webhookTimer) {
-            clearInterval(this.webhookTimer);
+        // Message
+        if (this.message) {
+            parts.push(this.message);
         }
 
-        for (const spinner of this.spinners.values()) {
-            spinner.stop();
+        // Progress bar
+        parts.push(this._renderBar());
+
+        // Percentage
+        if (this.showPercentage) {
+            parts.push(`${Math.floor(this.percentage * 100)}%`);
         }
 
-        this.renderer.stop();
-        this.clear();
-
-        if (this.options.persistence) {
-            fs.removeSync(this.options.persistFile);
+        // Speed
+        if (this.showSpeed && this.speed > 0) {
+            parts.push(`${this.speed.toFixed(1)} ${this.speedUnit}`);
         }
+
+        // ETA
+        if (this.showETA && this.eta !== Infinity) {
+            parts.push(`ETA: ${this._formatTime(this.eta)}`);
+        }
+
+        return parts.join(' ');
+    }
+
+    /**
+     * Minimal format
+     * @private
+     */
+    _formatMinimal() {
+        return `${Math.floor(this.percentage * 100)}%`;
+    }
+
+    /**
+     * Detailed format
+     * @private
+     */
+    _formatDetailed() {
+        const parts = [
+            this._formatDefault(),
+            `[${this.current}/${this.total}]`
+        ];
+
+        if (this.startTime) {
+            const elapsed = (this._getTime() - this.startTime) / 1000;
+            parts.push(`Elapsed: ${this._formatTime(elapsed)}`);
+        }
+
+        return parts.join(' ');
+    }
+
+    /**
+     * Render progress bar
+     * @private
+     */
+    _renderBar() {
+        const complete = Math.floor(this.barWidth * this.percentage);
+        const incomplete = this.barWidth - complete;
+
+        const bar =
+            this.barCompleteChar.repeat(complete) +
+            this.barIncompleteChar.repeat(incomplete);
+
+        return `[${bar}]`;
+    }
+
+    /**
+     * Format time in human-readable format
+     * @private
+     */
+    _formatTime(seconds) {
+        if (seconds === Infinity || isNaN(seconds)) {
+            return '--';
+        }
+
+        // Handle negative values
+        if (seconds < 0) {
+            return '0s';
+        }
+
+        if (seconds === Infinity || isNaN(seconds)) {
+            return '--';
+        }
+
+        const hours = Math.floor(seconds / 3600);
+        const minutes = Math.floor((seconds % 3600) / 60);
+        const secs = Math.floor(seconds % 60);
+
+        const parts = [];
+
+        if (hours > 0) parts.push(`${hours}h`);
+        if (minutes > 0) parts.push(`${minutes}m`);
+        if (secs > 0 || parts.length === 0) parts.push(`${secs}s`);
+
+        return parts.join(' ');
+    }
+
+    /**
+     * Clear the current line
+     * @private
+     */
+    _clearLine() {
+        if (process.stdout.clearLine && process.stdout.cursorTo) {
+            process.stdout.clearLine(0);
+            process.stdout.cursorTo(0);
+        }
+    }
+
+    /**
+     * Get current progress state
+     * @returns {Object} Progress state
+     */
+    getState() {
+        return {
+            current: this.current,
+            total: this.total,
+            percentage: this.percentage,
+            speed: this.speed,
+            eta: this.eta,
+            isRunning: this.isRunning,
+            startTime: this.startTime,
+            endTime: this.endTime
+        };
+    }
+
+    addListener(eventName, listener) {
+        return undefined;
+    }
+
+    emit(eventName, ...args) {
+        return false;
+    }
+
+    eventNames() {
+        return undefined;
+    }
+
+    getMaxListeners() {
+        return 0;
+    }
+
+    listenerCount(eventName, listener) {
+        return 0;
+    }
+
+    listeners(eventName) {
+        return undefined;
+    }
+
+    off(eventName, listener) {
+        return undefined;
+    }
+
+    on(eventName, listener) {
+        return undefined;
+    }
+
+    once(eventName, listener) {
+        return undefined;
+    }
+
+    prependListener(eventName, listener) {
+        return undefined;
+    }
+
+    prependOnceListener(eventName, listener) {
+        return undefined;
+    }
+
+    rawListeners(eventName) {
+        return undefined;
+    }
+
+    removeAllListeners(eventName) {
+        return undefined;
+    }
+
+    removeListener(eventName, listener) {
+        return undefined;
+    }
+
+    setMaxListeners(n) {
+        return undefined;
     }
 }
 
-/**
- * Create a progress reporter instance
- */
-const createProgressReporter = (options = {}) => {
-    return new ProgressReporter(options);
-};
-
-// CommonJS exports
 module.exports = ProgressReporter;
-module.exports.ProgressReporter = ProgressReporter;
-module.exports.createProgressReporter = createProgressReporter;
-module.exports.default = ProgressReporter;

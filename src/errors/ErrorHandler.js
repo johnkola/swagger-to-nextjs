@@ -11,15 +11,15 @@
  * AI GENERATION PROMPT:
  *
  * Build a centralized error handler that:
- * - Implements error classification and routing 
- * - Provides multiple output formatters (CLI, JSON, HTML) 
- * - Implements error aggregation for bulk operations 
- * - Provides contextual error grouping 
- * - Implements error recovery strategies 
- * - Integrates with monitoring services 
- * - Provides error statistics and analytics 
- * - Implements rate limiting for error reporting 
- * - Supports custom error handlers 
+ * - Implements error classification and routing
+ * - Provides multiple output formatters (CLI, JSON, HTML)
+ * - Implements error aggregation for bulk operations
+ * - Provides contextual error grouping
+ * - Implements error recovery strategies
+ * - Integrates with monitoring services
+ * - Provides error statistics and analytics
+ * - Implements rate limiting for error reporting
+ * - Supports custom error handlers
  * - Provides debug mode with stack traces
  *
  * ============================================================================
@@ -100,8 +100,8 @@ class ErrorHandler extends EventEmitter {
     _initializeRecoveryStrategies() {
         // Network error recovery
         this.registerRecoveryStrategy('network', async (error) => {
-            if (error.shouldRetry()) {
-                const delay = error.getRetryDelay();
+            if (error.shouldRetry && typeof error.shouldRetry === 'function' && error.shouldRetry()) {
+                const delay = error.getRetryDelay ? error.getRetryDelay() : 1000;
                 this.emit('recovery:retry', { error, delay });
                 await this._sleep(delay);
                 return { action: 'retry', delay };
@@ -123,7 +123,7 @@ class ErrorHandler extends EventEmitter {
 
         // Validation error recovery
         this.registerRecoveryStrategy('validation', async (error) => {
-            if (error.suggestions.length > 0) {
+            if (error.suggestions && error.suggestions.length > 0) {
                 return {
                     action: 'suggest',
                     suggestions: error.suggestions
@@ -211,6 +211,7 @@ class ErrorHandler extends EventEmitter {
             // Error handler failed - last resort logging
             console.error('Error handler failed:', handlerError);
             console.error('Original error:', error);
+            return null;
         }
     }
 
@@ -230,11 +231,13 @@ class ErrorHandler extends EventEmitter {
             const result = await this.handle(error, context);
             results.push(result);
 
-            aggregated.handled++;
-            if (result?.recovery?.action === 'success') {
-                aggregated.recovered++;
-            } else {
-                aggregated.failed++;
+            if (result) {
+                aggregated.handled++;
+                if (result.recovery && result.recovery.action === 'success') {
+                    aggregated.recovered++;
+                } else {
+                    aggregated.failed++;
+                }
             }
         }
 
@@ -281,7 +284,9 @@ class ErrorHandler extends EventEmitter {
      * Check rate limiting
      */
     _checkRateLimit(error) {
-        const key = error.fingerprint;
+        const key = typeof error.getFingerprint === 'function'
+            ? error.getFingerprint()
+            : error.fingerprint || `${error.code}:${error.category}`;
         const now = Date.now();
 
         if (!this.rateLimitMap.has(key)) {
@@ -322,27 +327,34 @@ class ErrorHandler extends EventEmitter {
         this.errorStats.total++;
 
         // By category
-        this.errorStats.byCategory[error.category] =
-            (this.errorStats.byCategory[error.category] || 0) + 1;
+        const category = error.category || 'unknown';
+        this.errorStats.byCategory[category] =
+            (this.errorStats.byCategory[category] || 0) + 1;
 
         // By severity
-        this.errorStats.bySeverity[error.severity] =
-            (this.errorStats.bySeverity[error.severity] || 0) + 1;
+        const severity = error.severity || 'error';
+        this.errorStats.bySeverity[severity] =
+            (this.errorStats.bySeverity[severity] || 0) + 1;
 
         // By code
-        this.errorStats.byCode[error.code] =
-            (this.errorStats.byCode[error.code] || 0) + 1;
+        const code = error.code || 'UNKNOWN';
+        this.errorStats.byCode[code] =
+            (this.errorStats.byCode[code] || 0) + 1;
     }
 
     /**
      * Group similar errors
      */
     _groupError(error) {
-        const groupKey = `${error.category}:${error.code}:${error.fingerprint}`;
+        const fingerprint = typeof error.getFingerprint === 'function'
+            ? error.getFingerprint()
+            : error.fingerprint || `${error.code}:${error.category}`;
+
+        const groupKey = `${error.category}:${error.code}:${fingerprint}`;
 
         if (!this.errorGroups.has(groupKey)) {
             this.errorGroups.set(groupKey, {
-                fingerprint: error.fingerprint,
+                fingerprint: fingerprint,
                 category: error.category,
                 code: error.code,
                 message: error.message,
@@ -496,7 +508,7 @@ class ErrorHandler extends EventEmitter {
             const byCategory = {};
             results.forEach(result => {
                 if (result?.error) {
-                    const category = result.error.category;
+                    const category = result.error.category || 'unknown';
                     byCategory[category] = (byCategory[category] || 0) + 1;
                 }
             });
@@ -514,21 +526,21 @@ class ErrorHandler extends EventEmitter {
      * Format error for CLI output
      */
     _formatCLI(error) {
-        return error.serialize('cli');
+        return error.serialize ? error.serialize('cli') : String(error);
     }
 
     /**
      * Format error as JSON
      */
     _formatJSON(error) {
-        return JSON.stringify(error.serialize('json'), null, 2);
+        return JSON.stringify(error.serialize ? error.serialize('json') : error, null, 2);
     }
 
     /**
      * Format error as HTML
      */
     _formatHTML(error) {
-        const data = error.serialize('html');
+        const data = error.serialize ? error.serialize('html') : `<pre>${this._escapeHtml(String(error))}</pre>`;
         return `
 <!DOCTYPE html>
 <html>
@@ -561,16 +573,16 @@ class ErrorHandler extends EventEmitter {
      * Format error as Markdown
      */
     _formatMarkdown(error) {
-        const data = error.serialize('json');
+        const data = error.serialize ? error.serialize('json') : { message: String(error), code: 'UNKNOWN' };
         const parts = [];
 
-        parts.push(`## ${data.severity === 'error' ? '❌' : '⚠️'} ${data.userMessage}`);
+        parts.push(`## ${data.severity === 'error' ? '❌' : '⚠️'} ${data.message || 'Error'}`);
         parts.push('');
-        parts.push(`**Error Code:** \`${data.code}\``);
-        parts.push(`**Category:** ${data.category}`);
-        parts.push(`**Severity:** ${data.severity}`);
+        parts.push(`**Error Code:** \`${data.code || 'UNKNOWN'}\``);
+        parts.push(`**Category:** ${data.category || 'unknown'}`);
+        parts.push(`**Severity:** ${data.severity || 'error'}`);
 
-        if (data.location.file) {
+        if (data.location && data.location.file) {
             parts.push(`**Location:** \`${data.location.file}:${data.location.line}:${data.location.column}\``);
         }
 
@@ -580,7 +592,7 @@ class ErrorHandler extends EventEmitter {
             parts.push(data.suggestion);
         }
 
-        if (Object.keys(data.context).length > 0) {
+        if (data.context && Object.keys(data.context).length > 0) {
             parts.push('');
             parts.push('### Context');
             parts.push('```json');
@@ -603,7 +615,20 @@ class ErrorHandler extends EventEmitter {
      * Format error for log file
      */
     _formatLog(error) {
-        return error.serialize('log');
+        return error.serialize ? error.serialize('log') : String(error);
+    }
+
+    /**
+     * Escape HTML special characters
+     */
+    _escapeHtml(str) {
+        if (!str) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
     }
 
     /**
@@ -658,6 +683,26 @@ class ErrorHandler extends EventEmitter {
     }
 
     /**
+     * Get error trends
+     */
+    getErrorTrends(windowMinutes = 60) {
+        const now = Date.now();
+        const window = windowMinutes * 60 * 1000;
+
+        const trends = {};
+        const bucketSize = window / 10;
+
+        this.errors
+            .filter(e => now - e.timestamp.getTime() < window)
+            .forEach(e => {
+                const bucket = Math.floor((now - e.timestamp.getTime()) / bucketSize);
+                trends[bucket] = (trends[bucket] || 0) + 1;
+            });
+
+        return trends;
+    }
+
+    /**
      * Clear error history
      */
     clear() {
@@ -682,7 +727,8 @@ class ErrorHandler extends EventEmitter {
             generated: new Date().toISOString(),
             stats: this.getStats(),
             groups: this.getGroups(),
-            recent: this.getRecentErrors(100)
+            recent: this.getRecentErrors(100),
+            trends: this.getErrorTrends()
         };
 
         let content;

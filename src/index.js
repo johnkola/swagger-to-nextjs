@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- * SWAGGER-TO-NEXTJS GENERATOR - AI PROMPT
+ * SWAGGER-TO-NEXTJS GENERATOR - MAIN ORCHESTRATOR
  * ============================================================================
  * FILE: src/index.js
  * VERSION: 2025-05-30 11:34:23
@@ -58,17 +58,10 @@ const SchemaUtils = require('./utils/SchemaUtils');
 const ValidationUtils = require('./utils/ValidationUtils');
 const StringUtils = require('./utils/StringUtils');
 
-// Configuration from Phase 5
-const ConfigValidator = require('./config/ConfigValidator');
-const ConfigMerger = require('./config/ConfigMerger');
-const EnvironmentConfig = require('./config/EnvironmentConfig');
-
-// Plugin system from Phase 6
-const PluginManager = require('./plugins/PluginManager');
-const HookSystem = require('./hooks/HookSystem');
-
-// Analytics
-const UsageTracker = require('./analytics/UsageTracker');
+// Note: ConfigValidator, ConfigMerger, EnvironmentConfig are from Phase 5
+// Note: PluginManager, HookSystem are from Phase 6
+// Note: UsageTracker is from Phase 4
+// These will be implemented in later phases
 
 /**
  * The main orchestrator class for Swagger to Next.js generation
@@ -94,9 +87,6 @@ class SwaggerToNextjs extends EventEmitter {
             warnings: []
         };
 
-        // Hook system
-        this.hookSystem = new HookSystem();
-
         // Concurrency control
         this.concurrencyLimit = options.concurrency || 5;
         this.limiter = pLimit(this.concurrencyLimit);
@@ -104,14 +94,6 @@ class SwaggerToNextjs extends EventEmitter {
         // Worker pool for CPU-intensive tasks
         this.workers = [];
         this.maxWorkers = options.maxWorkers || require('os').cpus().length;
-
-        // Plugin manager
-        this.pluginManager = new PluginManager();
-
-        // Usage tracking
-        this.usageTracker = new UsageTracker({
-            enabled: options.telemetry !== false
-        });
 
         // Error handler
         this.errorHandler = new ErrorHandler({
@@ -121,6 +103,32 @@ class SwaggerToNextjs extends EventEmitter {
 
         // Progress reporter
         this.progressReporter = null;
+
+        // Increase max listeners to prevent warnings in tests
+        if (process.env.NODE_ENV === 'test') {
+            process.setMaxListeners(0); // 0 = unlimited
+        }
+
+        // Store process handlers for cleanup
+        this._processHandlers = {
+            unhandledRejection: (error) => {
+                this.errorHandler?.handle(error, 'unhandledRejection');
+            },
+            uncaughtException: (error) => {
+                this.errorHandler?.handle(error, 'uncaughtException');
+                process.exit(1);
+            },
+            SIGINT: async () => {
+                this.logger?.info('Received SIGINT, shutting down gracefully...');
+                await this.cleanup();
+                process.exit(0);
+            },
+            SIGTERM: async () => {
+                this.logger?.info('Received SIGTERM, shutting down gracefully...');
+                await this.cleanup();
+                process.exit(0);
+            }
+        };
 
         // Setup error handlers
         this._setupErrorHandlers();
@@ -133,17 +141,12 @@ class SwaggerToNextjs extends EventEmitter {
      */
     async initialize(configPath) {
         try {
-            await this.hookSystem.runHooks('beforeInit', { generator: this });
-
             // Load and merge configuration
             this.config = await this._loadConfiguration(configPath);
 
-            // Validate configuration
-            const configValidator = new ConfigValidator();
-            const validation = await configValidator.validate(this.config);
-            if (!validation.valid) {
+            // Basic configuration validation
+            if (!this.config) {
                 throw new GeneratorError('Invalid configuration', {
-                    errors: validation.errors,
                     code: 'CONFIG_INVALID'
                 });
             }
@@ -161,16 +164,8 @@ class SwaggerToNextjs extends EventEmitter {
             // Initialize all components
             await this._initializeComponents();
 
-            // Load plugins
-            await this._loadPlugins();
-
             // Mark as initialized
             this.state.initialized = true;
-
-            await this.hookSystem.runHooks('afterInit', {
-                generator: this,
-                config: this.config
-            });
 
             this.logger.info('SwaggerToNextjs initialized successfully');
 
@@ -206,24 +201,26 @@ class SwaggerToNextjs extends EventEmitter {
     }
 
     /**
-     * Add plugin
+     * Add plugin (placeholder for Phase 6)
      * @param {string|object} plugin - Plugin name or instance
      * @param {object} options - Plugin options
      * @returns {SwaggerToNextjs} Self for chaining
      */
     usePlugin(plugin, options = {}) {
-        this.pluginManager.register(plugin, options);
+        // Will be implemented in Phase 6
+        this.logger?.warn('Plugin system not yet implemented');
         return this;
     }
 
     /**
-     * Add lifecycle hook
+     * Add lifecycle hook (placeholder for Phase 6)
      * @param {string} event - Event name
      * @param {Function} handler - Event handler
      * @returns {SwaggerToNextjs} Self for chaining
      */
     addHook(event, handler) {
-        this.hookSystem.register(event, handler);
+        // Will be implemented in Phase 6
+        this.logger?.warn('Hook system not yet implemented');
         return this;
     }
 
@@ -263,18 +260,7 @@ class SwaggerToNextjs extends EventEmitter {
         try {
             this.state.generating = true;
 
-            await this.hookSystem.runHooks('beforeGenerate', {
-                generator: this,
-                options
-            });
-
             const startTime = Date.now();
-
-            // Track generation start
-            await this.usageTracker.trackGeneration('start', {
-                source: this.swaggerSource,
-                options: options
-            });
 
             // Initialize progress tracking
             const progress = this.progressReporter.createProgress('generation', {
@@ -326,21 +312,8 @@ class SwaggerToNextjs extends EventEmitter {
             const duration = Date.now() - startTime;
             progress.complete(`Generation completed in ${duration}ms`);
 
-            // Track generation completion
-            await this.usageTracker.trackGeneration('complete', {
-                duration,
-                filesGenerated: results.files.length,
-                errors: this.state.errors.length,
-                warnings: this.state.warnings.length
-            });
-
             this.state.completed = true;
             this.state.generating = false;
-
-            await this.hookSystem.runHooks('afterGenerate', {
-                generator: this,
-                results
-            });
 
             this.logger.info(`Generation completed in ${duration}ms`);
 
@@ -365,8 +338,6 @@ class SwaggerToNextjs extends EventEmitter {
      */
     async cleanup() {
         try {
-            await this.hookSystem.runHooks('beforeCleanup', { generator: this });
-
             // Stop workers
             await this._stopWorkers();
 
@@ -378,8 +349,11 @@ class SwaggerToNextjs extends EventEmitter {
                 }
             }
 
-            // Clean up plugin manager
-            await this.pluginManager.cleanup();
+            // Remove process handlers
+            process.removeListener('unhandledRejection', this._processHandlers.unhandledRejection);
+            process.removeListener('uncaughtException', this._processHandlers.uncaughtException);
+            process.removeListener('SIGINT', this._processHandlers.SIGINT);
+            process.removeListener('SIGTERM', this._processHandlers.SIGTERM);
 
             // Clear state
             this.state = {
@@ -389,8 +363,6 @@ class SwaggerToNextjs extends EventEmitter {
                 errors: [],
                 warnings: []
             };
-
-            await this.hookSystem.runHooks('afterCleanup', { generator: this });
 
             this.logger?.info('Cleanup completed');
         } catch (error) {
@@ -414,7 +386,6 @@ class SwaggerToNextjs extends EventEmitter {
         return {
             state: this.getState(),
             components: Object.keys(this.components),
-            plugins: this.pluginManager.list(),
             workers: this.workers.length,
             memory: process.memoryUsage()
         };
@@ -428,10 +399,7 @@ class SwaggerToNextjs extends EventEmitter {
      * Load and merge configuration
      */
     async _loadConfiguration(configPath) {
-        const configMerger = new ConfigMerger();
-        const environmentConfig = new EnvironmentConfig();
-
-        // Load base configuration
+        // Basic configuration loading - Phase 5 components will enhance this
         let config = {};
 
         if (typeof configPath === 'string') {
@@ -445,10 +413,7 @@ class SwaggerToNextjs extends EventEmitter {
 
         // Merge with defaults
         const defaultConfig = require('../config/defaults');
-        config = await configMerger.merge(defaultConfig, config);
-
-        // Apply environment overrides
-        config = await environmentConfig.apply(config);
+        config = { ...defaultConfig, ...config };
 
         // Merge with constructor options
         if (this.options.outputDir) {
@@ -462,65 +427,77 @@ class SwaggerToNextjs extends EventEmitter {
      * Initialize all components
      */
     async _initializeComponents() {
-        // Create components map
-        const componentsToCreate = [
-            { name: 'swaggerLoader', class: SwaggerLoader },
-            { name: 'swaggerValidator', class: SwaggerValidator },
-            { name: 'directoryManager', class: DirectoryManager },
-            { name: 'templateEngine', class: TemplateEngine },
-            { name: 'templateLoader', class: TemplateLoader },
-            { name: 'apiRouteGenerator', class: ApiRouteGenerator },
-            { name: 'pageComponentGenerator', class: PageComponentGenerator },
-            { name: 'configFileGenerator', class: ConfigFileGenerator },
-            { name: 'pathUtils', class: PathUtils },
-            { name: 'schemaUtils', class: SchemaUtils },
-            { name: 'validationUtils', class: ValidationUtils },
-            { name: 'stringUtils', class: StringUtils }
-        ];
+        this.logger.info('Initializing components...');
 
-        // Create components with shared dependencies
-        const sharedDeps = {
-            config: this.config,
+        // Ensure we have a valid output directory
+        const outputDir = this.config?.output?.baseDir || this.options?.outputDir || process.cwd();
+
+        // Common options for all components
+        const componentOptions = {
             logger: this.logger,
+            outputDir: outputDir,
+            config: this.config,
             eventBus: this,
-            hookSystem: this.hookSystem
+            ...this.options
         };
 
-        for (const { name, class: ComponentClass } of componentsToCreate) {
-            this.components[name] = new ComponentClass({
-                ...sharedDeps,
-                ...this.config[name]
-            });
-        }
+        // Initialize utilities first (they don't need outputDir)
+        this.components.pathUtils = new PathUtils();
+        this.components.schemaUtils = new SchemaUtils();
+        this.components.validationUtils = new ValidationUtils();
+        this.components.stringUtils = new StringUtils();
 
-        // Initialize components that need it
+        // Initialize core components
+        this.components.swaggerLoader = new SwaggerLoader(componentOptions);
+        this.components.swaggerValidator = new SwaggerValidator(componentOptions);
+        this.components.directoryManager = new DirectoryManager(componentOptions);
+
+        // Initialize template system
+        this.components.templateEngine = new TemplateEngine(componentOptions);
+        this.components.templateLoader = new TemplateLoader(componentOptions);
+
+        // Initialize generators with all required dependencies
+        const generatorOptions = {
+            ...componentOptions,
+            templateEngine: this.components.templateEngine,
+            templateLoader: this.components.templateLoader,
+            directoryManager: this.components.directoryManager,
+            stringUtils: this.components.stringUtils,
+            schemaUtils: this.components.schemaUtils,
+            pathUtils: this.components.pathUtils,
+            validationUtils: this.components.validationUtils
+        };
+
+        this.components.apiRouteGenerator = new ApiRouteGenerator(generatorOptions);
+        this.components.pageComponentGenerator = new PageComponentGenerator(generatorOptions);
+        this.components.configFileGenerator = new ConfigFileGenerator(generatorOptions);
+
+        // Initialize all components that have an initialize method
         for (const [name, component] of Object.entries(this.components)) {
-            if (component.initialize && typeof component.initialize === 'function') {
-                await component.initialize();
-                this.logger.debug(`Component ${name} initialized`);
+            if (component && typeof component.initialize === 'function') {
+                try {
+                    await component.initialize(this.config);
+                    this.logger.debug(`Component ${name} initialized`);
+                } catch (error) {
+                    this.logger.error(`Failed to initialize ${name}:`, error);
+                    throw new GeneratorError(`Component initialization failed: ${name}`, {
+                        code: 'COMPONENT_INIT_ERROR',
+                        component: name,
+                        error: error.message
+                    });
+                }
             }
         }
+
+        this.logger.info('All components initialized successfully');
     }
 
     /**
-     * Load plugins
+     * Load plugins (placeholder for Phase 6)
      */
     async _loadPlugins() {
-        if (this.config.plugins?.enabled) {
-            await this.pluginManager.loadAll(this.config.plugins.list || []);
-
-            // Register plugin hooks
-            const plugins = this.pluginManager.getActive();
-            for (const plugin of plugins) {
-                if (plugin.hooks) {
-                    for (const [event, handler] of Object.entries(plugin.hooks)) {
-                        this.hookSystem.register(event, handler.bind(plugin));
-                    }
-                }
-            }
-
-            this.logger.info(`Loaded ${plugins.length} plugins`);
-        }
+        // Will be implemented in Phase 6
+        this.logger?.debug('Plugin loading will be implemented in Phase 6');
     }
 
     /**
@@ -567,14 +544,13 @@ class SwaggerToNextjs extends EventEmitter {
             options: { ...this.config, ...options },
             paths: this.components.pathUtils.extractPaths(swagger),
             schemas: this.components.schemaUtils.extractSchemas(swagger),
+            outputDir: this.config?.output?.baseDir || this.options?.outputDir || process.cwd(),
             metadata: {
                 generatedAt: new Date().toISOString(),
                 generatorVersion: require('../package.json').version,
                 swaggerVersion: swagger.openapi || swagger.swagger
             }
         };
-
-        await this.hookSystem.runHooks('contextPrepared', context);
 
         return context;
     }
@@ -668,27 +644,10 @@ class SwaggerToNextjs extends EventEmitter {
      * Setup error handlers
      */
     _setupErrorHandlers() {
-        process.on('unhandledRejection', (error) => {
-            this.errorHandler?.handle(error, 'unhandledRejection');
-        });
-
-        process.on('uncaughtException', (error) => {
-            this.errorHandler?.handle(error, 'uncaughtException');
-            process.exit(1);
-        });
-
-        // Graceful shutdown
-        process.on('SIGINT', async () => {
-            this.logger?.info('Received SIGINT, shutting down gracefully...');
-            await this.cleanup();
-            process.exit(0);
-        });
-
-        process.on('SIGTERM', async () => {
-            this.logger?.info('Received SIGTERM, shutting down gracefully...');
-            await this.cleanup();
-            process.exit(0);
-        });
+        process.on('unhandledRejection', this._processHandlers.unhandledRejection);
+        process.on('uncaughtException', this._processHandlers.uncaughtException);
+        process.on('SIGINT', this._processHandlers.SIGINT);
+        process.on('SIGTERM', this._processHandlers.SIGTERM);
     }
 
     /**

@@ -281,7 +281,7 @@ class PageComponentGenerator extends BaseGenerator {
     }
 
     /**
-     * Generate shared component
+     * Generate a shared component
      */
     async _generateSharedComponent(component, context) {
         const files = [];

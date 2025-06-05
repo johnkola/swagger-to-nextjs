@@ -1,242 +1,201 @@
 /**
  * ============================================================================
- * SWAGGER-TO-NEXTJS GENERATOR - AI PROMPT
+ * SWAGGER-TO-NEXTJS GENERATOR - STRING UTILITIES
  * ============================================================================
  * FILE: src/utils/StringUtils.js
  * VERSION: 2025-05-30 11:34:23
- * PHASE: PHASE 4: Template Files
- * CATEGORY: 📋 API Template Files
+ * PHASE: PHASE 3: Code Generation Engine
+ * CATEGORY: 🛠️ Utilities
  * ============================================================================
  *
- * AI GENERATION PROMPT:
- *
- * Generate versatile string utilities that:
- * - Implement smart case conversions 
- * - Support multiple naming conventions 
- * - Implement pluralization/singularization 
- * - Provide template literal processing 
- * - Support internationalization 
- * - Implement string sanitization 
- * - Provide natural language processing 
- * - Support emoji handling 
- * - Implement text truncation 
- * - Provide string similarity algorithms
- *
- * ============================================================================
- */
-/**
- * ============================================================================
- * SWAGGER-TO-NEXTJS GENERATOR - AI PROMPT
- * ============================================================================
- * FILE: src/utils/StringUtils.js
- * VERSION: 2025-05-30 11:34:23
- * PHASE: PHASE 4: Template Files
- * CATEGORY: 📋 API Template Files
- * ============================================================================
- *
- * AI GENERATION PROMPT:
- *
- * Generate versatile string utilities that:
- * - Implement smart case conversions
- * - Support multiple naming conventions
- * - Implement pluralization/singularization
- * - Provide template literal processing
- * - Support internationalization
- * - Implement string sanitization
- * - Provide natural language processing
- * - Support emoji handling
- * - Implement text truncation
- * - Provide string similarity algorithms
+ * PURPOSE:
+ * Comprehensive string manipulation utilities for code generation.
+ * Handles naming conventions, string transformations, and text processing.
  *
  * ============================================================================
  */
 
-const pluralize = require('pluralize');
-const slugify = require('slugify');
-const DOMPurify = require('isomorphic-dompurify');
-const emojiRegex = require('emoji-regex');
-const levenshtein = require('fast-levenshtein');
-
-/**
- * Comprehensive string utilities for text manipulation and processing
- */
 class StringUtils {
     constructor() {
-        // Initialize emoji regex pattern
-        this.emojiPattern = emojiRegex();
-
-        // Common irregular plurals
-        this.irregularPlurals = new Map([
-            ['person', 'people'],
-            ['child', 'children'],
-            ['ox', 'oxen'],
-            ['foot', 'feet'],
-            ['tooth', 'teeth'],
-            ['goose', 'geese'],
-            ['mouse', 'mice']
-        ]);
-
-        // Common abbreviations for smart capitalization
-        this.commonAbbreviations = new Set([
-            'API', 'URL', 'ID', 'UUID', 'JSON', 'XML', 'HTML', 'CSS', 'JS',
-            'SQL', 'HTTP', 'HTTPS', 'REST', 'CRUD', 'JWT', 'SDK', 'CLI'
-        ]);
-
-        // Stop words for title case
-        this.stopWords = new Set([
-            'a', 'an', 'and', 'as', 'at', 'but', 'by', 'for', 'from',
-            'in', 'into', 'nor', 'of', 'on', 'or', 'the', 'to', 'with'
-        ]);
+        // Common words to handle in naming conventions
+        this.commonAcronyms = new Set(['API', 'URL', 'ID', 'UUID', 'JSON', 'XML', 'CSV', 'PDF', 'SQL', 'HTTP', 'HTTPS', 'REST', 'CRUD', 'JWT', 'OAuth']);
+        this.articles = new Set(['a', 'an', 'the']);
+        this.conjunctions = new Set(['and', 'or', 'but', 'nor', 'for', 'yet', 'so']);
+        this.prepositions = new Set(['in', 'on', 'at', 'by', 'for', 'with', 'from', 'to', 'of']);
     }
 
     /**
      * Convert string to camelCase
      * @param {string} str - Input string
-     * @returns {string} camelCase string
+     * @param {boolean} preserveAcronyms - Whether to preserve acronyms
+     * @returns {string}
      */
-    toCamelCase(str) {
+    toCamelCase(str, preserveAcronyms = true) {
         if (!str) return '';
 
-        return str
-            .replace(/[^a-zA-Z0-9]+(.)/g, (_, chr) => chr.toUpperCase())
-            .replace(/^[A-Z]/, (chr) => chr.toLowerCase())
-            .replace(/[^a-zA-Z0-9]/g, '');
+        // First normalize the string
+        let normalized = this.normalizeString(str);
+
+        // Split into words
+        const words = this.splitWords(normalized);
+
+        // Process each word
+        return words.map((word, index) => {
+            if (index === 0) {
+                return word.toLowerCase();
+            }
+
+            if (preserveAcronyms && this.commonAcronyms.has(word.toUpperCase())) {
+                return word.toUpperCase();
+            }
+
+            return this.capitalize(word.toLowerCase());
+        }).join('');
     }
 
     /**
      * Convert string to PascalCase
      * @param {string} str - Input string
-     * @returns {string} PascalCase string
+     * @param {boolean} preserveAcronyms - Whether to preserve acronyms
+     * @returns {string}
      */
-    toPascalCase(str) {
+    toPascalCase(str, preserveAcronyms = true) {
         if (!str) return '';
 
-        const camel = this.toCamelCase(str);
-        return camel.charAt(0).toUpperCase() + camel.slice(1);
-    }
+        const normalized = this.normalizeString(str);
+        const words = this.splitWords(normalized);
 
-    /**
-     * Convert string to snake_case
-     * @param {string} str - Input string
-     * @returns {string} snake_case string
-     */
-    toSnakeCase(str) {
-        if (!str) return '';
-
-        return str
-            .replace(/([a-z])([A-Z])/g, '$1_$2')
-            .replace(/[^a-zA-Z0-9]/g, '_')
-            .replace(/_+/g, '_')
-            .toLowerCase()
-            .replace(/^_|_$/g, '');
+        return words.map(word => {
+            if (preserveAcronyms && this.commonAcronyms.has(word.toUpperCase())) {
+                return word.toUpperCase();
+            }
+            return this.capitalize(word.toLowerCase());
+        }).join('');
     }
 
     /**
      * Convert string to kebab-case
      * @param {string} str - Input string
-     * @returns {string} kebab-case string
+     * @returns {string}
      */
     toKebabCase(str) {
         if (!str) return '';
 
-        return str
+        return this.normalizeString(str)
             .replace(/([a-z])([A-Z])/g, '$1-$2')
-            .replace(/[^a-zA-Z0-9]/g, '-')
-            .replace(/-+/g, '-')
+            .replace(/[\s_]+/g, '-')
             .toLowerCase()
+            .replace(/[^a-z0-9-]/g, '')
+            .replace(/-+/g, '-')
             .replace(/^-|-$/g, '');
+    }
+
+    /**
+     * Convert string to snake_case
+     * @param {string} str - Input string
+     * @returns {string}
+     */
+    toSnakeCase(str) {
+        if (!str) return '';
+
+        return this.normalizeString(str)
+            .replace(/([a-z])([A-Z])/g, '$1_$2')
+            .replace(/[\s-]+/g, '_')
+            .toLowerCase()
+            .replace(/[^a-z0-9_]/g, '')
+            .replace(/_+/g, '_')
+            .replace(/^_|_$/g, '');
     }
 
     /**
      * Convert string to CONSTANT_CASE
      * @param {string} str - Input string
-     * @returns {string} CONSTANT_CASE string
+     * @returns {string}
      */
     toConstantCase(str) {
         return this.toSnakeCase(str).toUpperCase();
     }
 
     /**
-     * Convert string to dot.case
+     * Convert string to Title Case
      * @param {string} str - Input string
-     * @returns {string} dot.case string
+     * @param {boolean} smartCase - Use smart casing for articles, conjunctions, etc.
+     * @returns {string}
      */
-    toDotCase(str) {
+    toTitleCase(str, smartCase = true) {
         if (!str) return '';
 
-        return str
-            .replace(/([a-z])([A-Z])/g, '$1.$2')
-            .replace(/[^a-zA-Z0-9]/g, '.')
-            .replace(/\.+/g, '.')
-            .toLowerCase()
-            .replace(/^\.|\.$/g, '');
-    }
+        const words = str.toLowerCase().split(/\s+/);
 
-    /**
-     * Convert string to Title Case with smart handling
-     * @param {string} str - Input string
-     * @param {boolean} forceCase - Force case conversion
-     * @returns {string} Title Case string
-     */
-    toTitleCase(str, forceCase = false) {
-        if (!str) return '';
+        return words.map((word, index) => {
+            // Always capitalize first and last words
+            if (index === 0 || index === words.length - 1) {
+                return this.capitalize(word);
+            }
 
-        return str
-            .toLowerCase()
-            .split(/\s+/)
-            .map((word, index) => {
-                // Always capitalize first and last word
-                if (index === 0 || index === str.split(/\s+/).length - 1) {
-                    return this.capitalize(word);
-                }
-
-                // Don't capitalize stop words unless forced
-                if (!forceCase && this.stopWords.has(word)) {
+            // Apply smart casing if enabled
+            if (smartCase) {
+                // Don't capitalize articles, conjunctions, or short prepositions
+                if (this.articles.has(word) ||
+                    this.conjunctions.has(word) ||
+                    (this.prepositions.has(word) && word.length < 4)) {
                     return word;
                 }
+            }
 
-                // Check for abbreviations
-                const upperWord = word.toUpperCase();
-                if (this.commonAbbreviations.has(upperWord)) {
-                    return upperWord;
-                }
-
-                return this.capitalize(word);
-            })
-            .join(' ');
+            return this.capitalize(word);
+        }).join(' ');
     }
 
     /**
      * Convert string to sentence case
      * @param {string} str - Input string
-     * @returns {string} Sentence case string
+     * @returns {string}
      */
     toSentenceCase(str) {
         if (!str) return '';
 
-        return str.toLowerCase().replace(/(^\s*\w|[.!?]\s*\w)/g, (match) => match.toUpperCase());
+        return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+    }
+
+    /**
+     * Convert string to dot.case
+     * @param {string} str - Input string
+     * @returns {string}
+     */
+    toDotCase(str) {
+        if (!str) return '';
+
+        return this.normalizeString(str)
+            .replace(/([a-z])([A-Z])/g, '$1.$2')
+            .replace(/[\s_-]+/g, '.')
+            .toLowerCase()
+            .replace(/[^a-z0-9.]/g, '')
+            .replace(/\.+/g, '.')
+            .replace(/^\.|\.$/g, '');
     }
 
     /**
      * Convert string to path/case
      * @param {string} str - Input string
-     * @returns {string} path/case string
+     * @returns {string}
      */
     toPathCase(str) {
         if (!str) return '';
 
-        return str
+        return this.normalizeString(str)
             .replace(/([a-z])([A-Z])/g, '$1/$2')
-            .replace(/[^a-zA-Z0-9]/g, '/')
-            .replace(/\/+/g, '/')
+            .replace(/[\s_-]+/g, '/')
             .toLowerCase()
+            .replace(/[^a-z0-9/]/g, '')
+            .replace(/\/+/g, '/')
             .replace(/^\/|\/$/g, '');
     }
 
     /**
      * Capitalize first letter of string
      * @param {string} str - Input string
-     * @returns {string} Capitalized string
+     * @returns {string}
      */
     capitalize(str) {
         if (!str) return '';
@@ -244,120 +203,198 @@ class StringUtils {
     }
 
     /**
+     * Uncapitalize first letter of string
+     * @param {string} str - Input string
+     * @returns {string}
+     */
+    uncapitalize(str) {
+        if (!str) return '';
+        return str.charAt(0).toLowerCase() + str.slice(1);
+    }
+
+    /**
      * Pluralize a word
      * @param {string} word - Word to pluralize
      * @param {number} count - Count for conditional pluralization
-     * @returns {string} Pluralized word
+     * @returns {string}
      */
     pluralize(word, count = 2) {
         if (!word) return '';
+        if (count === 1) return word;
 
-        // Check irregular plurals first
-        if (count !== 1 && this.irregularPlurals.has(word.toLowerCase())) {
-            const plural = this.irregularPlurals.get(word.toLowerCase());
-            return this.matchCase(plural, word);
+        // Common irregular plurals
+        const irregulars = {
+            'child': 'children',
+            'person': 'people',
+            'man': 'men',
+            'woman': 'women',
+            'tooth': 'teeth',
+            'foot': 'feet',
+            'mouse': 'mice',
+            'goose': 'geese'
+        };
+
+        const lowerWord = word.toLowerCase();
+        if (irregulars[lowerWord]) {
+            return this.matchCase(word, irregulars[lowerWord]);
         }
 
-        return pluralize(word, count);
+        // Rules for regular plurals
+        if (lowerWord.match(/(s|ss|sh|ch|x|z)$/)) {
+            return word + 'es';
+        }
+
+        if (lowerWord.match(/[^aeiou]y$/)) {
+            return word.slice(0, -1) + 'ies';
+        }
+
+        if (lowerWord.match(/[^aeiou]o$/)) {
+            return word + 'es';
+        }
+
+        if (lowerWord.match(/(f|fe)$/)) {
+            return word.replace(/(f|fe)$/, 'ves');
+        }
+
+        return word + 's';
     }
 
     /**
      * Singularize a word
      * @param {string} word - Word to singularize
-     * @returns {string} Singularized word
+     * @returns {string}
      */
     singularize(word) {
         if (!word) return '';
 
-        // Check irregular plurals reverse lookup
-        for (const [singular, plural] of this.irregularPlurals) {
-            if (plural === word.toLowerCase()) {
-                return this.matchCase(singular, word);
-            }
+        // Common irregular plurals (reversed)
+        const irregulars = {
+            'children': 'child',
+            'people': 'person',
+            'men': 'man',
+            'women': 'woman',
+            'teeth': 'tooth',
+            'feet': 'foot',
+            'mice': 'mouse',
+            'geese': 'goose'
+        };
+
+        const lowerWord = word.toLowerCase();
+        if (irregulars[lowerWord]) {
+            return this.matchCase(word, irregulars[lowerWord]);
         }
 
-        return pluralize.singular(word);
+        // Rules for regular singulars
+        if (lowerWord.match(/ies$/)) {
+            return word.slice(0, -3) + 'y';
+        }
+
+        if (lowerWord.match(/ves$/)) {
+            return word.slice(0, -3) + 'f';
+        }
+
+        if (lowerWord.match(/(s|ss|sh|ch|x|z)es$/)) {
+            return word.slice(0, -2);
+        }
+
+        if (lowerWord.match(/oes$/)) {
+            return word.slice(0, -2);
+        }
+
+        if (lowerWord.match(/s$/)) {
+            return word.slice(0, -1);
+        }
+
+        return word;
     }
 
     /**
-     * Check if word is plural
-     * @param {string} word - Word to check
-     * @returns {boolean} True if plural
+     * Truncate string with ellipsis
+     * @param {string} str - String to truncate
+     * @param {number} length - Maximum length
+     * @param {string} suffix - Suffix to add (default: '...')
+     * @returns {string}
      */
-    isPlural(word) {
-        return pluralize.isPlural(word);
+    truncate(str, length, suffix = '...') {
+        if (!str || str.length <= length) return str;
+
+        return str.slice(0, length - suffix.length) + suffix;
     }
 
     /**
-     * Check if word is singular
-     * @param {string} word - Word to check
-     * @returns {boolean} True if singular
+     * Truncate string at word boundary
+     * @param {string} str - String to truncate
+     * @param {number} length - Maximum length
+     * @param {string} suffix - Suffix to add
+     * @returns {string}
      */
-    isSingular(word) {
-        return pluralize.isSingular(word);
+    truncateWords(str, length, suffix = '...') {
+        if (!str || str.length <= length) return str;
+
+        const truncated = str.slice(0, length - suffix.length);
+        const lastSpace = truncated.lastIndexOf(' ');
+
+        if (lastSpace > 0) {
+            return truncated.slice(0, lastSpace) + suffix;
+        }
+
+        return truncated + suffix;
     }
 
     /**
-     * Process template literals with variables
-     * @param {string} template - Template string
-     * @param {Object} variables - Variables to interpolate
-     * @returns {string} Processed string
+     * Pad string to specified length
+     * @param {string} str - String to pad
+     * @param {number} length - Target length
+     * @param {string} char - Character to pad with
+     * @param {string} position - 'left' | 'right' | 'both'
+     * @returns {string}
      */
-    interpolate(template, variables = {}) {
-        if (!template) return '';
+    pad(str, length, char = ' ', position = 'right') {
+        if (!str) str = '';
+        str = String(str);
 
-        return template.replace(/\${([^}]+)}/g, (match, key) => {
-            const keys = key.trim().split('.');
-            let value = variables;
+        if (str.length >= length) return str;
 
-            for (const k of keys) {
-                value = value?.[k];
-                if (value === undefined) break;
-            }
+        const padLength = length - str.length;
 
-            return value !== undefined ? String(value) : match;
-        });
+        switch (position) {
+            case 'left':
+                return char.repeat(padLength) + str;
+            case 'right':
+                return str + char.repeat(padLength);
+            case 'both':
+                const leftPad = Math.floor(padLength / 2);
+                const rightPad = padLength - leftPad;
+                return char.repeat(leftPad) + str + char.repeat(rightPad);
+            default:
+                return str;
+        }
     }
 
     /**
-     * Create slug from string
+     * Remove extra whitespace
      * @param {string} str - Input string
-     * @param {Object} options - Slugify options
-     * @returns {string} URL-safe slug
+     * @returns {string}
      */
-    slugify(str, options = {}) {
+    collapseWhitespace(str) {
         if (!str) return '';
-
-        const defaultOptions = {
-            lower: true,
-            strict: true,
-            remove: /[*+~.()'"!:@]/g
-        };
-
-        return slugify(str, { ...defaultOptions, ...options });
+        return str.replace(/\s+/g, ' ').trim();
     }
 
     /**
-     * Sanitize HTML string
-     * @param {string} str - HTML string to sanitize
-     * @param {Object} options - DOMPurify options
-     * @returns {string} Sanitized HTML
-     */
-    sanitizeHtml(str, options = {}) {
-        if (!str) return '';
-
-        const defaultOptions = {
-            ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'a', 'p', 'br'],
-            ALLOWED_ATTR: ['href', 'title', 'target']
-        };
-
-        return DOMPurify.sanitize(str, { ...defaultOptions, ...options });
-    }
-
-    /**
-     * Escape HTML special characters
+     * Escape string for regex
      * @param {string} str - String to escape
-     * @returns {string} Escaped string
+     * @returns {string}
+     */
+    escapeRegex(str) {
+        if (!str) return '';
+        return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
+    /**
+     * Escape HTML entities
+     * @param {string} str - String to escape
+     * @returns {string}
      */
     escapeHtml(str) {
         if (!str) return '';
@@ -370,13 +407,13 @@ class StringUtils {
             "'": '&#39;'
         };
 
-        return str.replace(/[&<>"']/g, (match) => htmlEscapes[match]);
+        return str.replace(/[&<>"']/g, char => htmlEscapes[char]);
     }
 
     /**
      * Unescape HTML entities
      * @param {string} str - String to unescape
-     * @returns {string} Unescaped string
+     * @returns {string}
      */
     unescapeHtml(str) {
         if (!str) return '';
@@ -389,250 +426,27 @@ class StringUtils {
             '&#39;': "'"
         };
 
-        return str.replace(/&(amp|lt|gt|quot|#39);/g, (match) => htmlUnescapes[match] || match);
+        return str.replace(/&(amp|lt|gt|quot|#39);/g, entity => htmlUnescapes[entity]);
     }
 
     /**
-     * Truncate string with ellipsis
-     * @param {string} str - String to truncate
-     * @param {number} length - Maximum length
-     * @param {Object} options - Truncation options
-     * @returns {string} Truncated string
+     * Generate a random string
+     * @param {number} length - Length of string
+     * @param {string} charset - Character set to use
+     * @returns {string}
      */
-    truncate(str, length, options = {}) {
-        if (!str || str.length <= length) return str;
+    randomString(length = 10, charset = 'alphanumeric') {
+        const charsets = {
+            numeric: '0123456789',
+            alpha: 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ',
+            alphanumeric: '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ',
+            hex: '0123456789abcdef',
+            custom: charset
+        };
 
-        const {
-            suffix = '...',
-            wordBoundary = true,
-            separator = ' '
-        } = options;
-
-        const truncateLength = length - suffix.length;
-
-        if (wordBoundary) {
-            const truncated = str.substring(0, truncateLength);
-            const lastSeparator = truncated.lastIndexOf(separator);
-
-            if (lastSeparator > 0) {
-                return truncated.substring(0, lastSeparator) + suffix;
-            }
-        }
-
-        return str.substring(0, truncateLength) + suffix;
-    }
-
-    /**
-     * Truncate string in the middle
-     * @param {string} str - String to truncate
-     * @param {number} length - Maximum length
-     * @param {string} separator - Middle separator
-     * @returns {string} Truncated string
-     */
-    truncateMiddle(str, length, separator = '...') {
-        if (!str || str.length <= length) return str;
-
-        const sepLength = separator.length;
-        const charsToShow = length - sepLength;
-        const frontChars = Math.ceil(charsToShow / 2);
-        const backChars = Math.floor(charsToShow / 2);
-
-        return str.substring(0, frontChars) + separator + str.substring(str.length - backChars);
-    }
-
-    /**
-     * Wrap text to specified width
-     * @param {string} str - String to wrap
-     * @param {number} width - Maximum line width
-     * @param {Object} options - Wrap options
-     * @returns {string} Wrapped text
-     */
-    wordWrap(str, width = 80, options = {}) {
-        if (!str) return '';
-
-        const {
-            indent = '',
-            newline = '\n',
-            cut = false
-        } = options;
-
-        const words = str.split(/\s+/);
-        const lines = [];
-        let currentLine = indent;
-
-        for (const word of words) {
-            if (currentLine.length + word.length + 1 > width) {
-                if (cut && word.length > width) {
-                    // Cut long words
-                    let remaining = word;
-                    while (remaining.length > 0) {
-                        const chunk = remaining.substring(0, width - currentLine.length);
-                        currentLine += chunk;
-                        lines.push(currentLine);
-                        currentLine = indent;
-                        remaining = remaining.substring(chunk.length);
-                    }
-                } else {
-                    lines.push(currentLine.trim());
-                    currentLine = indent + word + ' ';
-                }
-            } else {
-                currentLine += word + ' ';
-            }
-        }
-
-        if (currentLine.trim()) {
-            lines.push(currentLine.trim());
-        }
-
-        return lines.join(newline);
-    }
-
-    /**
-     * Extract emojis from string
-     * @param {string} str - Input string
-     * @returns {Array} Array of emojis
-     */
-    extractEmojis(str) {
-        if (!str) return [];
-
-        const matches = str.match(this.emojiPattern) || [];
-        return [...new Set(matches)];
-    }
-
-    /**
-     * Remove emojis from string
-     * @param {string} str - Input string
-     * @returns {string} String without emojis
-     */
-    removeEmojis(str) {
-        if (!str) return '';
-
-        return str.replace(this.emojiPattern, '').trim();
-    }
-
-    /**
-     * Replace emojis with text
-     * @param {string} str - Input string
-     * @param {string} replacement - Replacement text
-     * @returns {string} String with replaced emojis
-     */
-    replaceEmojis(str, replacement = '') {
-        if (!str) return '';
-
-        return str.replace(this.emojiPattern, replacement);
-    }
-
-    /**
-     * Count emojis in string
-     * @param {string} str - Input string
-     * @returns {number} Number of emojis
-     */
-    countEmojis(str) {
-        if (!str) return 0;
-
-        const matches = str.match(this.emojiPattern) || [];
-        return matches.length;
-    }
-
-    /**
-     * Calculate Levenshtein distance between strings
-     * @param {string} str1 - First string
-     * @param {string} str2 - Second string
-     * @returns {number} Edit distance
-     */
-    levenshteinDistance(str1, str2) {
-        return levenshtein.get(str1 || '', str2 || '');
-    }
-
-    /**
-     * Calculate similarity percentage between strings
-     * @param {string} str1 - First string
-     * @param {string} str2 - Second string
-     * @returns {number} Similarity percentage (0-100)
-     */
-    similarity(str1, str2) {
-        if (!str1 || !str2) return 0;
-
-        const longer = str1.length > str2.length ? str1 : str2;
-        const shorter = str1.length > str2.length ? str2 : str1;
-
-        if (longer.length === 0) return 100;
-
-        const distance = this.levenshteinDistance(longer, shorter);
-        return ((longer.length - distance) / longer.length) * 100;
-    }
-
-    /**
-     * Fuzzy search for string in array
-     * @param {string} query - Search query
-     * @param {Array} items - Array of strings to search
-     * @param {Object} options - Search options
-     * @returns {Array} Matched items with scores
-     */
-    fuzzySearch(query, items, options = {}) {
-        if (!query || !items || !items.length) return [];
-
-        const {
-            threshold = 60,
-            caseSensitive = false,
-            sortByScore = true
-        } = options;
-
-        const normalizedQuery = caseSensitive ? query : query.toLowerCase();
-
-        const results = items
-            .map(item => {
-                const normalizedItem = caseSensitive ? item : item.toLowerCase();
-                const score = this.similarity(normalizedQuery, normalizedItem);
-
-                return {
-                    item,
-                    score,
-                    matches: score >= threshold
-                };
-            })
-            .filter(result => result.matches);
-
-        if (sortByScore) {
-            results.sort((a, b) => b.score - a.score);
-        }
-
-        return results;
-    }
-
-    /**
-     * Generate random string
-     * @param {number} length - String length
-     * @param {Object} options - Generation options
-     * @returns {string} Random string
-     */
-    random(length = 10, options = {}) {
-        const {
-            uppercase = true,
-            lowercase = true,
-            numbers = true,
-            symbols = false,
-            excludeSimilar = false,
-            customChars = ''
-        } = options;
-
-        let chars = customChars;
-
-        if (!customChars) {
-            if (uppercase) chars += 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-            if (lowercase) chars += 'abcdefghijklmnopqrstuvwxyz';
-            if (numbers) chars += '0123456789';
-            if (symbols) chars += '!@#$%^&*()_+-=[]{}|;:,.<>?';
-
-            if (excludeSimilar) {
-                chars = chars.replace(/[ilLI|1oO0]/g, '');
-            }
-        }
-
-        if (!chars) return '';
-
+        const chars = charsets[charset] || charsets.alphanumeric;
         let result = '';
+
         for (let i = 0; i < length; i++) {
             result += chars.charAt(Math.floor(Math.random() * chars.length));
         }
@@ -641,264 +455,231 @@ class StringUtils {
     }
 
     /**
-     * Pad string to specified length
-     * @param {string} str - String to pad
-     * @param {number} length - Target length
-     * @param {Object} options - Padding options
-     * @returns {string} Padded string
+     * Check if string contains substring (case insensitive)
+     * @param {string} str - String to search in
+     * @param {string} substring - Substring to search for
+     * @returns {boolean}
      */
-    pad(str, length, options = {}) {
-        if (!str) str = '';
-
-        const {
-            position = 'right',
-            char = ' '
-        } = options;
-
-        const padLength = length - str.length;
-        if (padLength <= 0) return str;
-
-        const padding = char.repeat(padLength);
-
-        switch (position) {
-            case 'left':
-                return padding + str;
-            case 'right':
-                return str + padding;
-            case 'center':
-                const leftPad = Math.floor(padLength / 2);
-                const rightPad = padLength - leftPad;
-                return char.repeat(leftPad) + str + char.repeat(rightPad);
-            default:
-                return str;
-        }
+    contains(str, substring) {
+        if (!str || !substring) return false;
+        return str.toLowerCase().includes(substring.toLowerCase());
     }
 
     /**
-     * Count words in string
-     * @param {string} str - Input string
-     * @returns {number} Word count
+     * Count occurrences of substring
+     * @param {string} str - String to search in
+     * @param {string} substring - Substring to count
+     * @returns {number}
      */
-    wordCount(str) {
-        if (!str) return 0;
-
-        const words = str.trim().split(/\s+/);
-        return words.filter(word => word.length > 0).length;
+    countOccurrences(str, substring) {
+        if (!str || !substring) return 0;
+        return (str.match(new RegExp(this.escapeRegex(substring), 'g')) || []).length;
     }
 
     /**
-     * Count characters in string (excluding spaces)
-     * @param {string} str - Input string
-     * @param {boolean} includeSpaces - Include spaces in count
-     * @returns {number} Character count
+     * Replace all occurrences
+     * @param {string} str - String to process
+     * @param {string} search - String to search for
+     * @param {string} replace - Replacement string
+     * @returns {string}
      */
-    charCount(str, includeSpaces = false) {
-        if (!str) return 0;
-
-        return includeSpaces ? str.length : str.replace(/\s/g, '').length;
+    replaceAll(str, search, replace) {
+        if (!str) return '';
+        return str.replace(new RegExp(this.escapeRegex(search), 'g'), replace);
     }
 
     /**
-     * Extract URLs from string
+     * Extract words from string
      * @param {string} str - Input string
-     * @returns {Array} Array of URLs
+     * @returns {string[]}
      */
-    extractUrls(str) {
+    extractWords(str) {
         if (!str) return [];
-
-        const urlRegex = /(https?:\/\/[^\s]+)/g;
-        return str.match(urlRegex) || [];
+        return str.match(/[A-Za-z]+/g) || [];
     }
 
     /**
-     * Extract email addresses from string
-     * @param {string} str - Input string
-     * @returns {Array} Array of email addresses
+     * Check if string is valid identifier
+     * @param {string} str - String to check
+     * @returns {boolean}
      */
-    extractEmails(str) {
-        if (!str) return [];
-
-        const emailRegex = /([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9_-]+)/g;
-        return str.match(emailRegex) || [];
-    }
-
-    /**
-     * Convert string to boolean
-     * @param {string} str - String to convert
-     * @returns {boolean} Boolean value
-     */
-    toBoolean(str) {
+    isValidIdentifier(str) {
         if (!str) return false;
-
-        const trueValues = ['true', 'yes', 'y', '1', 'on'];
-        return trueValues.includes(str.toLowerCase());
+        return /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(str);
     }
 
     /**
-     * Reverse string
-     * @param {string} str - String to reverse
-     * @returns {string} Reversed string
+     * Convert to valid identifier
+     * @param {string} str - String to convert
+     * @returns {string}
      */
-    reverse(str) {
+    toIdentifier(str) {
         if (!str) return '';
 
-        return str.split('').reverse().join('');
-    }
+        // Replace invalid characters with underscore
+        let identifier = str.replace(/[^a-zA-Z0-9_$]/g, '_');
 
-    /**
-     * Check if string is palindrome
-     * @param {string} str - String to check
-     * @param {boolean} caseSensitive - Case sensitive check
-     * @returns {boolean} True if palindrome
-     */
-    isPalindrome(str, caseSensitive = false) {
-        if (!str) return false;
-
-        const cleaned = str.replace(/[^a-zA-Z0-9]/g, '');
-        const normalized = caseSensitive ? cleaned : cleaned.toLowerCase();
-
-        return normalized === this.reverse(normalized);
-    }
-
-    /**
-     * Repeat string n times
-     * @param {string} str - String to repeat
-     * @param {number} times - Number of repetitions
-     * @param {string} separator - Separator between repetitions
-     * @returns {string} Repeated string
-     */
-    repeat(str, times = 1, separator = '') {
-        if (!str || times <= 0) return '';
-
-        return new Array(times).fill(str).join(separator);
-    }
-
-    /**
-     * Match case of target string to source string
-     * @param {string} target - Target string
-     * @param {string} source - Source string for case
-     * @returns {string} Target with matched case
-     */
-    matchCase(target, source) {
-        if (!target || !source) return target;
-
-        if (source === source.toUpperCase()) {
-            return target.toUpperCase();
-        } else if (source === source.toLowerCase()) {
-            return target.toLowerCase();
-        } else if (source[0] === source[0].toUpperCase()) {
-            return this.capitalize(target.toLowerCase());
+        // Ensure it starts with a letter or underscore
+        if (!/^[a-zA-Z_$]/.test(identifier)) {
+            identifier = '_' + identifier;
         }
 
+        // Remove consecutive underscores
+        identifier = identifier.replace(/_+/g, '_');
+
+        return identifier;
+    }
+
+    /**
+     * Wrap text to specified width
+     * @param {string} text - Text to wrap
+     * @param {number} width - Maximum line width
+     * @param {string} indent - Indentation for wrapped lines
+     * @returns {string}
+     */
+    wrapText(text, width = 80, indent = '') {
+        if (!text || text.length <= width) return text;
+
+        const words = text.split(/\s+/);
+        const lines = [];
+        let currentLine = '';
+
+        for (const word of words) {
+            if (currentLine.length + word.length + 1 <= width) {
+                currentLine += (currentLine ? ' ' : '') + word;
+            } else {
+                if (currentLine) lines.push(currentLine);
+                currentLine = indent + word;
+            }
+        }
+
+        if (currentLine) lines.push(currentLine);
+
+        return lines.join('\n');
+    }
+
+    /**
+     * Indent text
+     * @param {string} text - Text to indent
+     * @param {number} spaces - Number of spaces
+     * @returns {string}
+     */
+    indent(text, spaces = 2) {
+        if (!text) return '';
+        const indent = ' '.repeat(spaces);
+        return text.split('\n').map(line => indent + line).join('\n');
+    }
+
+    /**
+     * Remove common indentation
+     * @param {string} text - Text to dedent
+     * @returns {string}
+     */
+    dedent(text) {
+        if (!text) return '';
+
+        const lines = text.split('\n');
+        const minIndent = lines
+            .filter(line => line.trim())
+            .map(line => line.match(/^(\s*)/)[1].length)
+            .reduce((min, indent) => Math.min(min, indent), Infinity);
+
+        if (minIndent === Infinity) return text;
+
+        return lines
+            .map(line => line.slice(minIndent))
+            .join('\n');
+    }
+
+    /**
+     * Create a slug from string
+     * @param {string} str - String to slugify
+     * @returns {string}
+     */
+    slugify(str) {
+        if (!str) return '';
+
+        return str
+            .toLowerCase()
+            .trim()
+            .replace(/[^\w\s-]/g, '')
+            .replace(/[\s_-]+/g, '-')
+            .replace(/^-+|-+$/g, '');
+    }
+
+    /**
+     * Parse template variables
+     * @param {string} template - Template string
+     * @param {object} data - Data object
+     * @returns {string}
+     */
+    parseTemplate(template, data) {
+        if (!template) return '';
+
+        return template.replace(/\{([^}]+)\}/g, (match, key) => {
+            const keys = key.trim().split('.');
+            let value = data;
+
+            for (const k of keys) {
+                value = value?.[k];
+            }
+
+            return value !== undefined ? value : match;
+        });
+    }
+
+    // ============================================================================
+    // Private Helper Methods
+    // ============================================================================
+
+    /**
+     * Normalize string for processing
+     * @private
+     */
+    normalizeString(str) {
+        return str
+            .trim()
+            .replace(/[^\w\s-]/g, ' ')
+            .replace(/\s+/g, ' ');
+    }
+
+    /**
+     * Split string into words
+     * @private
+     */
+    splitWords(str) {
+        // Handle camelCase, PascalCase, kebab-case, snake_case
+        return str
+            .replace(/([a-z])([A-Z])/g, '$1 $2')
+            .split(/[\s\-_]+/)
+            .filter(Boolean);
+    }
+
+    /**
+     * Match case of source to target
+     * @private
+     */
+    matchCase(source, target) {
+        if (source === source.toUpperCase()) {
+            return target.toUpperCase();
+        }
+        if (source === this.capitalize(source.toLowerCase())) {
+            return this.capitalize(target.toLowerCase());
+        }
         return target;
     }
 
     /**
-     * Remove accents/diacritics from string
-     * @param {string} str - Input string
-     * @returns {string} String without accents
+     * Create method aliases for backward compatibility
      */
-    removeAccents(str) {
-        if (!str) return '';
-
-        return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    }
-
-    /**
-     * Convert string to ASCII
-     * @param {string} str - Input string
-     * @returns {string} ASCII string
-     */
-    toAscii(str) {
-        if (!str) return '';
-
-        return this.removeAccents(str).replace(/[^\x00-\x7F]/g, '');
-    }
-
-    /**
-     * Check if string contains only ASCII characters
-     * @param {string} str - String to check
-     * @returns {boolean} True if only ASCII
-     */
-    isAscii(str) {
-        if (!str) return true;
-
-        return /^[\x00-\x7F]*$/.test(str);
-    }
-
-    /**
-     * Encode string to base64
-     * @param {string} str - String to encode
-     * @returns {string} Base64 encoded string
-     */
-    toBase64(str) {
-        if (!str) return '';
-
-        return Buffer.from(str).toString('base64');
-    }
-
-    /**
-     * Decode base64 string
-     * @param {string} str - Base64 string
-     * @returns {string} Decoded string
-     */
-    fromBase64(str) {
-        if (!str) return '';
-
-        try {
-            return Buffer.from(str, 'base64').toString('utf8');
-        } catch (e) {
-            return '';
-        }
-    }
-
-    /**
-     * Generate initials from name
-     * @param {string} name - Full name
-     * @param {number} limit - Maximum initials
-     * @returns {string} Initials
-     */
-    initials(name, limit = 2) {
-        if (!name) return '';
-
-        const parts = name.trim().split(/\s+/);
-        const initials = parts
-            .map(part => part[0])
-            .filter(Boolean)
-            .slice(0, limit)
-            .join('')
-            .toUpperCase();
-
-        return initials;
-    }
-
-    /**
-     * Mask sensitive string data
-     * @param {string} str - String to mask
-     * @param {Object} options - Masking options
-     * @returns {string} Masked string
-     */
-    mask(str, options = {}) {
-        if (!str) return '';
-
-        const {
-            start = 0,
-            end = 0,
-            char = '*',
-            pattern = null
-        } = options;
-
-        if (pattern) {
-            return str.replace(pattern, (match) => char.repeat(match.length));
-        }
-
-        const visibleStart = str.slice(0, start);
-        const visibleEnd = str.slice(-end);
-        const maskLength = Math.max(0, str.length - start - end);
-
-        return visibleStart + char.repeat(maskLength) + visibleEnd;
+    createAliases() {
+        this.camelCase = this.toCamelCase;
+        this.pascalCase = this.toPascalCase;
+        this.kebabCase = this.toKebabCase;
+        this.snakeCase = this.toSnakeCase;
+        this.constantCase = this.toConstantCase;
+        this.titleCase = this.toTitleCase;
     }
 }
 
-// Export singleton instance
-module.exports = new StringUtils();
+module.exports = StringUtils;

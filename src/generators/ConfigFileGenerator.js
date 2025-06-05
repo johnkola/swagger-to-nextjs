@@ -7,31 +7,18 @@
  * PHASE: PHASE 3: Code Generation Engine
  * CATEGORY: 📄 Configuration Generators
  * ============================================================================
- *
- * PURPOSE:
- * Central orchestrator for all configuration file generations.
- * Properly extends
- * BaseGenerator to use the template method pattern and lifecycle hooks.
- *
- * ============================================================================
  */
 
 const path = require('path');
 const BaseGenerator = require('./BaseGenerator');
 const GeneratorError = require('../errors/GeneratorError');
 
-// Import all configuration generators
-const NextConfigGenerator = require('./config/NextConfigGenerator');
-const TypeScriptConfigGenerator = require('./config/TypeScriptConfigGenerator');
-const PackageConfigGenerator = require('./config/PackageConfigGenerator').PackageConfigGenerator;
-const LintingConfigGenerator = require('./config/LintingConfigGenerator');
-const EnvironmentConfigGenerator = require('./config/EnvironmentConfigGenerator');
-const DockerConfigGenerator = require('./config/DockerConfigGenerator').default;
-const DeploymentConfigGenerator = require('./config/DeploymentConfigGenerator').default;
-const CICDConfigGenerator = require('./config/CICDConfigGenerator').default;
-const EditorConfigGenerator = require('./config/EditorConfigGenerator');
-const DocumentationGenerator = require('./config/DocumentationGenerator');
-const ConfigHelpers = require('./config/ConfigHelpers').default;
+// Constants
+const MAX_PROJECT_NAME_LENGTH = 64;
+const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.ico', '.bmp', '.avif'];
+const CRITICAL_GENERATORS = ['package', 'typescript', 'next'];
+const DEFAULT_NODE_VERSION = '20.x';
+const COMMON_CDNS = ['cloudinary.com', 'imgix.net', 'fastly.net', 'unsplash.com'];
 
 /**
  * ConfigFileGenerator - Main orchestrator for configuration generation
@@ -57,9 +44,6 @@ class ConfigFileGenerator extends BaseGenerator {
             ...options
         };
 
-        // Initialize helpers
-        this.helpers = new ConfigHelpers();
-
         // Initialize sub-generators
         this.subGenerators = new Map();
 
@@ -78,6 +62,9 @@ class ConfigFileGenerator extends BaseGenerator {
             failedGenerators: [],
             warnings: []
         };
+
+        // Store event listener cleanup functions
+        this._cleanupFunctions = [];
     }
 
     /**
@@ -87,9 +74,6 @@ class ConfigFileGenerator extends BaseGenerator {
         await super.initialize(context);
 
         this.logger.info('Initializing configuration generators...');
-
-        // Register template helpers
-        this.helpers.registerTemplateHelpers();
 
         // Initialize sub-generators
         await this.initializeSubGenerators();
@@ -104,37 +88,108 @@ class ConfigFileGenerator extends BaseGenerator {
      * Initialize all sub-generators
      */
     async initializeSubGenerators() {
+        // Import generators with consistent pattern
         const generators = [
-            { name: 'package', Generator: PackageConfigGenerator, phase: 'core' },
-            { name: 'typescript', Generator: TypeScriptConfigGenerator, phase: 'core' },
-            { name: 'next', Generator: NextConfigGenerator, phase: 'core' },
-            { name: 'environment', Generator: EnvironmentConfigGenerator, phase: 'core' },
-            { name: 'linting', Generator: LintingConfigGenerator, phase: 'development' },
-            { name: 'editor', Generator: EditorConfigGenerator, phase: 'development' },
-            { name: 'docker', Generator: DockerConfigGenerator, phase: 'deployment', optional: true },
-            { name: 'deployment', Generator: DeploymentConfigGenerator, phase: 'deployment' },
-            { name: 'cicd', Generator: CICDConfigGenerator, phase: 'deployment' },
-            { name: 'documentation', Generator: DocumentationGenerator, phase: 'documentation' }
+            {
+                name: 'package',
+                loader: () => require('./config/PackageConfigGenerator').PackageConfigGenerator,
+                phase: 'core'
+            },
+            {
+                name: 'typescript',
+                loader: () => require('./config/TypeScriptConfigGenerator'),
+                phase: 'core'
+            },
+            {
+                name: 'next',
+                loader: () => require('./config/NextConfigGenerator'),
+                phase: 'core'
+            },
+            {
+                name: 'environment',
+                loader: () => require('./config/EnvironmentConfigGenerator'),
+                phase: 'core'
+            },
+            {
+                name: 'linting',
+                loader: () => require('./config/LintingConfigGenerator'),
+                phase: 'development'
+            },
+            {
+                name: 'editor',
+                loader: () => require('./config/EditorConfigGenerator'),
+                phase: 'development'
+            },
+            {
+                name: 'docker',
+                loader: () => {
+                    const module = require('./config/DockerConfigGenerator');
+                    return module.default || module.DockerConfigGenerator || module;
+                },
+                phase: 'deployment',
+                optional: true
+            },
+            {
+                name: 'deployment',
+                loader: () => {
+                    const module = require('./config/DeploymentConfigGenerator');
+                    return module.default || module.DeploymentConfigGenerator || module;
+                },
+                phase: 'deployment'
+            },
+            {
+                name: 'cicd',
+                loader: () => {
+                    const module = require('./config/CICDConfigGenerator');
+                    return module.default || module.CICDConfigGenerator || module;
+                },
+                phase: 'deployment'
+            },
+            {
+                name: 'documentation',
+                loader: () => require('./config/DocumentationGenerator'),
+                phase: 'documentation'
+            }
         ];
 
-        for (const { name, Generator, phase, optional } of generators) {
+        for (const { name, loader, phase, optional } of generators) {
             try {
+                const Generator = loader();
+
+                if (!Generator) {
+                    throw new Error(`Failed to load generator: ${name}`);
+                }
+
                 const instance = new Generator({
                     ...this.config,
                     logger: this.logger,
                     templateEngine: this.templateEngine,
-                    directoryManager: this.directoryManager
+                    directoryManager: this.directoryManager,
+                    // Pass utilities to sub-generators
+                    stringUtils: this.stringUtils,
+                    schemaUtils: this.schemaUtils,
+                    pathUtils: this.pathUtils,
+                    validationUtils: this.validationUtils
                 });
 
                 this.subGenerators.set(name, instance);
                 this.phases[phase].push(name);
 
-                // Register sub-generator events
-                if (instance.on) {
-                    instance.on('error', (error) => {
+                // Register sub-generator events with cleanup
+                if (instance.on && typeof instance.on === 'function') {
+                    const errorHandler = (error) => {
                         this.logger.warn(`Sub-generator ${name} error:`, error);
                         if (!optional) {
                             this.state.failedGenerators.push({ name, error });
+                        }
+                    };
+
+                    instance.on('error', errorHandler);
+
+                    // Store cleanup function
+                    this._cleanupFunctions.push(() => {
+                        if (instance.removeListener) {
+                            instance.removeListener('error', errorHandler);
                         }
                     });
                 }
@@ -201,16 +256,16 @@ class ConfigFileGenerator extends BaseGenerator {
     async doPrepare(context) {
         this.logger.debug('Preparing configuration context...');
 
-        // Build enhanced context
+        // Build enhanced context using BaseGenerator utilities
         const preparedContext = {
             ...context,
-            projectName: this.helpers.extractProjectName(context),
-            features: this.helpers.analyzeFeatures(context),
-            envVariables: this.helpers.extractEnvVariables(context),
-            buildConfig: this.helpers.prepareBuildConfig(context),
-            securityConfig: this.helpers.prepareSecurityConfig(context),
-            imageDomains: this.helpers.extractImageDomains(context),
-            nodeVersion: this.helpers.getNodeVersion(context),
+            projectName: this.extractProjectName(context),
+            features: this.analyzeFeatures(context),
+            envVariables: this.extractEnvVariables(context),
+            buildConfig: this.prepareBuildConfig(context),
+            securityConfig: this.prepareSecurityConfig(context),
+            imageDomains: this.extractImageDomains(context),
+            nodeVersion: this.getNodeVersion(context),
             packageJson: context.packageJson || {},
             // Maintain references to original config
             originalConfig: this.config,
@@ -218,6 +273,540 @@ class ConfigFileGenerator extends BaseGenerator {
         };
 
         return preparedContext;
+    }
+
+    /**
+     * Extract and sanitize project name
+     */
+    extractProjectName(context) {
+        let projectName = context.projectName;
+
+        if (!projectName && context.swagger?.info?.title) {
+            projectName = context.swagger.info.title;
+        }
+
+        if (!projectName) {
+            projectName = 'nextjs-app';
+        }
+
+        // Sanitize the project name using string utils
+        return this.toKebabCase(projectName)
+            .replace(/[^a-z0-9-]/g, '')
+            .replace(/^-+|-+$/g, '')
+            .substring(0, MAX_PROJECT_NAME_LENGTH);
+    }
+
+    /**
+     * Analyze API features from OpenAPI spec
+     */
+    analyzeFeatures(context) {
+        const features = {
+            authentication: false,
+            fileUpload: false,
+            websocket: false,
+            pagination: false,
+            filtering: false,
+            sorting: false,
+            validation: true,
+            rateLimit: false,
+            cors: true,
+            compression: true,
+            caching: false,
+            i18n: false,
+            graphql: false,
+            realtime: false,
+            search: false,
+            analytics: false,
+            monitoring: false,
+            logging: true,
+            testing: true,
+            documentation: true
+        };
+
+        if (!context.swagger) return features;
+
+        // Check for authentication
+        if (context.swagger.securityDefinitions || context.swagger.components?.securitySchemes) {
+            features.authentication = true;
+        }
+
+        // Check paths for various features
+        Object.entries(context.swagger.paths || {}).forEach(([path, methods]) => {
+            Object.entries(methods).forEach(([method, operation]) => {
+                if (typeof operation !== 'object') return;
+
+                // Check for file upload
+                if (operation.consumes?.includes('multipart/form-data')) {
+                    features.fileUpload = true;
+                }
+
+                // Check for pagination
+                if (operation.parameters?.some(p => ['page', 'limit', 'offset'].includes(p.name))) {
+                    features.pagination = true;
+                }
+
+                // Check for filtering
+                if (operation.parameters?.some(p => p.name.includes('filter') || p.name.includes('search'))) {
+                    features.filtering = true;
+                    features.search = true;
+                }
+
+                // Check for sorting
+                if (operation.parameters?.some(p => ['sort', 'orderBy'].includes(p.name))) {
+                    features.sorting = true;
+                }
+
+                // Check for websocket
+                if (path.includes('ws') || path.includes('socket')) {
+                    features.websocket = true;
+                    features.realtime = true;
+                }
+
+                // Check for rate limiting headers
+                if (operation.responses?.['429']) {
+                    features.rateLimit = true;
+                }
+
+                // Check for caching headers
+                if (operation.responses?.['304']) {
+                    features.caching = true;
+                }
+            });
+        });
+
+        // Check for i18n
+        if (context.swagger.info?.['x-i18n'] || context.swagger['x-i18n']) {
+            features.i18n = true;
+        }
+
+        // Check for GraphQL
+        if (context.swagger.paths?.['/graphql'] || context.swagger.info?.title?.toLowerCase().includes('graphql')) {
+            features.graphql = true;
+        }
+
+        return features;
+    }
+
+    /**
+     * Extract environment variables from OpenAPI spec
+     */
+    extractEnvVariables(context) {
+        const envVars = {
+            // Default Next.js variables
+            NEXT_PUBLIC_API_URL: {
+                description: 'Base URL for API requests',
+                required: true,
+                public: true,
+                default: 'http://localhost:3000/api',
+                example: 'https://api.example.com'
+            },
+            NODE_ENV: {
+                description: 'Node environment',
+                required: true,
+                public: false,
+                default: 'development',
+                example: 'production'
+            }
+        };
+
+        if (!context.swagger) return envVars;
+
+        // Extract from servers
+        if (context.swagger.servers) {
+            context.swagger.servers.forEach((server, index) => {
+                const varName = index === 0 ? 'NEXT_PUBLIC_API_URL' : `NEXT_PUBLIC_API_URL_${index + 1}`;
+                envVars[varName] = {
+                    description: server.description || `API Server ${index + 1}`,
+                    required: true,
+                    public: true,
+                    default: server.url,
+                    example: server.url
+                };
+
+                // Extract server variables
+                if (server.variables) {
+                    Object.entries(server.variables).forEach(([name, variable]) => {
+                        const envName = `NEXT_PUBLIC_${this.toSnakeCase(name).toUpperCase()}`;
+                        envVars[envName] = {
+                            description: variable.description || `Server variable: ${name}`,
+                            required: true,
+                            public: true,
+                            default: variable.default,
+                            example: variable.enum ? variable.enum[0] : variable.default
+                        };
+                    });
+                }
+            });
+        }
+
+        // Extract from security schemes
+        const securitySchemes = context.swagger.components?.securitySchemes || context.swagger.securityDefinitions;
+        if (securitySchemes) {
+            Object.entries(securitySchemes).forEach(([name, scheme]) => {
+                if (scheme.type === 'apiKey') {
+                    const envName = `${this.toSnakeCase(name).toUpperCase()}_API_KEY`;
+                    envVars[envName] = {
+                        description: scheme.description || `API Key for ${name}`,
+                        required: true,
+                        public: false,
+                        generate: true,
+                        example: 'your-api-key-here'
+                    };
+                } else if (scheme.type === 'oauth2') {
+                    envVars[`${this.toSnakeCase(name).toUpperCase()}_CLIENT_ID`] = {
+                        description: `OAuth2 Client ID for ${name}`,
+                        required: true,
+                        public: true,
+                        example: 'your-client-id'
+                    };
+                    envVars[`${this.toSnakeCase(name).toUpperCase()}_CLIENT_SECRET`] = {
+                        description: `OAuth2 Client Secret for ${name}`,
+                        required: true,
+                        public: false,
+                        generate: true,
+                        example: 'your-client-secret'
+                    };
+                }
+            });
+        }
+
+        // Add authentication-related variables if auth is detected
+        if (context.features?.authentication) {
+            envVars.NEXTAUTH_URL = {
+                description: 'Canonical URL of your site',
+                required: true,
+                public: false,
+                default: 'http://localhost:3000',
+                example: 'https://example.com'
+            };
+            envVars.NEXTAUTH_SECRET = {
+                description: 'Secret used to encrypt JWT tokens',
+                required: true,
+                public: false,
+                generate: true,
+                example: 'your-secret-key-here'
+            };
+            envVars.JWT_SECRET = {
+                description: 'JWT signing secret',
+                required: true,
+                public: false,
+                generate: true,
+                example: 'your-jwt-secret'
+            };
+        }
+
+        // Add database URL if database is configured
+        if (context.options?.database && context.options.database !== 'none') {
+            envVars.DATABASE_URL = {
+                description: 'Database connection string',
+                required: true,
+                public: false,
+                default: this.getDefaultDatabaseUrl(context.options.database),
+                example: this.getDatabaseUrlExample(context.options.database)
+            };
+        }
+
+        // Add feature-specific variables
+        if (context.features?.fileUpload) {
+            envVars.NEXT_PUBLIC_MAX_FILE_SIZE = {
+                description: 'Maximum file upload size in bytes',
+                required: false,
+                public: true,
+                default: '5242880', // 5MB
+                example: '10485760' // 10MB
+            };
+            envVars.UPLOAD_DIR = {
+                description: 'Directory for file uploads',
+                required: false,
+                public: false,
+                default: './uploads',
+                example: '/var/uploads'
+            };
+        }
+
+        if (context.features?.rateLimit) {
+            envVars.RATE_LIMIT_MAX = {
+                description: 'Maximum requests per window',
+                required: false,
+                public: false,
+                default: '100',
+                example: '100'
+            };
+            envVars.RATE_LIMIT_WINDOW = {
+                description: 'Rate limit window in milliseconds',
+                required: false,
+                public: false,
+                default: '900000', // 15 minutes
+                example: '900000'
+            };
+        }
+
+        if (context.features?.analytics) {
+            envVars.NEXT_PUBLIC_GA_ID = {
+                description: 'Google Analytics ID',
+                required: false,
+                public: true,
+                example: 'G-XXXXXXXXXX'
+            };
+        }
+
+        return envVars;
+    }
+
+    /**
+     * Prepare build configuration
+     */
+    prepareBuildConfig(context) {
+        return {
+            swcMinify: true,
+            productionBrowserSourceMaps: false,
+            poweredByHeader: false,
+            compress: true,
+            reactStrictMode: true,
+            experimental: {
+                appDir: true,
+                serverActions: true,
+                optimizeFonts: true,
+                optimizeImages: true,
+                scrollRestoration: true
+            },
+            compiler: {
+                removeConsole: context.options?.removeConsole || {
+                    exclude: ['error', 'warn']
+                }
+            },
+            images: {
+                formats: ['image/avif', 'image/webp'],
+                minimumCacheTTL: 60,
+                dangerouslyAllowSVG: false,
+                contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;"
+            }
+        };
+    }
+
+    /**
+     * Prepare security configuration
+     */
+    prepareSecurityConfig(context) {
+        const headers = [
+            {
+                key: 'X-DNS-Prefetch-Control',
+                value: 'on'
+            },
+            {
+                key: 'Strict-Transport-Security',
+                value: 'max-age=63072000; includeSubDomains; preload'
+            },
+            {
+                key: 'X-XSS-Protection',
+                value: '1; mode=block'
+            },
+            {
+                key: 'X-Frame-Options',
+                value: 'SAMEORIGIN'
+            },
+            {
+                key: 'X-Content-Type-Options',
+                value: 'nosniff'
+            },
+            {
+                key: 'Referrer-Policy',
+                value: 'origin-when-cross-origin'
+            },
+            {
+                key: 'Permissions-Policy',
+                value: 'camera=(), microphone=(), geolocation=(), interest-cohort=()'
+            }
+        ];
+
+        // Content Security Policy
+        const csp = {
+            'default-src': ["'self'"],
+            'script-src': ["'self'", "'unsafe-eval'", "'unsafe-inline'"],
+            'style-src': ["'self'", "'unsafe-inline'"],
+            'img-src': ["'self'", 'data:', 'https:'],
+            'font-src': ["'self'"],
+            'connect-src': ["'self'"],
+            'media-src': ["'self'"],
+            'object-src': ["'none'"],
+            'frame-src': ["'self'"],
+            'worker-src': ["'self'"],
+            'form-action': ["'self'"],
+            'base-uri': ["'self'"],
+            'manifest-src': ["'self'"],
+            'upgrade-insecure-requests': []
+        };
+
+        // Add API URLs to connect-src
+        if (context.swagger?.servers) {
+            context.swagger.servers.forEach(server => {
+                const domain = this.extractDomain(server.url);
+                if (domain) {
+                    csp['connect-src'].push(domain);
+                }
+            });
+        }
+
+        // Convert CSP object to string
+        const cspString = Object.entries(csp)
+            .map(([key, values]) => `${key} ${values.join(' ')}`)
+            .join('; ');
+
+        headers.push({
+            key: 'Content-Security-Policy',
+            value: cspString
+        });
+
+        return {
+            headers,
+            csp,
+            cors: {
+                origin: context.features?.cors ? '*' : false,
+                credentials: true,
+                methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+                allowedHeaders: ['Content-Type', 'Authorization'],
+                exposedHeaders: ['X-Total-Count', 'X-Page-Count'],
+                maxAge: 86400
+            },
+            rateLimit: context.features?.rateLimit ? {
+                windowMs: 15 * 60 * 1000, // 15 minutes
+                max: 100,
+                message: 'Too many requests from this IP, please try again later.',
+                standardHeaders: true,
+                legacyHeaders: false
+            } : null
+        };
+    }
+
+    /**
+     * Extract image domains from OpenAPI spec
+     */
+    extractImageDomains(context) {
+        const domains = new Set();
+
+        // Add default domains
+        domains.add('localhost');
+
+        // Extract from servers
+        if (context.swagger?.servers) {
+            context.swagger.servers.forEach(server => {
+                const domain = this.extractDomain(server.url);
+                if (domain) {
+                    domains.add(domain);
+                }
+            });
+        }
+
+        // Extract from example responses or schemas
+        const extractFromSchema = (schema) => {
+            if (!schema || typeof schema !== 'object') return;
+
+            if (schema.example) {
+                const urls = this.extractUrls(JSON.stringify(schema.example));
+                urls.forEach(url => {
+                    const domain = this.extractDomain(url);
+                    if (domain && this.isImageUrl(url)) {
+                        domains.add(domain);
+                    }
+                });
+            }
+
+            if (schema.properties) {
+                Object.values(schema.properties).forEach(prop => extractFromSchema(prop));
+            }
+
+            if (schema.items) {
+                extractFromSchema(schema.items);
+            }
+        };
+
+        // Scan all schemas
+        if (context.swagger?.components?.schemas) {
+            Object.values(context.swagger.components.schemas).forEach(extractFromSchema);
+        }
+
+        // Add common CDN domains if detected
+        COMMON_CDNS.forEach(cdn => {
+            if (Array.from(domains).some(d => d.includes(cdn))) {
+                domains.add(cdn);
+            }
+        });
+
+        return Array.from(domains);
+    }
+
+    /**
+     * Get Node.js version
+     */
+    getNodeVersion(context) {
+        // Check .nvmrc
+        if (context.nvmrc) {
+            return context.nvmrc.trim();
+        }
+
+        // Check package.json engines
+        if (context.packageJson?.engines?.node) {
+            const nodeVersion = context.packageJson.engines.node;
+            // Extract major version
+            const match = nodeVersion.match(/(\d+)/);
+            return match ? `${match[1]}.x` : DEFAULT_NODE_VERSION;
+        }
+
+        // Default to LTS
+        return DEFAULT_NODE_VERSION;
+    }
+
+    /**
+     * Get default database URL
+     */
+    getDefaultDatabaseUrl(dbType) {
+        const urls = {
+            prisma: 'postgresql://localhost:5432/myapp',
+            mongodb: 'mongodb://localhost:27017/myapp',
+            mysql: 'mysql://root:password@localhost:3306/myapp',
+            sqlite: 'file:./dev.db'
+        };
+        return urls[dbType] || urls.prisma;
+    }
+
+    /**
+     * Get database URL example
+     */
+    getDatabaseUrlExample(dbType) {
+        const examples = {
+            prisma: 'postgresql://user:password@host:5432/database',
+            mongodb: 'mongodb+srv://user:password@cluster.mongodb.net/database',
+            mysql: 'mysql://user:password@host:3306/database',
+            sqlite: 'file:./prod.db'
+        };
+        return examples[dbType] || examples.prisma;
+    }
+
+    /**
+     * Extract domain from URL
+     */
+    extractDomain(url) {
+        try {
+            const urlObj = new URL(url);
+            return urlObj.hostname;
+        } catch {
+            return null;
+        }
+    }
+
+    /**
+     * Extract URLs from text
+     */
+    extractUrls(text) {
+        const urlRegex = /https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)/g;
+        return text.match(urlRegex) || [];
+    }
+
+    /**
+     * Check if URL is an image
+     */
+    isImageUrl(url) {
+        return IMAGE_EXTENSIONS.some(ext => url.toLowerCase().includes(ext));
     }
 
     /**
@@ -324,10 +913,12 @@ class ConfigFileGenerator extends BaseGenerator {
     normalizeGeneratorOutput(output, generatorName) {
         const files = [];
 
+        if (!output) return files;
+
         // Handle different output formats
         if (Array.isArray(output)) {
             for (const item of output) {
-                if (item.path && (item.content !== undefined || item.generated)) {
+                if (item && item.path && (item.content !== undefined || item.generated)) {
                     files.push({
                         path: item.path,
                         content: item.content || '',
@@ -339,7 +930,7 @@ class ConfigFileGenerator extends BaseGenerator {
             }
         } else if (output && typeof output === 'object') {
             // Handle single file output
-            if (output.path && output.content) {
+            if (output.path && output.content !== undefined) {
                 files.push({
                     path: output.path,
                     content: output.content,
@@ -369,12 +960,11 @@ class ConfigFileGenerator extends BaseGenerator {
      * Check if a generator is critical
      */
     isCriticalGenerator(generatorName) {
-        const criticalGenerators = ['package', 'typescript', 'next'];
-        return criticalGenerators.includes(generatorName);
+        return CRITICAL_GENERATORS.includes(generatorName);
     }
 
     /**
-     * Generate summary file
+     * Generate a summary file
      */
     async generateSummaryFile(context, files) {
         const summary = {
@@ -448,7 +1038,7 @@ class ConfigFileGenerator extends BaseGenerator {
         steps.push('1. Install dependencies: npm install');
         steps.push('2. Copy .env.example to .env.local and update values');
 
-        if (context.features.database) {
+        if (context.features?.database) {
             steps.push('3. Set up your database and run migrations');
         }
 
@@ -511,8 +1101,8 @@ class ConfigFileGenerator extends BaseGenerator {
         }
 
         console.log('\n✨ Configured features:');
-        for (const [feature, enabled] of Object.entries(this.state.generatedConfigs)) {
-            console.log(`  • ${feature}`);
+        for (const config of this.state.generatedConfigs) {
+            console.log(`  • ${config.generator}`);
         }
 
         console.log('\n🚀 Next steps:');
@@ -536,6 +1126,24 @@ class ConfigFileGenerator extends BaseGenerator {
             features: this.config.features,
             deployment: this.config.deployment
         };
+    }
+
+    /**
+     * Clean up resources
+     */
+    async cleanup() {
+        await super.cleanup();
+
+        // Clean up event listeners
+        for (const cleanupFn of this._cleanupFunctions) {
+            try {
+                cleanupFn();
+            } catch (error) {
+                this.logger.warn('Error during cleanup:', error);
+            }
+        }
+
+        this._cleanupFunctions = [];
     }
 }
 

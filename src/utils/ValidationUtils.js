@@ -1,1203 +1,1256 @@
 /**
  * ============================================================================
- * SWAGGER-TO-NEXTJS GENERATOR - AI PROMPT
+ * SWAGGER-TO-NEXTJS GENERATOR - VALIDATION UTILITIES
  * ============================================================================
  * FILE: src/utils/ValidationUtils.js
  * VERSION: 2025-05-30 11:34:23
  * PHASE: PHASE 3: Code Generation Engine
- * CATEGORY: 🛠️ Utility Functions
+ * CATEGORY: 🛠️ Utilities
  * ============================================================================
  *
- * AI GENERATION PROMPT:
- *
- * Create robust validation utilities that:
- * - Implement comprehensive input sanitization 
- * - Generate validation functions from schemas 
- * - Support custom validation rules 
- * - Implement async validation 
- * - Provide detailed error messages 
- * - Support conditional validation 
- * - Implement security validation 
- * - Generate validation documentation 
- * - Support validation composition 
- * - Implement performance optimization
+ * PURPOSE:
+ * Comprehensive validation utilities for schema validation, code generation
+ * validation, and runtime validation generation.
  *
  * ============================================================================
  */
 
-/**
- * ============================================================================
- * SWAGGER-TO-NEXTJS GENERATOR - AI PROMPT
- * ============================================================================
- * FILE: src/utils/ValidationUtils.js
- * VERSION: 2025-05-30 11:34:23
- * PHASE: PHASE 3: Code Generation Engine
- * CATEGORY: 🛠️ Utility Functions
- * ============================================================================
- *
- * AI GENERATION PROMPT:
- *
- * Create robust validation utilities that:
- * - Implement comprehensive input sanitization
- * - Generate validation functions from schemas
- * - Support custom validation rules
- * - Implement async validation
- * - Provide detailed error messages
- * - Support conditional validation
- * - Implement security validation
- * - Generate validation documentation
- * - Support validation composition
- * - Implement performance optimization
- *
- * ============================================================================
- */
-
-const { z } = require('zod');
-const DOMPurify = require('isomorphic-dompurify');
-const validator = require('validator');
-const xss = require('xss');
-
-/**
- * Robust validation utilities for comprehensive input validation
- */
 class ValidationUtils {
-    /**
-     * Initialize validation utilities with custom rules
-     * @param {Object} options - Configuration options
-     */
-    constructor(options = {}) {
-        this.options = {
-            sanitization: {
-                stripTags: true,
-                escapeHtml: true,
-                normalizeWhitespace: true,
-                trimInput: true,
-                maxLength: 10000
-            },
-            security: {
-                checkSqlInjection: true,
-                checkXss: true,
-                checkPathTraversal: true,
-                checkCommandInjection: true,
-                allowedProtocols: ['http', 'https', 'ftp'],
-                blockPatterns: []
-            },
-            performance: {
-                cacheValidators: true,
-                maxCacheSize: 100,
-                asyncThreshold: 1000
-            },
-            ...options
+    constructor() {
+        // Validation rule templates
+        this.validationRules = {
+            required: 'This field is required',
+            minLength: 'Must be at least {min} characters',
+            maxLength: 'Must be no more than {max} characters',
+            min: 'Must be at least {min}',
+            max: 'Must be no more than {max}',
+            pattern: 'Invalid format',
+            email: 'Invalid email address',
+            url: 'Invalid URL',
+            unique: 'This value must be unique'
         };
 
-        this.customRules = new Map();
-        this.validatorCache = new Map();
-        this.sanitizers = new Map();
-        this.asyncValidators = new Map();
-        this.composedValidators = new Map();
+        // Common validation patterns
+        this.patterns = {
+            email: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+            url: /^https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)$/,
+            phone: /^\+?[1-9]\d{1,14}$/,
+            uuid: /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+            alphanumeric: /^[a-zA-Z0-9]+$/,
+            slug: /^[a-z0-9-]+$/,
+            hexColor: /^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/,
+            ipv4: /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/,
+            ipv6: /^(([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:)|fe80:(:[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]{1,}|::(ffff(:0{1,4}){0,1}:){0,1}((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])|([0-9a-fA-F]{1,4}:){1,4}:((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9]))$/
+        };
 
-        this.initializeBuiltInRules();
-        this.initializeBuiltInSanitizers();
-        this.initializeSecurityPatterns();
+        // Validation libraries mapping
+        this.validationLibraries = {
+            zod: {
+                name: 'zod',
+                import: "import { z } from 'zod';",
+                schemaPrefix: 'z.'
+            },
+            yup: {
+                name: 'yup',
+                import: "import * as yup from 'yup';",
+                schemaPrefix: 'yup.'
+            },
+            joi: {
+                name: 'joi',
+                import: "import Joi from 'joi';",
+                schemaPrefix: 'Joi.'
+            }
+        };
     }
 
     /**
-     * Initialize built-in validation rules
+     * Generate validation schema from OpenAPI schema
+     * @param {object} schema - OpenAPI schema
+     * @param {string} library - Validation library ('zod' | 'yup' | 'joi')
+     * @param {object} options - Generation options
+     * @returns {string} Validation schema code
      */
-    initializeBuiltInRules() {
+    generateValidationSchema(schema, library = 'zod', options = {}) {
+        const lib = this.validationLibraries[library];
+        if (!lib) {
+            throw new Error(`Unsupported validation library: ${library}`);
+        }
+
+        switch (library) {
+            case 'zod':
+                return this._generateZodSchema(schema, options);
+            case 'yup':
+                return this._generateYupSchema(schema, options);
+            case 'joi':
+                return this._generateJoiSchema(schema, options);
+            default:
+                throw new Error(`Unsupported validation library: ${library}`);
+        }
+    }
+
+    /**
+     * Generate React Hook Form validation rules
+     * @param {object} schema - OpenAPI schema
+     * @returns {object} React Hook Form rules
+     */
+    generateReactHookFormRules(schema) {
+        const rules = {};
+
+        if (!schema) return rules;
+
+        // Required validation
+        if (schema.required === true) {
+            rules.required = this.validationRules.required;
+        }
+
         // String validations
-        this.addRule('email', (value) => validator.isEmail(value));
-        this.addRule('url', (value) => validator.isURL(value));
-        this.addRule('uuid', (value) => validator.isUUID(value));
-        this.addRule('alphanumeric', (value) => validator.isAlphanumeric(value));
-        this.addRule('alpha', (value) => validator.isAlpha(value));
-        this.addRule('numeric', (value) => validator.isNumeric(value));
-        this.addRule('hexColor', (value) => validator.isHexColor(value));
-        this.addRule('ipAddress', (value) => validator.isIP(value));
-        this.addRule('json', (value) => validator.isJSON(value));
-        this.addRule('jwt', (value) => validator.isJWT(value));
-        this.addRule('base64', (value) => validator.isBase64(value));
-        this.addRule('dataUri', (value) => validator.isDataURI(value));
-        this.addRule('mimeType', (value) => validator.isMimeType(value));
-        this.addRule('semVer', (value) => validator.isSemVer(value));
-        this.addRule('creditCard', (value) => validator.isCreditCard(value));
-        this.addRule('iban', (value) => validator.isIBAN(value));
-        this.addRule('bic', (value) => validator.isBIC(value));
+        if (schema.type === 'string') {
+            if (schema.minLength !== undefined) {
+                rules.minLength = {
+                    value: schema.minLength,
+                    message: this.validationRules.minLength.replace('{min}', schema.minLength)
+                };
+            }
+
+            if (schema.maxLength !== undefined) {
+                rules.maxLength = {
+                    value: schema.maxLength,
+                    message: this.validationRules.maxLength.replace('{max}', schema.maxLength)
+                };
+            }
+
+            if (schema.pattern) {
+                rules.pattern = {
+                    value: new RegExp(schema.pattern),
+                    message: schema['x-patternMessage'] || this.validationRules.pattern
+                };
+            }
+
+            if (schema.format) {
+                rules.pattern = this._getFormatValidation(schema.format);
+            }
+        }
 
         // Number validations
-        this.addRule('port', (value) => validator.isPort(String(value)));
-        this.addRule('latitude', (value) => validator.isLatLong(`${value},0`));
-        this.addRule('longitude', (value) => validator.isLatLong(`0,${value}`));
+        if (schema.type === 'number' || schema.type === 'integer') {
+            if (schema.minimum !== undefined) {
+                rules.min = {
+                    value: schema.minimum,
+                    message: this.validationRules.min.replace('{min}', schema.minimum)
+                };
+            }
 
-        // Date validations
-        this.addRule('date', (value) => validator.isDate(value));
-        this.addRule('iso8601', (value) => validator.isISO8601(value));
-        this.addRule('rfc3339', (value) => validator.isRFC3339(value));
-
-        // Security validations
-        this.addRule('safeString', (value) => !this.containsMaliciousPatterns(value));
-        this.addRule('safePath', (value) => !this.containsPathTraversal(value));
-        this.addRule('safeCommand', (value) => !this.containsCommandInjection(value));
-        this.addRule('safeSql', (value) => !this.containsSqlInjection(value));
-
-        // Custom format validations
-        this.addRule('phone', (value) => /^[\+]?[(]?[0-9]{3}[)]?[-\s\.]?[0-9]{3}[-\s\.]?[0-9]{4,6}$/.test(value));
-        this.addRule('slug', (value) => /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value));
-        this.addRule('username', (value) => /^[a-zA-Z0-9_-]{3,16}$/.test(value));
-        this.addRule('password', (value) => this.validatePassword(value));
-        this.addRule('strongPassword', (value) => this.validateStrongPassword(value));
-    }
-
-    /**
-     * Initialize built-in sanitizers
-     */
-    initializeBuiltInSanitizers() {
-        // String sanitizers
-        this.addSanitizer('trim', (value) => value.trim());
-        this.addSanitizer('lowercase', (value) => value.toLowerCase());
-        this.addSanitizer('uppercase', (value) => value.toUpperCase());
-        this.addSanitizer('escape', (value) => validator.escape(value));
-        this.addSanitizer('unescape', (value) => validator.unescape(value));
-        this.addSanitizer('normalizeEmail', (value) => validator.normalizeEmail(value));
-        this.addSanitizer('stripLow', (value) => validator.stripLow(value));
-        this.addSanitizer('toBoolean', (value) => validator.toBoolean(value));
-        this.addSanitizer('toDate', (value) => validator.toDate(value));
-        this.addSanitizer('toFloat', (value) => validator.toFloat(value));
-        this.addSanitizer('toInt', (value) => validator.toInt(value));
-
-        // HTML sanitizers
-        this.addSanitizer('stripHtml', (value) => this.stripHtml(value));
-        this.addSanitizer('sanitizeHtml', (value) => this.sanitizeHtml(value));
-
-        // Path sanitizers
-        this.addSanitizer('sanitizePath', (value) => this.sanitizePath(value));
-
-        // JSON sanitizers
-        this.addSanitizer('sanitizeJson', (value) => this.sanitizeJson(value));
-
-        // SQL sanitizers
-        this.addSanitizer('escapeSql', (value) => this.escapeSql(value));
-    }
-
-    /**
-     * Initialize security patterns
-     */
-    initializeSecurityPatterns() {
-        this.securityPatterns = {
-            sqlInjection: [
-                /(\b(union|select|insert|update|delete|drop|create|alter|exec|execute)\b)/gi,
-                /('|(--|#|\/\*|\*\/|@@|@))/g,
-                /(;|'|"|`|\\|\/\*|\*\/|xp_|sp_)/gi,
-                /(\b(and|or)\b\s*\d+\s*=\s*\d+)/gi
-            ],
-            xss: [
-                /<script[^>]*>.*?<\/script>/gi,
-                /<iframe[^>]*>.*?<\/iframe>/gi,
-                /javascript:/gi,
-                /on\w+\s*=/gi,
-                /<object[^>]*>.*?<\/object>/gi,
-                /<embed[^>]*>.*?<\/embed>/gi
-            ],
-            pathTraversal: [
-                /\.\.\//g,
-                /\.\.%2f/gi,
-                /\.\.%5c/gi,
-                /%2e%2e/gi,
-                /\.\.%252f/gi
-            ],
-            commandInjection: [
-                /[;&|`$()]/g,
-                /\b(cat|ls|echo|rm|mv|cp|chmod|chown|ping|curl|wget)\b/gi
-            ]
-        };
-    }
-
-    /**
-     * Generate validation function from schema
-     * @param {Object} schema - Validation schema
-     * @returns {Function} Validation function
-     */
-    generateValidatorFromSchema(schema) {
-        const cacheKey = JSON.stringify(schema);
-
-        if (this.options.performance.cacheValidators && this.validatorCache.has(cacheKey)) {
-            return this.validatorCache.get(cacheKey);
+            if (schema.maximum !== undefined) {
+                rules.max = {
+                    value: schema.maximum,
+                    message: this.validationRules.max.replace('{max}', schema.maximum)
+                };
+            }
         }
 
-        const validator = (data, options = {}) => {
-            return this.validateWithSchema(data, schema, options);
-        };
-
-        if (this.options.performance.cacheValidators) {
-            this.validatorCache.set(cacheKey, validator);
+        // Custom validation function
+        if (schema['x-validation']) {
+            rules.validate = this._generateCustomValidation(schema['x-validation']);
         }
 
-        return validator;
+        return rules;
     }
 
     /**
-     * Validate data with schema
-     * @param {*} data - Data to validate
-     * @param {Object} schema - Validation schema
-     * @param {Object} options - Validation options
-     * @returns {Object} Validation result
+     * Generate Formik validation schema
+     * @param {object} schema - OpenAPI schema
+     * @returns {string} Formik validation code
      */
-    validateWithSchema(data, schema, options = {}) {
+    generateFormikValidation(schema) {
+        return this.generateValidationSchema(schema, 'yup', {
+            export: false,
+            name: 'validationSchema'
+        });
+    }
+
+    /**
+     * Validate OpenAPI specification
+     * @param {object} spec - OpenAPI specification
+     * @returns {object} Validation result
+     */
+    validateOpenApiSpec(spec) {
         const errors = [];
-        const sanitized = {};
-        const context = { ...options.context };
+        const warnings = [];
 
-        for (const [field, rules] of Object.entries(schema)) {
-            const value = this.getNestedValue(data, field);
-            const fieldResult = this.validateField(field, value, rules, data, context);
+        // Check required fields
+        if (!spec) {
+            errors.push('Specification is null or undefined');
+            return { valid: false, errors, warnings };
+        }
 
-            if (fieldResult.errors.length > 0) {
-                errors.push(...fieldResult.errors);
+        // OpenAPI 3.0 validation
+        if (spec.openapi) {
+            if (!spec.openapi.startsWith('3.')) {
+                errors.push(`Unsupported OpenAPI version: ${spec.openapi}`);
             }
 
-            if (fieldResult.sanitized !== undefined) {
-                this.setNestedValue(sanitized, field, fieldResult.sanitized);
+            if (!spec.info) {
+                errors.push('Missing required field: info');
+            } else {
+                if (!spec.info.title) errors.push('Missing required field: info.title');
+                if (!spec.info.version) errors.push('Missing required field: info.version');
             }
+
+            if (!spec.paths) {
+                warnings.push('No paths defined');
+            }
+        }
+        // Swagger 2.0 validation
+        else if (spec.swagger) {
+            if (spec.swagger !== '2.0') {
+                errors.push(`Unsupported Swagger version: ${spec.swagger}`);
+            }
+
+            if (!spec.info) {
+                errors.push('Missing required field: info');
+            }
+        } else {
+            errors.push('Missing OpenAPI or Swagger version');
+        }
+
+        // Validate paths
+        if (spec.paths) {
+            this._validatePaths(spec.paths, errors, warnings);
+        }
+
+        // Validate components/definitions
+        if (spec.components?.schemas) {
+            this._validateSchemas(spec.components.schemas, errors, warnings);
+        } else if (spec.definitions) {
+            this._validateSchemas(spec.definitions, errors, warnings);
         }
 
         return {
             valid: errors.length === 0,
             errors,
-            sanitized: errors.length === 0 ? sanitized : null
+            warnings
         };
     }
 
     /**
-     * Validate single field
-     * @param {string} field - Field name
-     * @param {*} value - Field value
-     * @param {Object} rules - Field rules
-     * @param {Object} data - Complete data object
-     * @param {Object} context - Validation context
-     * @returns {Object} Field validation result
+     * Generate validation middleware for Express/Next.js
+     * @param {object} schema - Request schema
+     * @param {string} library - Validation library
+     * @returns {string} Middleware code
      */
-    validateField(field, value, rules, data, context) {
+    generateValidationMiddleware(schema, library = 'zod') {
+        const validationSchema = this.generateValidationSchema(schema, library);
+
+        if (library === 'zod') {
+            return `
+export const validate = (schema) => {
+  return async (req, res, next) => {
+    try {
+      const validated = await schema.parseAsync({
+        body: req.body,
+        query: req.query,
+        params: req.params
+      });
+      
+      req.validated = validated;
+      next();
+    } catch (error) {
+      return res.status(400).json({
+        error: 'Validation failed',
+        details: error.errors
+      });
+    }
+  };
+};
+
+export const ${schema.operationId || 'request'}Schema = ${validationSchema};
+`;
+        }
+
+        // Add other library implementations as needed
+        return '';
+    }
+
+    /**
+     * Generate client-side validation functions
+     * @param {object} schema - Field schema
+     * @returns {string} Validation function code
+     */
+    generateClientValidation(schema) {
+        const validations = [];
+
+        if (!schema) return 'value => true';
+
+        // Required validation
+        if (schema.required) {
+            validations.push(`
+    if (!value && value !== 0) {
+      return '${this.validationRules.required}';
+    }`);
+        }
+
+        // Type validations
+        switch (schema.type) {
+            case 'string':
+                if (schema.minLength) {
+                    validations.push(`
+    if (value && value.length < ${schema.minLength}) {
+      return '${this.validationRules.minLength.replace('{min}', schema.minLength)}';
+    }`);
+                }
+
+                if (schema.maxLength) {
+                    validations.push(`
+    if (value && value.length > ${schema.maxLength}) {
+      return '${this.validationRules.maxLength.replace('{max}', schema.maxLength)}';
+    }`);
+                }
+
+                if (schema.pattern) {
+                    validations.push(`
+    if (value && !/${schema.pattern}/.test(value)) {
+      return '${schema['x-patternMessage'] || this.validationRules.pattern}';
+    }`);
+                }
+
+                if (schema.format) {
+                    const formatValidation = this._getFormatValidationFunction(schema.format);
+                    if (formatValidation) {
+                        validations.push(formatValidation);
+                    }
+                }
+                break;
+
+            case 'number':
+            case 'integer':
+                if (schema.minimum !== undefined) {
+                    validations.push(`
+    if (value < ${schema.minimum}) {
+      return '${this.validationRules.min.replace('{min}', schema.minimum)}';
+    }`);
+                }
+
+                if (schema.maximum !== undefined) {
+                    validations.push(`
+    if (value > ${schema.maximum}) {
+      return '${this.validationRules.max.replace('{max}', schema.maximum)}';
+    }`);
+                }
+                break;
+        }
+
+        if (validations.length === 0) {
+            return 'value => true';
+        }
+
+        return `value => {${validations.join('')}
+    return true;
+  }`;
+    }
+
+    /**
+     * Extract validation constraints from schema
+     * @param {object} schema - OpenAPI schema
+     * @returns {object} Validation constraints
+     */
+    extractValidationConstraints(schema) {
+        const constraints = {};
+
+        if (!schema) return constraints;
+
+        // Basic constraints
+        if (schema.type) constraints.type = schema.type;
+        if (schema.format) constraints.format = schema.format;
+        if (schema.required !== undefined) constraints.required = schema.required;
+
+        // String constraints
+        if (schema.minLength !== undefined) constraints.minLength = schema.minLength;
+        if (schema.maxLength !== undefined) constraints.maxLength = schema.maxLength;
+        if (schema.pattern) constraints.pattern = schema.pattern;
+
+        // Number constraints
+        if (schema.minimum !== undefined) constraints.minimum = schema.minimum;
+        if (schema.maximum !== undefined) constraints.maximum = schema.maximum;
+        if (schema.exclusiveMinimum !== undefined) constraints.exclusiveMinimum = schema.exclusiveMinimum;
+        if (schema.exclusiveMaximum !== undefined) constraints.exclusiveMaximum = schema.exclusiveMaximum;
+        if (schema.multipleOf !== undefined) constraints.multipleOf = schema.multipleOf;
+
+        // Array constraints
+        if (schema.minItems !== undefined) constraints.minItems = schema.minItems;
+        if (schema.maxItems !== undefined) constraints.maxItems = schema.maxItems;
+        if (schema.uniqueItems !== undefined) constraints.uniqueItems = schema.uniqueItems;
+
+        // Object constraints
+        if (schema.minProperties !== undefined) constraints.minProperties = schema.minProperties;
+        if (schema.maxProperties !== undefined) constraints.maxProperties = schema.maxProperties;
+
+        // Enum constraint
+        if (schema.enum) constraints.enum = schema.enum;
+
+        // Custom constraints from extensions
+        if (schema['x-constraints']) {
+            Object.assign(constraints, schema['x-constraints']);
+        }
+
+        return constraints;
+    }
+
+    /**
+     * Generate HTML5 input attributes from schema
+     * @param {object} schema - Field schema
+     * @returns {object} HTML attributes
+     */
+    generateHtmlAttributes(schema) {
+        const attributes = {};
+
+        if (!schema) return attributes;
+
+        // Type mapping
+        if (schema.type === 'string') {
+            if (schema.format === 'email') attributes.type = 'email';
+            else if (schema.format === 'uri') attributes.type = 'url';
+            else if (schema.format === 'date') attributes.type = 'date';
+            else if (schema.format === 'date-time') attributes.type = 'datetime-local';
+            else if (schema.format === 'time') attributes.type = 'time';
+            else if (schema.format === 'password') attributes.type = 'password';
+            else attributes.type = 'text';
+        } else if (schema.type === 'number' || schema.type === 'integer') {
+            attributes.type = 'number';
+        }
+
+        // Validation attributes
+        if (schema.required) attributes.required = true;
+        if (schema.minLength) attributes.minLength = schema.minLength;
+        if (schema.maxLength) attributes.maxLength = schema.maxLength;
+        if (schema.minimum !== undefined) attributes.min = schema.minimum;
+        if (schema.maximum !== undefined) attributes.max = schema.maximum;
+        if (schema.pattern) attributes.pattern = schema.pattern;
+        if (schema.multipleOf) attributes.step = schema.multipleOf;
+
+        // Placeholder and description
+        if (schema.example) attributes.placeholder = String(schema.example);
+        if (schema.description) attributes.title = schema.description;
+
+        // Readonly and disabled
+        if (schema.readOnly) attributes.readOnly = true;
+        if (schema['x-disabled']) attributes.disabled = true;
+
+        return attributes;
+    }
+
+    /**
+     * Generate error messages for schema
+     * @param {object} schema - OpenAPI schema
+     * @param {string} fieldName - Field name
+     * @returns {object} Error messages
+     */
+    generateErrorMessages(schema, fieldName) {
+        const messages = {};
+
+        if (!schema) return messages;
+
+        const label = fieldName || 'This field';
+
+        // Required
+        if (schema.required) {
+            messages.required = schema['x-requiredMessage'] || `${label} is required`;
+        }
+
+        // Type-specific messages
+        switch (schema.type) {
+            case 'string':
+                if (schema.minLength) {
+                    messages.minLength = schema['x-minLengthMessage'] ||
+                        `${label} must be at least ${schema.minLength} characters`;
+                }
+                if (schema.maxLength) {
+                    messages.maxLength = schema['x-maxLengthMessage'] ||
+                        `${label} must be no more than ${schema.maxLength} characters`;
+                }
+                if (schema.pattern) {
+                    messages.pattern = schema['x-patternMessage'] ||
+                        `${label} has an invalid format`;
+                }
+                if (schema.format === 'email') {
+                    messages.format = `${label} must be a valid email address`;
+                }
+                if (schema.format === 'uri') {
+                    messages.format = `${label} must be a valid URL`;
+                }
+                break;
+
+            case 'number':
+            case 'integer':
+                if (schema.minimum !== undefined) {
+                    messages.minimum = schema['x-minimumMessage'] ||
+                        `${label} must be at least ${schema.minimum}`;
+                }
+                if (schema.maximum !== undefined) {
+                    messages.maximum = schema['x-maximumMessage'] ||
+                        `${label} must be no more than ${schema.maximum}`;
+                }
+                if (schema.type === 'integer') {
+                    messages.type = `${label} must be a whole number`;
+                }
+                break;
+
+            case 'array':
+                if (schema.minItems) {
+                    messages.minItems = `${label} must have at least ${schema.minItems} items`;
+                }
+                if (schema.maxItems) {
+                    messages.maxItems = `${label} must have no more than ${schema.maxItems} items`;
+                }
+                break;
+        }
+
+        // Enum
+        if (schema.enum) {
+            messages.enum = `${label} must be one of: ${schema.enum.join(', ')}`;
+        }
+
+        return messages;
+    }
+
+    /**
+     * Validate value against schema
+     * @param {any} value - Value to validate
+     * @param {object} schema - OpenAPI schema
+     * @returns {object} Validation result
+     */
+    validateValue(value, schema) {
         const errors = [];
-        let sanitized = value;
 
-        // Check if field is required
-        if (rules.required && this.isEmpty(value)) {
-            errors.push({
-                field,
-                message: rules.message || `${field} is required`,
-                code: 'REQUIRED'
-            });
-            return { errors, sanitized: undefined };
+        if (!schema) {
+            return { valid: true, errors };
         }
 
-        // Skip validation if optional and empty
-        if (!rules.required && this.isEmpty(value)) {
-            return { errors: [], sanitized: undefined };
-        }
-
-        // Apply conditional validation
-        if (rules.when) {
-            const condition = this.evaluateCondition(rules.when, data, context);
-            if (!condition) {
-                return { errors: [], sanitized };
-            }
-        }
-
-        // Apply sanitizers
-        if (rules.sanitize) {
-            sanitized = this.applySanitizers(sanitized, rules.sanitize);
+        // Required validation
+        if (schema.required && (value === null || value === undefined || value === '')) {
+            errors.push('Value is required');
         }
 
         // Type validation
-        if (rules.type) {
-            const typeValid = this.validateType(sanitized, rules.type);
-            if (!typeValid) {
-                errors.push({
-                    field,
-                    message: rules.typeMessage || `${field} must be of type ${rules.type}`,
-                    code: 'INVALID_TYPE'
-                });
-            }
-        }
+        if (value !== null && value !== undefined) {
+            const actualType = this._getValueType(value);
 
-        // Built-in validations
-        if (rules.validate) {
-            const validations = Array.isArray(rules.validate) ? rules.validate : [rules.validate];
-
-            for (const validation of validations) {
-                const result = this.executeValidation(sanitized, validation, field, data, context);
-                if (!result.valid) {
-                    errors.push(result.error);
+            if (schema.type && actualType !== schema.type) {
+                // Special handling for numbers
+                if (schema.type === 'number' && actualType === 'integer') {
+                    // Integers are valid numbers
+                } else {
+                    errors.push(`Expected type ${schema.type}, got ${actualType}`);
                 }
             }
-        }
 
-        // Custom validation function
-        if (rules.custom) {
-            const customResult = rules.custom(sanitized, data, context);
-            if (customResult !== true) {
-                errors.push({
-                    field,
-                    message: customResult || `${field} failed custom validation`,
-                    code: 'CUSTOM_VALIDATION_FAILED'
-                });
+            // Type-specific validations
+            switch (schema.type) {
+                case 'string':
+                    this._validateString(value, schema, errors);
+                    break;
+                case 'number':
+                case 'integer':
+                    this._validateNumber(value, schema, errors);
+                    break;
+                case 'array':
+                    this._validateArray(value, schema, errors);
+                    break;
+                case 'object':
+                    this._validateObject(value, schema, errors);
+                    break;
+                case 'boolean':
+                    // Boolean has no additional validations
+                    break;
             }
-        }
-
-        // Length validations
-        if (rules.minLength && sanitized.length < rules.minLength) {
-            errors.push({
-                field,
-                message: rules.minLengthMessage || `${field} must be at least ${rules.minLength} characters`,
-                code: 'MIN_LENGTH'
-            });
-        }
-
-        if (rules.maxLength && sanitized.length > rules.maxLength) {
-            errors.push({
-                field,
-                message: rules.maxLengthMessage || `${field} must not exceed ${rules.maxLength} characters`,
-                code: 'MAX_LENGTH'
-            });
-        }
-
-        // Numeric validations
-        if (rules.min !== undefined && Number(sanitized) < rules.min) {
-            errors.push({
-                field,
-                message: rules.minMessage || `${field} must be at least ${rules.min}`,
-                code: 'MIN_VALUE'
-            });
-        }
-
-        if (rules.max !== undefined && Number(sanitized) > rules.max) {
-            errors.push({
-                field,
-                message: rules.maxMessage || `${field} must not exceed ${rules.max}`,
-                code: 'MAX_VALUE'
-            });
-        }
-
-        // Pattern validation
-        if (rules.pattern && !rules.pattern.test(sanitized)) {
-            errors.push({
-                field,
-                message: rules.patternMessage || `${field} format is invalid`,
-                code: 'PATTERN_MISMATCH'
-            });
         }
 
         // Enum validation
-        if (rules.enum && !rules.enum.includes(sanitized)) {
-            errors.push({
-                field,
-                message: rules.enumMessage || `${field} must be one of: ${rules.enum.join(', ')}`,
-                code: 'INVALID_ENUM_VALUE'
-            });
+        if (schema.enum && !schema.enum.includes(value)) {
+            errors.push(`Value must be one of: ${schema.enum.join(', ')}`);
         }
-
-        return { errors, sanitized };
-    }
-
-    /**
-     * Execute validation rule
-     * @param {*} value - Value to validate
-     * @param {string|Object} validation - Validation rule
-     * @param {string} field - Field name
-     * @param {Object} data - Complete data
-     * @param {Object} context - Validation context
-     * @returns {Object} Validation result
-     */
-    executeValidation(value, validation, field, data, context) {
-        if (typeof validation === 'string') {
-            // Built-in validation rule
-            if (this.customRules.has(validation)) {
-                const rule = this.customRules.get(validation);
-                const valid = rule(value, data, context);
-                return {
-                    valid,
-                    error: valid ? null : {
-                        field,
-                        message: `${field} failed ${validation} validation`,
-                        code: validation.toUpperCase()
-                    }
-                };
-            }
-        } else if (typeof validation === 'object') {
-            // Complex validation with options
-            const { rule, options, message } = validation;
-            if (this.customRules.has(rule)) {
-                const validator = this.customRules.get(rule);
-                const valid = validator(value, options, data, context);
-                return {
-                    valid,
-                    error: valid ? null : {
-                        field,
-                        message: message || `${field} failed ${rule} validation`,
-                        code: rule.toUpperCase()
-                    }
-                };
-            }
-        }
-
-        return { valid: true };
-    }
-
-    /**
-     * Add custom validation rule
-     * @param {string} name - Rule name
-     * @param {Function} validator - Validation function
-     */
-    addRule(name, validator) {
-        this.customRules.set(name, validator);
-    }
-
-    /**
-     * Add custom sanitizer
-     * @param {string} name - Sanitizer name
-     * @param {Function} sanitizer - Sanitizer function
-     */
-    addSanitizer(name, sanitizer) {
-        this.sanitizers.set(name, sanitizer);
-    }
-
-    /**
-     * Add async validator
-     * @param {string} name - Validator name
-     * @param {Function} validator - Async validation function
-     */
-    addAsyncValidator(name, validator) {
-        this.asyncValidators.set(name, validator);
-    }
-
-    /**
-     * Validate with async validators
-     * @param {*} data - Data to validate
-     * @param {Object} schema - Validation schema
-     * @param {Object} options - Options
-     * @returns {Promise<Object>} Validation result
-     */
-    async validateAsync(data, schema, options = {}) {
-        const syncResult = this.validateWithSchema(data, schema, options);
-
-        if (!syncResult.valid) {
-            return syncResult;
-        }
-
-        const asyncErrors = [];
-        const asyncPromises = [];
-
-        for (const [field, rules] of Object.entries(schema)) {
-            if (rules.asyncValidate) {
-                const value = this.getNestedValue(data, field);
-                const validations = Array.isArray(rules.asyncValidate) ? rules.asyncValidate : [rules.asyncValidate];
-
-                for (const validation of validations) {
-                    asyncPromises.push(
-                        this.executeAsyncValidation(value, validation, field, data, options.context)
-                            .then(result => {
-                                if (!result.valid) {
-                                    asyncErrors.push(result.error);
-                                }
-                            })
-                    );
-                }
-            }
-        }
-
-        await Promise.all(asyncPromises);
 
         return {
-            valid: asyncErrors.length === 0,
-            errors: [...syncResult.errors, ...asyncErrors],
-            sanitized: asyncErrors.length === 0 ? syncResult.sanitized : null
+            valid: errors.length === 0,
+            errors
         };
     }
 
-    /**
-     * Execute async validation
-     * @param {*} value - Value to validate
-     * @param {string|Object} validation - Validation rule
-     * @param {string} field - Field name
-     * @param {Object} data - Complete data
-     * @param {Object} context - Context
-     * @returns {Promise<Object>} Validation result
-     */
-    async executeAsyncValidation(value, validation, field, data, context) {
-        try {
-            if (typeof validation === 'string') {
-                if (this.asyncValidators.has(validation)) {
-                    const validator = this.asyncValidators.get(validation);
-                    const valid = await validator(value, data, context);
-                    return {
-                        valid,
-                        error: valid ? null : {
-                            field,
-                            message: `${field} failed ${validation} validation`,
-                            code: validation.toUpperCase()
-                        }
-                    };
-                }
-            } else if (typeof validation === 'object') {
-                const { rule, options, message } = validation;
-                if (this.asyncValidators.has(rule)) {
-                    const validator = this.asyncValidators.get(rule);
-                    const valid = await validator(value, options, data, context);
-                    return {
-                        valid,
-                        error: valid ? null : {
-                            field,
-                            message: message || `${field} failed ${rule} validation`,
-                            code: rule.toUpperCase()
-                        }
-                    };
-                }
-            }
-        } catch (error) {
-            return {
-                valid: false,
-                error: {
-                    field,
-                    message: `Async validation error: ${error.message}`,
-                    code: 'ASYNC_VALIDATION_ERROR'
-                }
-            };
-        }
-
-        return { valid: true };
-    }
+    // ============================================================================
+    // Private Helper Methods
+    // ============================================================================
 
     /**
-     * Compose multiple validators
-     * @param {...Function} validators - Validators to compose
-     * @returns {Function} Composed validator
+     * Generate Zod schema
+     * @private
      */
-    compose(...validators) {
-        return (data, options = {}) => {
-            const errors = [];
-            let sanitized = data;
+    _generateZodSchema(schema, options = {}) {
+        if (!schema) return 'z.any()';
 
-            for (const validator of validators) {
-                const result = validator(sanitized, options);
+        let zodSchema = '';
 
-                if (!result.valid) {
-                    errors.push(...result.errors);
-                }
-
-                if (result.sanitized) {
-                    sanitized = result.sanitized;
-                }
-            }
-
-            return {
-                valid: errors.length === 0,
-                errors,
-                sanitized: errors.length === 0 ? sanitized : null
-            };
-        };
-    }
-
-    /**
-     * Create conditional validator
-     * @param {Function} condition - Condition function
-     * @param {Function} validator - Validator to apply if condition is true
-     * @param {Function} elseValidator - Optional validator if condition is false
-     * @returns {Function} Conditional validator
-     */
-    conditional(condition, validator, elseValidator = null) {
-        return (data, options = {}) => {
-            const shouldValidate = condition(data, options.context);
-
-            if (shouldValidate) {
-                return validator(data, options);
-            } else if (elseValidator) {
-                return elseValidator(data, options);
-            }
-
-            return { valid: true, errors: [], sanitized: data };
-        };
-    }
-
-    /**
-     * Apply sanitizers to value
-     * @param {*} value - Value to sanitize
-     * @param {Array|string} sanitizers - Sanitizers to apply
-     * @returns {*} Sanitized value
-     */
-    applySanitizers(value, sanitizers) {
-        const sanitizerList = Array.isArray(sanitizers) ? sanitizers : [sanitizers];
-        let sanitized = value;
-
-        for (const sanitizer of sanitizerList) {
-            if (typeof sanitizer === 'string' && this.sanitizers.has(sanitizer)) {
-                sanitized = this.sanitizers.get(sanitizer)(sanitized);
-            } else if (typeof sanitizer === 'function') {
-                sanitized = sanitizer(sanitized);
-            }
-        }
-
-        return sanitized;
-    }
-
-    /**
-     * Implement comprehensive input sanitization
-     * @param {*} input - Input to sanitize
-     * @param {Object} options - Sanitization options
-     * @returns {*} Sanitized input
-     */
-    sanitize(input, options = {}) {
-        const sanitizeOptions = { ...this.options.sanitization, ...options };
-
-        if (input === null || input === undefined) {
-            return input;
-        }
-
-        // Handle different input types
-        if (typeof input === 'string') {
-            return this.sanitizeString(input, sanitizeOptions);
-        } else if (Array.isArray(input)) {
-            return input.map(item => this.sanitize(item, sanitizeOptions));
-        } else if (typeof input === 'object') {
-            return this.sanitizeObject(input, sanitizeOptions);
-        }
-
-        return input;
-    }
-
-    /**
-     * Sanitize string input
-     * @param {string} str - String to sanitize
-     * @param {Object} options - Options
-     * @returns {string} Sanitized string
-     */
-    sanitizeString(str, options) {
-        let sanitized = str;
-
-        // Trim if enabled
-        if (options.trimInput) {
-            sanitized = sanitized.trim();
-        }
-
-        // Normalize whitespace
-        if (options.normalizeWhitespace) {
-            sanitized = sanitized.replace(/\s+/g, ' ');
-        }
-
-        // Strip tags if enabled
-        if (options.stripTags) {
-            sanitized = this.stripHtml(sanitized);
-        } else if (options.escapeHtml) {
-            sanitized = validator.escape(sanitized);
-        }
-
-        // Enforce max length
-        if (options.maxLength && sanitized.length > options.maxLength) {
-            sanitized = sanitized.substring(0, options.maxLength);
-        }
-
-        // Check for malicious patterns
-        if (this.options.security.checkXss && this.containsXss(sanitized)) {
-            sanitized = this.sanitizeHtml(sanitized);
-        }
-
-        return sanitized;
-    }
-
-    /**
-     * Sanitize object recursively
-     * @param {Object} obj - Object to sanitize
-     * @param {Object} options - Options
-     * @returns {Object} Sanitized object
-     */
-    sanitizeObject(obj, options) {
-        const sanitized = {};
-
-        for (const [key, value] of Object.entries(obj)) {
-            // Sanitize key
-            const sanitizedKey = this.sanitizeString(key, {
-                ...options,
-                stripTags: true,
-                maxLength: 100
-            });
-
-            // Sanitize value
-            sanitized[sanitizedKey] = this.sanitize(value, options);
-        }
-
-        return sanitized;
-    }
-
-    /**
-     * Strip HTML tags
-     * @param {string} str - String to strip
-     * @returns {string} Stripped string
-     */
-    stripHtml(str) {
-        return str.replace(/<[^>]*>/g, '');
-    }
-
-    /**
-     * Sanitize HTML content
-     * @param {string} html - HTML to sanitize
-     * @returns {string} Sanitized HTML
-     */
-    sanitizeHtml(html) {
-        return DOMPurify.sanitize(html, {
-            ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'a', 'p', 'br'],
-            ALLOWED_ATTR: ['href', 'title']
-        });
-    }
-
-    /**
-     * Sanitize file path
-     * @param {string} path - Path to sanitize
-     * @returns {string} Sanitized path
-     */
-    sanitizePath(path) {
-        return path
-            .replace(/\.\./g, '')
-            .replace(/[<>:"|?*]/g, '')
-            .replace(/\/{2,}/g, '/')
-            .trim();
-    }
-
-    /**
-     * Sanitize JSON string
-     * @param {string} json - JSON to sanitize
-     * @returns {string} Sanitized JSON
-     */
-    sanitizeJson(json) {
-        try {
-            const parsed = JSON.parse(json);
-            const sanitized = this.sanitize(parsed);
-            return JSON.stringify(sanitized);
-        } catch (e) {
-            return '{}';
-        }
-    }
-
-    /**
-     * Escape SQL special characters
-     * @param {string} str - String to escape
-     * @returns {string} Escaped string
-     */
-    escapeSql(str) {
-        return str
-            .replace(/'/g, "''")
-            .replace(/\\/g, '\\\\')
-            .replace(/"/g, '\\"')
-            .replace(/\x00/g, '\\0')
-            .replace(/\x1a/g, '\\Z');
-    }
-
-    /**
-     * Validate type
-     * @param {*} value - Value to check
-     * @param {string} type - Expected type
-     * @returns {boolean} Valid type
-     */
-    validateType(value, type) {
-        switch (type) {
+        switch (schema.type) {
             case 'string':
-                return typeof value === 'string';
+                zodSchema = this._generateZodString(schema);
+                break;
             case 'number':
-                return typeof value === 'number' && !isNaN(value);
             case 'integer':
-                return Number.isInteger(value);
+                zodSchema = this._generateZodNumber(schema);
+                break;
             case 'boolean':
-                return typeof value === 'boolean';
+                zodSchema = 'z.boolean()';
+                break;
             case 'array':
-                return Array.isArray(value);
+                zodSchema = this._generateZodArray(schema, options);
+                break;
             case 'object':
-                return value !== null && typeof value === 'object' && !Array.isArray(value);
-            case 'date':
-                return value instanceof Date || !isNaN(Date.parse(value));
-            case 'email':
-                return validator.isEmail(String(value));
-            case 'url':
-                return validator.isURL(String(value));
+                zodSchema = this._generateZodObject(schema, options);
+                break;
+            case 'null':
+                zodSchema = 'z.null()';
+                break;
             default:
-                return true;
-        }
-    }
-
-    /**
-     * Check if value is empty
-     * @param {*} value - Value to check
-     * @returns {boolean} Is empty
-     */
-    isEmpty(value) {
-        if (value === null || value === undefined) return true;
-        if (typeof value === 'string') return value.trim() === '';
-        if (Array.isArray(value)) return value.length === 0;
-        if (typeof value === 'object') return Object.keys(value).length === 0;
-        return false;
-    }
-
-    /**
-     * Evaluate condition
-     * @param {Function|Object} condition - Condition to evaluate
-     * @param {Object} data - Data context
-     * @param {Object} context - Additional context
-     * @returns {boolean} Condition result
-     */
-    evaluateCondition(condition, data, context) {
-        if (typeof condition === 'function') {
-            return condition(data, context);
+                zodSchema = 'z.any()';
         }
 
-        if (typeof condition === 'object') {
-            const { field, operator, value } = condition;
-            const fieldValue = this.getNestedValue(data, field);
-
-            switch (operator) {
-                case 'eq':
-                case '===':
-                    return fieldValue === value;
-                case 'ne':
-                case '!==':
-                    return fieldValue !== value;
-                case 'gt':
-                case '>':
-                    return fieldValue > value;
-                case 'gte':
-                case '>=':
-                    return fieldValue >= value;
-                case 'lt':
-                case '<':
-                    return fieldValue < value;
-                case 'lte':
-                case '<=':
-                    return fieldValue <= value;
-                case 'in':
-                    return Array.isArray(value) && value.includes(fieldValue);
-                case 'notIn':
-                    return Array.isArray(value) && !value.includes(fieldValue);
-                case 'contains':
-                    return String(fieldValue).includes(value);
-                case 'startsWith':
-                    return String(fieldValue).startsWith(value);
-                case 'endsWith':
-                    return String(fieldValue).endsWith(value);
-                case 'matches':
-                    return new RegExp(value).test(fieldValue);
-                default:
-                    return true;
-            }
+        // Add optional if not required
+        if (!schema.required && schema.type !== 'object') {
+            zodSchema += '.optional()';
         }
 
-        return Boolean(condition);
-    }
-
-    /**
-     * Get nested value from object
-     * @param {Object} obj - Source object
-     * @param {string} path - Property path
-     * @returns {*} Value
-     */
-    getNestedValue(obj, path) {
-        const keys = path.split('.');
-        let value = obj;
-
-        for (const key of keys) {
-            if (value === null || value === undefined) {
-                return undefined;
-            }
-            value = value[key];
+        // Add description
+        if (schema.description) {
+            zodSchema += `.describe('${schema.description.replace(/'/g, "\\'")}')`
         }
 
-        return value;
+        return zodSchema;
     }
 
     /**
-     * Set nested value in object
-     * @param {Object} obj - Target object
-     * @param {string} path - Property path
-     * @param {*} value - Value to set
+     * Generate Zod string schema
+     * @private
      */
-    setNestedValue(obj, path, value) {
-        const keys = path.split('.');
-        const lastKey = keys.pop();
-        let target = obj;
+    _generateZodString(schema) {
+        let zodSchema = 'z.string()';
 
-        for (const key of keys) {
-            if (!target[key] || typeof target[key] !== 'object') {
-                target[key] = {};
-            }
-            target = target[key];
-        }
-
-        target[lastKey] = value;
-    }
-
-    /**
-     * Validate password strength
-     * @param {string} password - Password to validate
-     * @returns {boolean} Valid password
-     */
-    validatePassword(password) {
-        // At least 8 characters
-        return password && password.length >= 8;
-    }
-
-    /**
-     * Validate strong password
-     * @param {string} password - Password to validate
-     * @returns {boolean} Valid strong password
-     */
-    validateStrongPassword(password) {
-        if (!password || password.length < 8) return false;
-
-        const hasUppercase = /[A-Z]/.test(password);
-        const hasLowercase = /[a-z]/.test(password);
-        const hasNumber = /\d/.test(password);
-        const hasSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(password);
-
-        return hasUppercase && hasLowercase && hasNumber && hasSpecial;
-    }
-
-    /**
-     * Check for malicious patterns
-     * @param {string} str - String to check
-     * @returns {boolean} Contains malicious patterns
-     */
-    containsMaliciousPatterns(str) {
-        return this.containsSqlInjection(str) ||
-            this.containsXss(str) ||
-            this.containsPathTraversal(str) ||
-            this.containsCommandInjection(str);
-    }
-
-    /**
-     * Check for SQL injection patterns
-     * @param {string} str - String to check
-     * @returns {boolean} Contains SQL injection
-     */
-    containsSqlInjection(str) {
-        if (!this.options.security.checkSqlInjection) return false;
-
-        return this.securityPatterns.sqlInjection.some(pattern => pattern.test(str));
-    }
-
-    /**
-     * Check for XSS patterns
-     * @param {string} str - String to check
-     * @returns {boolean} Contains XSS
-     */
-    containsXss(str) {
-        if (!this.options.security.checkXss) return false;
-
-        return this.securityPatterns.xss.some(pattern => pattern.test(str));
-    }
-
-    /**
-     * Check for path traversal patterns
-     * @param {string} str - String to check
-     * @returns {boolean} Contains path traversal
-     */
-    containsPathTraversal(str) {
-        if (!this.options.security.checkPathTraversal) return false;
-
-        return this.securityPatterns.pathTraversal.some(pattern => pattern.test(str));
-    }
-
-    /**
-     * Check for command injection patterns
-     * @param {string} str - String to check
-     * @returns {boolean} Contains command injection
-     */
-    containsCommandInjection(str) {
-        if (!this.options.security.checkCommandInjection) return false;
-
-        return this.securityPatterns.commandInjection.some(pattern => pattern.test(str));
-    }
-
-    /**
-     * Generate validation documentation
-     * @param {Object} schema - Validation schema
-     * @returns {string} Documentation
-     */
-    generateDocumentation(schema) {
-        const docs = [];
-
-        docs.push('# Validation Schema Documentation\n');
-
-        for (const [field, rules] of Object.entries(schema)) {
-            docs.push(`## ${field}`);
-
-            if (rules.description) {
-                docs.push(`\n${rules.description}\n`);
-            }
-
-            docs.push('\n### Rules:\n');
-
-            if (rules.required) {
-                docs.push('- **Required**: Yes');
-            }
-
-            if (rules.type) {
-                docs.push(`- **Type**: ${rules.type}`);
-            }
-
-            if (rules.minLength) {
-                docs.push(`- **Min Length**: ${rules.minLength}`);
-            }
-
-            if (rules.maxLength) {
-                docs.push(`- **Max Length**: ${rules.maxLength}`);
-            }
-
-            if (rules.min !== undefined) {
-                docs.push(`- **Min Value**: ${rules.min}`);
-            }
-
-            if (rules.max !== undefined) {
-                docs.push(`- **Max Value**: ${rules.max}`);
-            }
-
-            if (rules.pattern) {
-                docs.push(`- **Pattern**: \`${rules.pattern}\``);
-            }
-
-            if (rules.enum) {
-                docs.push(`- **Allowed Values**: ${rules.enum.join(', ')}`);
-            }
-
-            if (rules.validate) {
-                const validations = Array.isArray(rules.validate) ? rules.validate : [rules.validate];
-                docs.push(`- **Validations**: ${validations.join(', ')}`);
-            }
-
-            if (rules.sanitize) {
-                const sanitizers = Array.isArray(rules.sanitize) ? rules.sanitize : [rules.sanitize];
-                docs.push(`- **Sanitizers**: ${sanitizers.join(', ')}`);
-            }
-
-            docs.push('\n');
-        }
-
-        return docs.join('\n');
-    }
-
-    /**
-     * Create Zod schema from validation schema
-     * @param {Object} schema - Validation schema
-     * @returns {Object} Zod schema
-     */
-    toZodSchema(schema) {
-        const zodSchema = {};
-
-        for (const [field, rules] of Object.entries(schema)) {
-            let fieldSchema;
-
-            // Determine base type
-            switch (rules.type) {
-                case 'string':
-                    fieldSchema = z.string();
+        if (schema.format) {
+            switch (schema.format) {
+                case 'email':
+                    zodSchema += '.email()';
                     break;
-                case 'number':
-                    fieldSchema = z.number();
+                case 'uri':
+                    zodSchema += '.url()';
                     break;
-                case 'integer':
-                    fieldSchema = z.number().int();
-                    break;
-                case 'boolean':
-                    fieldSchema = z.boolean();
+                case 'uuid':
+                    zodSchema += '.uuid()';
                     break;
                 case 'date':
-                    fieldSchema = z.date();
-                    break;
-                case 'array':
-                    fieldSchema = z.array(z.any());
-                    break;
-                case 'object':
-                    fieldSchema = z.object({});
+                case 'date-time':
+                    zodSchema += '.datetime()';
                     break;
                 default:
-                    fieldSchema = z.any();
+                    // Handle other formats as needed
+                    break;
             }
-
-            // Apply constraints
-            if (rules.minLength) {
-                fieldSchema = fieldSchema.min(rules.minLength);
-            }
-
-            if (rules.maxLength) {
-                fieldSchema = fieldSchema.max(rules.maxLength);
-            }
-
-            if (rules.min !== undefined) {
-                fieldSchema = fieldSchema.min(rules.min);
-            }
-
-            if (rules.max !== undefined) {
-                fieldSchema = fieldSchema.max(rules.max);
-            }
-
-            if (rules.pattern) {
-                fieldSchema = fieldSchema.regex(rules.pattern);
-            }
-
-            if (rules.enum) {
-                fieldSchema = z.enum(rules.enum);
-            }
-
-            // Handle optional
-            if (!rules.required) {
-                fieldSchema = fieldSchema.optional();
-            }
-
-            zodSchema[field] = fieldSchema;
         }
 
-        return z.object(zodSchema);
-    }
-
-    /**
-     * Benchmark validation performance
-     * @param {Function} validator - Validator function
-     * @param {*} data - Test data
-     * @param {number} iterations - Number of iterations
-     * @returns {Object} Benchmark results
-     */
-    benchmark(validator, data, iterations = 1000) {
-        const start = process.hrtime.bigint();
-
-        for (let i = 0; i < iterations; i++) {
-            validator(data);
+        if (schema.minLength !== undefined) {
+            zodSchema += `.min(${schema.minLength})`;
         }
 
-        const end = process.hrtime.bigint();
-        const totalTime = Number(end - start) / 1e6; // Convert to milliseconds
-        const avgTime = totalTime / iterations;
+        if (schema.maxLength !== undefined) {
+            zodSchema += `.max(${schema.maxLength})`;
+        }
 
-        return {
-            totalTime: `${totalTime.toFixed(2)}ms`,
-            averageTime: `${avgTime.toFixed(4)}ms`,
-            iterations,
-            opsPerSecond: Math.round(1000 / avgTime)
-        };
+        if (schema.pattern) {
+            zodSchema += `.regex(/${schema.pattern}/)`;
+        }
+
+        return zodSchema;
     }
 
     /**
-     * Clear validator cache
+     * Generate Zod number schema
+     * @private
      */
-    clearCache() {
-        this.validatorCache.clear();
+    _generateZodNumber(schema) {
+        let zodSchema = schema.type === 'integer' ? 'z.number().int()' : 'z.number()';
+
+        if (schema.minimum !== undefined) {
+            zodSchema += `.min(${schema.minimum})`;
+        }
+
+        if (schema.maximum !== undefined) {
+            zodSchema += `.max(${schema.maximum})`;
+        }
+
+        if (schema.multipleOf !== undefined) {
+            zodSchema += `.multipleOf(${schema.multipleOf})`;
+        }
+
+        return zodSchema;
     }
 
     /**
-     * Get cache statistics
-     * @returns {Object} Cache stats
+     * Generate Zod array schema
+     * @private
      */
-    getCacheStats() {
-        return {
-            validatorCacheSize: this.validatorCache.size,
-            maxCacheSize: this.options.performance.maxCacheSize,
-            cacheEnabled: this.options.performance.cacheValidators
-        };
+    _generateZodArray(schema, options) {
+        const itemSchema = schema.items
+            ? this._generateZodSchema(schema.items, options)
+            : 'z.any()';
+
+        let zodSchema = `z.array(${itemSchema})`;
+
+        if (schema.minItems !== undefined) {
+            zodSchema += `.min(${schema.minItems})`;
+        }
+
+        if (schema.maxItems !== undefined) {
+            zodSchema += `.max(${schema.maxItems})`;
+        }
+
+        return zodSchema;
+    }
+
+    /**
+     * Generate Zod object schema
+     * @private
+     */
+    _generateZodObject(schema, options) {
+        if (!schema.properties) {
+            return 'z.object({})';
+        }
+
+        const properties = [];
+
+        for (const [key, propSchema] of Object.entries(schema.properties)) {
+            const isRequired = schema.required?.includes(key);
+            const propZod = this._generateZodSchema({ ...propSchema, required: isRequired }, options);
+            properties.push(`  ${key}: ${propZod}`);
+        }
+
+        let zodSchema = `z.object({\n${properties.join(',\n')}\n})`;
+
+        if (schema.additionalProperties === false) {
+            zodSchema += '.strict()';
+        }
+
+        return zodSchema;
+    }
+
+    /**
+     * Generate Yup schema
+     * @private
+     */
+    _generateYupSchema(schema, options = {}) {
+        if (!schema) return 'yup.mixed()';
+
+        let yupSchema = '';
+
+        switch (schema.type) {
+            case 'string':
+                yupSchema = this._generateYupString(schema);
+                break;
+            case 'number':
+            case 'integer':
+                yupSchema = this._generateYupNumber(schema);
+                break;
+            case 'boolean':
+                yupSchema = 'yup.boolean()';
+                break;
+            case 'array':
+                yupSchema = this._generateYupArray(schema, options);
+                break;
+            case 'object':
+                yupSchema = this._generateYupObject(schema, options);
+                break;
+            default:
+                yupSchema = 'yup.mixed()';
+        }
+
+        // Add required/optional
+        if (schema.required) {
+            yupSchema += '.required()';
+        } else if (schema.type !== 'object') {
+            yupSchema += '.optional()';
+        }
+
+        return yupSchema;
+    }
+
+    /**
+     * Generate Yup string schema
+     * @private
+     */
+    _generateYupString(schema) {
+        let yupSchema = 'yup.string()';
+
+        if (schema.format === 'email') {
+            yupSchema += '.email()';
+        } else if (schema.format === 'uri') {
+            yupSchema += '.url()';
+        }
+
+        if (schema.minLength !== undefined) {
+            yupSchema += `.min(${schema.minLength})`;
+        }
+
+        if (schema.maxLength !== undefined) {
+            yupSchema += `.max(${schema.maxLength})`;
+        }
+
+        if (schema.pattern) {
+            yupSchema += `.matches(/${schema.pattern}/)`;
+        }
+
+        return yupSchema;
+    }
+
+    /**
+     * Generate Yup number schema
+     * @private
+     */
+    _generateYupNumber(schema) {
+        let yupSchema = schema.type === 'integer' ? 'yup.number().integer()' : 'yup.number()';
+
+        if (schema.minimum !== undefined) {
+            yupSchema += `.min(${schema.minimum})`;
+        }
+
+        if (schema.maximum !== undefined) {
+            yupSchema += `.max(${schema.maximum})`;
+        }
+
+        return yupSchema;
+    }
+
+    /**
+     * Generate Yup array schema
+     * @private
+     */
+    _generateYupArray(schema, options) {
+        const itemSchema = schema.items
+            ? this._generateYupSchema(schema.items, options)
+            : 'yup.mixed()';
+
+        let yupSchema = `yup.array().of(${itemSchema})`;
+
+        if (schema.minItems !== undefined) {
+            yupSchema += `.min(${schema.minItems})`;
+        }
+
+        if (schema.maxItems !== undefined) {
+            yupSchema += `.max(${schema.maxItems})`;
+        }
+
+        return yupSchema;
+    }
+
+    /**
+     * Generate Yup object schema
+     * @private
+     */
+    _generateYupObject(schema, options) {
+        if (!schema.properties) {
+            return 'yup.object()';
+        }
+
+        const properties = [];
+
+        for (const [key, propSchema] of Object.entries(schema.properties)) {
+            const isRequired = schema.required?.includes(key);
+            const propYup = this._generateYupSchema({ ...propSchema, required: isRequired }, options);
+            properties.push(`  ${key}: ${propYup}`);
+        }
+
+        return `yup.object({\n${properties.join(',\n')}\n})`;
+    }
+
+    /**
+     * Generate Joi schema
+     * @private
+     */
+    _generateJoiSchema(schema, options = {}) {
+        if (!schema) return 'Joi.any()';
+
+        let joiSchema = '';
+
+        switch (schema.type) {
+            case 'string':
+                joiSchema = this._generateJoiString(schema);
+                break;
+            case 'number':
+            case 'integer':
+                joiSchema = this._generateJoiNumber(schema);
+                break;
+            case 'boolean':
+                joiSchema = 'Joi.boolean()';
+                break;
+            case 'array':
+                joiSchema = this._generateJoiArray(schema, options);
+                break;
+            case 'object':
+                joiSchema = this._generateJoiObject(schema, options);
+                break;
+            default:
+                joiSchema = 'Joi.any()';
+        }
+
+        // Add required/optional
+        if (schema.required) {
+            joiSchema += '.required()';
+        } else {
+            joiSchema += '.optional()';
+        }
+
+        return joiSchema;
+    }
+
+    /**
+     * Generate Joi string schema
+     * @private
+     */
+    _generateJoiString(schema) {
+        let joiSchema = 'Joi.string()';
+
+        if (schema.format === 'email') {
+            joiSchema += '.email()';
+        } else if (schema.format === 'uri') {
+            joiSchema += '.uri()';
+        }
+
+        if (schema.minLength !== undefined) {
+            joiSchema += `.min(${schema.minLength})`;
+        }
+
+        if (schema.maxLength !== undefined) {
+            joiSchema += `.max(${schema.maxLength})`;
+        }
+
+        if (schema.pattern) {
+            joiSchema += `.pattern(/${schema.pattern}/)`;
+        }
+
+        return joiSchema;
+    }
+
+    /**
+     * Generate Joi number schema
+     * @private
+     */
+    _generateJoiNumber(schema) {
+        let joiSchema = schema.type === 'integer' ? 'Joi.number().integer()' : 'Joi.number()';
+
+        if (schema.minimum !== undefined) {
+            joiSchema += `.min(${schema.minimum})`;
+        }
+
+        if (schema.maximum !== undefined) {
+            joiSchema += `.max(${schema.maximum})`;
+        }
+
+        return joiSchema;
+    }
+
+    /**
+     * Generate Joi array schema
+     * @private
+     */
+    _generateJoiArray(schema, options) {
+        const itemSchema = schema.items
+            ? this._generateJoiSchema(schema.items, options)
+            : 'Joi.any()';
+
+        let joiSchema = `Joi.array().items(${itemSchema})`;
+
+        if (schema.minItems !== undefined) {
+            joiSchema += `.min(${schema.minItems})`;
+        }
+
+        if (schema.maxItems !== undefined) {
+            joiSchema += `.max(${schema.maxItems})`;
+        }
+
+        return joiSchema;
+    }
+
+    /**
+     * Generate Joi object schema
+     * @private
+     */
+    _generateJoiObject(schema, options) {
+        if (!schema.properties) {
+            return 'Joi.object()';
+        }
+
+        const properties = [];
+
+        for (const [key, propSchema] of Object.entries(schema.properties)) {
+            const isRequired = schema.required?.includes(key);
+            const propJoi = this._generateJoiSchema({ ...propSchema, required: isRequired }, options);
+            properties.push(`  ${key}: ${propJoi}`);
+        }
+
+        return `Joi.object({\n${properties.join(',\n')}\n})`;
+    }
+
+    /**
+     * Get format validation for React Hook Form
+     * @private
+     */
+    _getFormatValidation(format) {
+        switch (format) {
+            case 'email':
+                return {
+                    value: this.patterns.email,
+                    message: this.validationRules.email
+                };
+            case 'uri':
+                return {
+                    value: this.patterns.url,
+                    message: this.validationRules.url
+                };
+            case 'uuid':
+                return {
+                    value: this.patterns.uuid,
+                    message: 'Invalid UUID format'
+                };
+            default:
+                return null;
+        }
+    }
+
+    /**
+     * Get format validation function
+     * @private
+     */
+    _getFormatValidationFunction(format) {
+        switch (format) {
+            case 'email':
+                return `
+    if (value && !${this.patterns.email.toString()}.test(value)) {
+      return '${this.validationRules.email}';
+    }`;
+            case 'uri':
+                return `
+    if (value && !${this.patterns.url.toString()}.test(value)) {
+      return '${this.validationRules.url}';
+    }`;
+            default:
+                return null;
+        }
+    }
+
+    /**
+     * Generate custom validation function
+     * @private
+     */
+    _generateCustomValidation(validation) {
+        if (typeof validation === 'string') {
+            return new Function('value', validation);
+        }
+        return validation;
+    }
+
+    /**
+     * Validate paths
+     * @private
+     */
+    _validatePaths(paths, errors, warnings) {
+        for (const [path, pathItem] of Object.entries(paths)) {
+            // Check path format
+            if (!path.startsWith('/')) {
+                errors.push(`Path must start with /: ${path}`);
+            }
+
+            // Check for valid operations
+            const validOperations = ['get', 'post', 'put', 'patch', 'delete', 'head', 'options'];
+            for (const operation of Object.keys(pathItem)) {
+                if (!validOperations.includes(operation) && !operation.startsWith('x-')) {
+                    warnings.push(`Unknown operation in path ${path}: ${operation}`);
+                }
+            }
+        }
+    }
+
+    /**
+     * Validate schemas
+     * @private
+     */
+    _validateSchemas(schemas, errors, warnings) {
+        for (const [name, schema] of Object.entries(schemas)) {
+            if (!schema.type && !schema.$ref && !schema.oneOf && !schema.anyOf && !schema.allOf) {
+                warnings.push(`Schema ${name} has no type specified`);
+            }
+        }
+    }
+
+    /**
+     * Get value type
+     * @private
+     */
+    _getValueType(value) {
+        if (Array.isArray(value)) return 'array';
+        if (value === null) return 'null';
+        if (Number.isInteger(value)) return 'integer';
+        return typeof value;
+    }
+
+    /**
+     * Validate string value
+     * @private
+     */
+    _validateString(value, schema, errors) {
+        if (typeof value !== 'string') {
+            errors.push('Value must be a string');
+            return;
+        }
+
+        if (schema.minLength !== undefined && value.length < schema.minLength) {
+            errors.push(`String length must be at least ${schema.minLength}`);
+        }
+
+        if (schema.maxLength !== undefined && value.length > schema.maxLength) {
+            errors.push(`String length must be no more than ${schema.maxLength}`);
+        }
+
+        if (schema.pattern && !new RegExp(schema.pattern).test(value)) {
+            errors.push('String does not match required pattern');
+        }
+
+        if (schema.format) {
+            this._validateFormat(value, schema.format, errors);
+        }
+    }
+
+    /**
+     * Validate number value
+     * @private
+     */
+    _validateNumber(value, schema, errors) {
+        if (typeof value !== 'number') {
+            errors.push('Value must be a number');
+            return;
+        }
+
+        if (schema.type === 'integer' && !Number.isInteger(value)) {
+            errors.push('Value must be an integer');
+        }
+
+        if (schema.minimum !== undefined && value < schema.minimum) {
+            errors.push(`Value must be at least ${schema.minimum}`);
+        }
+
+        if (schema.maximum !== undefined && value > schema.maximum) {
+            errors.push(`Value must be no more than ${schema.maximum}`);
+        }
+
+        if (schema.multipleOf !== undefined && value % schema.multipleOf !== 0) {
+            errors.push(`Value must be a multiple of ${schema.multipleOf}`);
+        }
+    }
+
+    /**
+     * Validate array value
+     * @private
+     */
+    _validateArray(value, schema, errors) {
+        if (!Array.isArray(value)) {
+            errors.push('Value must be an array');
+            return;
+        }
+
+        if (schema.minItems !== undefined && value.length < schema.minItems) {
+            errors.push(`Array must have at least ${schema.minItems} items`);
+        }
+
+        if (schema.maxItems !== undefined && value.length > schema.maxItems) {
+            errors.push(`Array must have no more than ${schema.maxItems} items`);
+        }
+
+        if (schema.uniqueItems && new Set(value).size !== value.length) {
+            errors.push('Array items must be unique');
+        }
+
+        // Validate items
+        if (schema.items) {
+            value.forEach((item, index) => {
+                const itemResult = this.validateValue(item, schema.items);
+                itemResult.errors.forEach(error => {
+                    errors.push(`Item ${index}: ${error}`);
+                });
+            });
+        }
+    }
+
+    /**
+     * Validate object value
+     * @private
+     */
+    _validateObject(value, schema, errors) {
+        if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+            errors.push('Value must be an object');
+            return;
+        }
+
+        // Validate required properties
+        if (schema.required) {
+            for (const prop of schema.required) {
+                if (!(prop in value)) {
+                    errors.push(`Missing required property: ${prop}`);
+                }
+            }
+        }
+
+        // Validate properties
+        if (schema.properties) {
+            for (const [prop, propValue] of Object.entries(value)) {
+                if (schema.properties[prop]) {
+                    const propResult = this.validateValue(propValue, schema.properties[prop]);
+                    propResult.errors.forEach(error => {
+                        errors.push(`Property ${prop}: ${error}`);
+                    });
+                } else if (schema.additionalProperties === false) {
+                    errors.push(`Unexpected property: ${prop}`);
+                }
+            }
+        }
+
+        // Validate property count
+        const propCount = Object.keys(value).length;
+        if (schema.minProperties !== undefined && propCount < schema.minProperties) {
+            errors.push(`Object must have at least ${schema.minProperties} properties`);
+        }
+
+        if (schema.maxProperties !== undefined && propCount > schema.maxProperties) {
+            errors.push(`Object must have no more than ${schema.maxProperties} properties`);
+        }
+    }
+
+    /**
+     * Validate format
+     * @private
+     */
+    _validateFormat(value, format, errors) {
+        switch (format) {
+            case 'email':
+                if (!this.patterns.email.test(value)) {
+                    errors.push('Invalid email format');
+                }
+                break;
+            case 'uri':
+                if (!this.patterns.url.test(value)) {
+                    errors.push('Invalid URL format');
+                }
+                break;
+            case 'uuid':
+                if (!this.patterns.uuid.test(value)) {
+                    errors.push('Invalid UUID format');
+                }
+                break;
+            // Add more format validations as needed
+        }
     }
 }
 
-// Export singleton instance
-module.exports = new ValidationUtils();
+module.exports = ValidationUtils;

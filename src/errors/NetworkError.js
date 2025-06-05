@@ -11,15 +11,15 @@
  * AI GENERATION PROMPT:
  *
  * Create a robust NetworkError class that:
- * - Handles various network failure scenarios 
- * - Captures HTTP status codes and headers 
- * - Implements retry recommendations 
- * - Provides timeout context 
- * - Includes proxy configuration hints 
- * - Handles DNS resolution failures 
- * - Provides offline mode suggestions 
- * - Captures request/response details 
- * - Implements circuit breaker patterns 
+ * - Handles various network failure scenarios
+ * - Captures HTTP status codes and headers
+ * - Implements retry recommendations
+ * - Provides timeout context
+ * - Includes proxy configuration hints
+ * - Handles DNS resolution failures
+ * - Provides offline mode suggestions
+ * - Captures request/response details
+ * - Implements circuit breaker patterns
  * - Provides network diagnostics
  *
  * ============================================================================
@@ -50,6 +50,7 @@ class NetworkError extends GeneratorError {
         this.responseHeaders = details.responseHeaders || {};
         this.timeout = details.timeout || null;
         this.duration = details.duration || null;
+        this.errno = details.errno || null;
 
         // Request/Response details
         this.request = {
@@ -77,10 +78,13 @@ class NetworkError extends GeneratorError {
         // Circuit breaker state
         this.circuitBreaker = {
             state: details.circuitState || 'closed',
-            failures: details.failures || 1,
+            failures: details.failures || 0,
             lastFailure: new Date(),
-            nextRetry: this._calculateNextRetry()
+            nextRetry: null
         };
+
+        // Calculate next retry after circuitBreaker is initialized
+        this.circuitBreaker.nextRetry = this._calculateNextRetry();
 
         // Proxy configuration
         this.proxyInfo = this._detectProxyConfiguration();
@@ -167,7 +171,7 @@ class NetworkError extends GeneratorError {
         };
 
         // Check for timeout
-        if (this.code === 'TIMEOUT' || this.code === 'REQUEST_TIMEOUT') {
+        if (this.code === 'TIMEOUT' || this.code === 'REQUEST_TIMEOUT' || this.errno === 'ETIMEDOUT') {
             analysis.isTimeout = true;
         }
 
@@ -178,12 +182,12 @@ class NetworkError extends GeneratorError {
 
         // Check for connection issues
         const connectionErrors = ['CONNECTION_REFUSED', 'CONNECTION_RESET', 'NETWORK_UNREACHABLE'];
-        if (connectionErrors.includes(this.code)) {
+        if (connectionErrors.includes(this.code) || this.errno === 'ECONNREFUSED' || this.errno === 'ECONNRESET') {
             analysis.isConnection = true;
         }
 
         // Check for server errors
-        if (this.statusCode >= 500) {
+        if (this.statusCode && this.statusCode >= 500) {
             analysis.isServerError = true;
         }
 
@@ -257,18 +261,52 @@ class NetworkError extends GeneratorError {
      * Calculate next retry time
      */
     _calculateNextRetry() {
-        if (!this.retryConfig.shouldRetry) return null;
+        if (!this.retryConfig || !this.retryConfig.shouldRetry) return null;
 
-        const { baseDelay, factor, jitter, maxDelay } = this.retryConfig;
         const attempt = this.circuitBreaker.failures;
+        if (attempt >= this.retryConfig.maxRetries) return null;
 
+        const delay = this.getRetryDelay(attempt + 1);
+        return new Date(Date.now() + delay);
+    }
+
+    /**
+     * Calculate retry delay for a given attempt
+     * @param {number} attempt - The attempt number (1-based)
+     * @returns {number} Delay in milliseconds
+     */
+    getRetryDelay(attempt = 1) {
+        if (!this.retryConfig) return 0;
+
+        const { baseDelay, factor, jitter, maxDelay, initialDelay } = this.retryConfig;
+
+        // Use initial delay if specified (e.g., from Retry-After header)
+        if (initialDelay && attempt === 1) {
+            return initialDelay;
+        }
+
+        // Calculate exponential backoff
         let delay = Math.min(baseDelay * Math.pow(factor, attempt - 1), maxDelay);
 
+        // Apply jitter if enabled
         if (jitter) {
+            // Apply jitter between 50% and 100% of the calculated delay
             delay = delay * (0.5 + Math.random() * 0.5);
         }
 
-        return new Date(Date.now() + delay);
+        return Math.round(delay);
+    }
+
+    /**
+     * Check if should retry for a given attempt
+     * @param {number} attempt - The attempt number (1-based)
+     * @returns {boolean} Whether to retry
+     */
+    shouldRetry(attempt = 1) {
+        if (!this.retryConfig || !this.retryConfig.shouldRetry) {
+            return false;
+        }
+        return attempt <= this.retryConfig.maxRetries;
     }
 
     /**
@@ -286,9 +324,10 @@ class NetworkError extends GeneratorError {
             proxyInfo.detected = true;
 
             // Parse proxy URL
-            if (proxyInfo.httpsProxy) {
+            const proxyUrl = proxyInfo.httpsProxy || proxyInfo.httpProxy;
+            if (proxyUrl) {
                 try {
-                    const parsed = new URL(proxyInfo.httpsProxy);
+                    const parsed = new URL(proxyUrl);
                     proxyInfo.host = parsed.hostname;
                     proxyInfo.port = parsed.port;
                     proxyInfo.auth = parsed.username ? {
@@ -398,7 +437,7 @@ class NetworkError extends GeneratorError {
         if (this.proxyInfo.detected) {
             diagnostics.push({
                 test: 'Proxy Connection',
-                command: `curl -x ${this.proxyInfo.httpsProxy} ${this.url}`,
+                command: `curl -x ${this.proxyInfo.httpsProxy || this.proxyInfo.httpProxy} ${this.url}`,
                 description: 'Test connection through proxy'
             });
 
@@ -480,28 +519,6 @@ class NetworkError extends GeneratorError {
     }
 
     /**
-     * Get retry delay
-     */
-    getRetryDelay(attempt = 1) {
-        const { baseDelay, factor, maxDelay, jitter } = this.retryConfig;
-
-        let delay = Math.min(baseDelay * Math.pow(factor, attempt - 1), maxDelay);
-
-        if (jitter) {
-            delay = delay * (0.5 + Math.random() * 0.5);
-        }
-
-        return Math.round(delay);
-    }
-
-    /**
-     * Check if should retry
-     */
-    shouldRetry(attempt = 1) {
-        return this.retryConfig.shouldRetry && attempt <= this.retryConfig.maxRetries;
-    }
-
-    /**
      * Override CLI serialization
      */
     _serializeCLI() {
@@ -539,6 +556,7 @@ class NetworkError extends GeneratorError {
         if (this.retryConfig.shouldRetry) {
             parts.push(`\n   🔄 Retry Configuration:`);
             parts.push(`   • Max retries: ${this.retryConfig.maxRetries}`);
+            parts.push(`   • Current failures: ${this.circuitBreaker.failures}`);
             parts.push(`   • Next retry: ${this.circuitBreaker.nextRetry?.toLocaleString() || 'N/A'}`);
 
             if (this.networkInfo.isRateLimit && this.responseHeaders['retry-after']) {
@@ -598,6 +616,7 @@ class NetworkError extends GeneratorError {
                 url,
                 timeout,
                 code: 'TIMEOUT',
+                errno: 'ETIMEDOUT',
                 ...options
             }
         );
@@ -609,6 +628,7 @@ class NetworkError extends GeneratorError {
             {
                 url,
                 errno: 'ECONNREFUSED',
+                code: 'CONNECTION_REFUSED',
                 ...options
             }
         );
@@ -620,6 +640,7 @@ class NetworkError extends GeneratorError {
             {
                 url: `https://${hostname}`,
                 errno: 'ENOTFOUND',
+                code: 'DNS_LOOKUP_FAILED',
                 ...options
             }
         );
@@ -643,6 +664,7 @@ class NetworkError extends GeneratorError {
             {
                 url,
                 statusCode: 429,
+                statusText: 'Too Many Requests',
                 responseHeaders: { 'retry-after': retryAfter },
                 ...options
             }

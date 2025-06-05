@@ -1,9 +1,11 @@
 /**
  * ============================================================================
- * SWAGGER-TO-NEXTJS GENERATOR - ENHANCED CLI
+ * SWAGGER-TO-NEXTJS GENERATOR - MAIN ORCHESTRATOR
  * ============================================================================
- * This CLI demonstrates how to integrate Phase 1-3 components while
- * maintaining backward compatibility with the existing working code
+ * FILE: src/cli.js
+ * VERSION: 2025-05-30 11:34:23
+ * PHASE: PHASE 1: Foundation Components
+ * CATEGORY: 🎯 Main Entry Points
  * ============================================================================
  */
 
@@ -24,219 +26,35 @@ try {
     });
 }
 
-/**
- * Try to load Phase 1-3 components, fallback to inline implementations
- */
-function loadComponent(modulePath, fallbackClass) {
-    try {
-        return require(modulePath);
-    } catch (e) {
-        console.log(chalk.gray(`  [Info] ${modulePath} not found, using fallback implementation`));
-        return fallbackClass;
-    }
-}
+// Direct imports of all components
 
 // Phase 1 Components
-const SwaggerToNextJSGenerator = loadComponent('./index', class {
-    async generate(options) {
-        console.log(chalk.gray('  [Main Orchestrator] Coordinating generation process...'));
-        // Simplified implementation
-        return {
-            totalFiles: 10,
-            outputDir: options.output,
-            filesByType: {
-                'API Routes': 5,
-                'Components': 3,
-                'Config': 2
-            }
-        };
-    }
-});
-
-const defaultConfig = loadComponent('../config/defaults', {
-    outputDir: './generated',
-    typescript: true,
-    apiClient: 'fetch',
-    features: {
-        apiRoutes: true,
-        pages: true,
-        components: true,
-        types: true,
-        config: true
-    }
-});
+const SwaggerToNextJSGenerator = require('./index');
+const defaultConfig = require('../config/defaults');
 
 // Phase 2 Components - Core Infrastructure
-const SwaggerLoader = loadComponent('./core/SwaggerLoader', class {
-    async load(source) {
-        console.log(chalk.gray('  [SwaggerLoader] Loading OpenAPI specification...'));
-
-        if (source.startsWith('http://') || source.startsWith('https://')) {
-            let fetchFn;
-            if (typeof fetch !== 'undefined') {
-                fetchFn = fetch;
-            } else {
-                try {
-                    fetchFn = require('node-fetch');
-                } catch (e) {
-                    const https = require('https');
-                    const http = require('http');
-                    return new Promise((resolve, reject) => {
-                        const module = source.startsWith('https') ? https : http;
-                        module.get(source, (res) => {
-                            let data = '';
-                            res.on('data', chunk => data += chunk);
-                            res.on('end', () => {
-                                try {
-                                    resolve(JSON.parse(data));
-                                } catch (e) {
-                                    reject(new Error('Failed to parse JSON'));
-                                }
-                            });
-                        }).on('error', reject);
-                    });
-                }
-            }
-
-            if (fetchFn) {
-                const response = await fetchFn(source);
-                if (!response.ok) throw new Error(`Failed to fetch: ${response.statusText}`);
-                return await response.json();
-            }
-        } else {
-            const content = fs.readFileSync(source, 'utf8');
-            return source.endsWith('.yaml') || source.endsWith('.yml')
-                ? yaml.load(content)
-                : JSON.parse(content);
-        }
-    }
-});
-
-const SwaggerValidator = loadComponent('./core/SwaggerValidator', class {
-    async validate(spec) {
-        console.log(chalk.gray('  [SwaggerValidator] Validating specification...'));
-        const errors = [];
-        const warnings = [];
-
-        if (!spec.openapi && !spec.swagger) {
-            errors.push({ message: 'Missing openapi or swagger field' });
-        }
-        if (!spec.info) {
-            errors.push({ message: 'Missing info field' });
-        }
-        if (!spec.paths) {
-            warnings.push({ message: 'No paths defined' });
-        }
-
-        return {
-            valid: errors.length === 0,
-            errors,
-            warnings,
-            stats: {
-                paths: Object.keys(spec.paths || {}).length,
-                operations: this.countOperations(spec),
-                schemas: Object.keys(spec.components?.schemas || {}).length
-            }
-        };
-    }
-
-    countOperations(spec) {
-        let count = 0;
-        if (spec.paths) {
-            Object.values(spec.paths).forEach(path => {
-                ['get', 'post', 'put', 'delete', 'patch'].forEach(method => {
-                    if (path[method]) count++;
-                });
-            });
-        }
-        return count;
-    }
-});
-
-const DirectoryManager = loadComponent('./core/DirectoryManager', class {
-    async prepare(dir) {
-        console.log(chalk.gray('  [DirectoryManager] Preparing output directory...'));
-        fs.mkdirSync(dir, { recursive: true });
-    }
-
-    async clean(dir) {
-        console.log(chalk.gray('  [DirectoryManager] Cleaning directory...'));
-        if (fs.existsSync(dir)) {
-            fs.rmSync(dir, { recursive: true, force: true });
-        }
-    }
-});
+const SwaggerLoader = require('./core/SwaggerLoader');
+const SwaggerValidator = require('./core/SwaggerValidator');
+const DirectoryManager = require('./core/DirectoryManager');
 
 // Phase 2 - Error Classes
-const ErrorHandler = loadComponent('./errors/ErrorHandler', class {
-    handle(error) {
-        console.error(chalk.red('\n❌ Error:'), error.message);
-        if (process.env.DEBUG) {
-            console.error(chalk.gray(error.stack));
-        }
-        return 1;
-    }
-});
+const ErrorHandler = require('./errors/ErrorHandler');
 
 // Phase 2 - Logging
-const Logger = loadComponent('./logging/Logger', class {
-    constructor(options = {}) {
-        this.level = options.level || 'info';
-    }
-
-    info(...args) { console.log(chalk.blue('ℹ'), ...args); }
-    warn(...args) { console.log(chalk.yellow('⚠'), ...args); }
-    error(...args) { console.error(chalk.red('✖'), ...args); }
-    debug(...args) {
-        if (this.level === 'debug') console.log(chalk.gray('🐛'), ...args);
-    }
-});
-
-const ProgressReporter = loadComponent('./logging/ProgressReporter', class {
-    create(name) {
-        const spinner = ora();
-        return {
-            start: (text) => spinner.start(text),
-            succeed: (text) => spinner.succeed(text),
-            fail: (text) => spinner.fail(text)
-        };
-    }
-});
+const Logger = require('./logging/Logger');
+const ProgressReporter = require('./logging/ProgressReporter');
 
 // Phase 3 - Generators
-const ApiRouteGenerator = loadComponent('./generators/ApiRouteGenerator', class {
-    async generate(spec, output, config) {
-        console.log(chalk.gray('  [ApiRouteGenerator] Generating API routes...'));
-        // Use existing implementation
-        return { filesGenerated: 5 };
-    }
-});
-
-const PageComponentGenerator = loadComponent('./generators/PageComponentGenerator', class {
-    async generate(spec, output, config) {
-        console.log(chalk.gray('  [PageComponentGenerator] Generating page components...'));
-        return { filesGenerated: 3 };
-    }
-});
-
-const ConfigFileGenerator = loadComponent('./generators/ConfigFileGenerator', class {
-    async generate(spec, output, config) {
-        console.log(chalk.gray('  [ConfigFileGenerator] Generating configuration files...'));
-        return { filesGenerated: 2 };
-    }
-});
+const ApiRouteGenerator = require('./generators/ApiRouteGenerator');
+const PageComponentGenerator = require('./generators/PageComponentGenerator');
+const ConfigFileGenerator = require('./generators/ConfigFileGenerator');
 
 // Phase 3 - Template System
-const TemplateEngine = loadComponent('./templates/TemplateEngine', class {
-    async render(template, data) {
-        // Simple template rendering
-        return template.replace(/\{\{(\w+)\}\}/g, (match, key) => data[key] || match);
-    }
-});
+const TemplateEngine = require('./templates/TemplateEngine');
 
 // Phase 3 - Utilities
-const StringUtils = loadComponent('./utils/StringUtils', require('./utils/StringUtils'));
-const ValidationUtils = loadComponent('./utils/ValidationUtils', require('./utils/ValidationUtils'));
+const StringUtils = require('./utils/StringUtils');
+const ValidationUtils = require('./utils/ValidationUtils');
 
 /**
  * Enhanced CLI Class
@@ -249,11 +67,9 @@ class CLI {
 
         // Initialize services
         this.logger = new Logger({ level: options.logLevel });
-        this.progressReporter = new ProgressReporter();
         this.errorHandler = new ErrorHandler();
         this.generator = new SwaggerToNextJSGenerator({
-            logger: this.logger,
-            progressReporter: this.progressReporter
+            logger: this.logger
         });
 
         // Core services
@@ -332,19 +148,29 @@ class CLI {
             // Load configuration (Phase 1)
             const config = await this.loadConfig(options);
 
-            // Create progress tracker
-            const progress = this.progressReporter.create('Generation Pipeline');
+            // Create a progress tracker
+            const progress = new ProgressReporter({
+                total: 100,
+                format: 'default',
+                showPercentage: true,
+                showETA: false,
+                showSpeed: false,
+                logger: this.logger
+            });
 
             // Phase 2: Load specification
             progress.start('Loading OpenAPI specification');
             const spec = await this.loader.load(source);
-            progress.succeed('Specification loaded');
+            progress.setMessage('Specification loaded');
+            progress.update(20);
 
             // Phase 2: Validate specification
-            progress.start('Validating specification');
+            progress.setMessage('Validating specification');
+            progress.update(30);
             const validation = await this.validator.validate(spec);
 
             if (!validation.valid) {
+                progress.stop();
                 throw new Error(`Validation failed: ${validation.errors.map(e => e.message).join(', ')}`);
             }
 
@@ -352,27 +178,33 @@ class CLI {
                 this.logger.warn('Validation warnings:', validation.warnings);
             }
 
-            progress.succeed(`Validated: ${validation.stats.paths} paths, ${validation.stats.operations} operations`);
+            progress.setMessage(`Validated: ${validation.stats.paths} paths, ${validation.stats.operations} operations`);
+            progress.update(40);
 
             // Phase 2: Prepare directory
             if (!options.dryRun) {
-                progress.start('Preparing output directory');
+                progress.setMessage('Preparing output directory');
+                progress.update(50);
 
                 if (options.clean) {
                     await this.dirManager.clean(output);
                 }
 
                 await this.dirManager.prepare(output);
-                progress.succeed('Output directory ready');
+                progress.setMessage('Output directory ready');
+                progress.update(60);
             }
 
             // Phase 3: Initialize generators
-            progress.start('Initializing generators');
+            progress.setMessage('Initializing generators');
+            progress.update(70);
             const generators = this.getGenerators(config, options);
-            progress.succeed(`Initialized ${generators.length} generators`);
+            progress.setMessage(`Initialized ${generators.length} generators`);
+            progress.update(80);
 
             // Phase 1: Main orchestration
-            progress.start('Generating code');
+            progress.setMessage('Generating code');
+            progress.update(90);
             const result = await this.generator.generate({
                 spec,
                 output,
@@ -380,7 +212,8 @@ class CLI {
                 generators,
                 dryRun: options.dryRun
             });
-            progress.succeed('Code generation completed');
+            progress.setMessage('Code generation completed');
+            progress.update(100);
 
             // Show summary
             const duration = Date.now() - startTime;
@@ -973,39 +806,21 @@ export default ApiClient;
      * Convert string to camelCase
      */
     toCamelCase(str) {
-        // If StringUtils is available, use it
-        if (this.stringUtils && this.stringUtils.toCamelCase) {
-            return this.stringUtils.toCamelCase(str);
-        }
-
-        return str.replace(/[-_\s](.)/g, (match, char) => char.toUpperCase())
-            .replace(/^./, char => char.toLowerCase());
+        return this.stringUtils.toCamelCase(str);
     }
 
     /**
      * Convert string to PascalCase
      */
     toPascalCase(str) {
-        // If StringUtils is available, use it
-        if (this.stringUtils && this.stringUtils.toPascalCase) {
-            return this.stringUtils.toPascalCase(str);
-        }
-
-        return this.toCamelCase(str).replace(/^./, char => char.toUpperCase());
+        return this.stringUtils.toPascalCase(str);
     }
 
     /**
      * Convert string to kebab-case
      */
     toKebabCase(str) {
-        // If StringUtils is available, use it
-        if (this.stringUtils && this.stringUtils.toKebabCase) {
-            return this.stringUtils.toKebabCase(str);
-        }
-
-        return str.replace(/([a-z])([A-Z])/g, '$1-$2')
-            .replace(/[\s_]+/g, '-')
-            .toLowerCase();
+        return this.stringUtils.toKebabCase(str);
     }
 
     /**
@@ -1024,7 +839,9 @@ export default ApiClient;
      */
     handleError(error) {
         if (this.errorHandler) {
-            return this.errorHandler.handle(error);
+            const result = this.errorHandler.handle(error);
+            // Ensure we return a number exit code
+            return typeof result === 'number' ? result : 1;
         }
 
         console.error(chalk.red('\n❌ Error:'), error.message);
@@ -1043,6 +860,13 @@ export default ApiClient;
         }
 
         return 1;
+    }
+
+    /**
+     * Show help
+     */
+    async showHelp() {
+        program.outputHelp();
     }
 
     /**

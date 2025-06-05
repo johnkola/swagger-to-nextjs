@@ -32,6 +32,7 @@ const SchemaUtils = require('../utils/SchemaUtils');
 const StringUtils = require('../utils/StringUtils');
 const ValidationUtils = require('../utils/ValidationUtils');
 
+
 /**
  * Generates Next.js 13+ App Router API routes from OpenAPI specs
  */
@@ -86,20 +87,80 @@ class ApiRouteGenerator extends BaseGenerator {
      * Load API route templates
      */
     async loadTemplates() {
-        this.logger.debug('Loading API route templates');
+        await this.logger.debug('Loading API route templates');
 
-        // Load templates using the template loader
-        const templateLoader = this.templateLoader || this.templateEngine;
+        // Check if templateLoader exists and has a load method
+        if (this.templateLoader && typeof this.templateLoader.load === 'function') {
+            // Use templateLoader if available
+            this.templates = await this.templateLoader.load('api', {
+                baseDir: this.options.templateDir,
+                customTemplatesDir: this.options.customTemplatesDir
+            });
+        } else {
+            // Fall back to loading templates directly
+            this.logger.debug('TemplateLoader not available, loading templates directly');
 
-        this.templates.route = await templateLoader.load('route.ts.template');
-        this.templates.validation = await templateLoader.load('validation.ts.template');
-        this.templates.auth = await templateLoader.load('auth.ts.template');
-        this.templates.middleware = await templateLoader.load('middleware.ts.template');
-        this.templates.error = await templateLoader.load('error.ts.template');
-        this.templates.types = await templateLoader.load('types.ts.template');
+            // Load default templates
+            this.templates = {
+                route: await this.loadDefaultTemplate('route'),
+                handler: await this.loadDefaultTemplate('handler'),
+                validation: await this.loadDefaultTemplate('validation'),
+                types: await this.loadDefaultTemplate('types')
+            };
+        }
 
-        // Register custom helpers
-        this._registerTemplateHelpers();
+        await this.logger.debug(`Loaded ${Object.keys(this.templates).length} templates`);
+    }
+
+    /**
+     * Load a default template
+     * @private
+     */
+    async loadDefaultTemplate(templateName) {
+        // Return a basic template as fallback
+        const templates = {
+            route: `
+import { NextRequest, NextResponse } from 'next/server';
+{{#if imports}}
+{{{imports}}}
+{{/if}}
+
+{{#if validation}}
+{{{validation}}}
+{{/if}}
+
+export async function {{method}}(
+  request: NextRequest,
+  { params }: { params: { [key: string]: string } }
+) {
+  try {
+    {{#if validationSchema}}
+    // Validate request
+    const validatedData = await {{validationSchema}}.parseAsync({
+      body: await request.json(),
+      params,
+      query: Object.fromEntries(request.nextUrl.searchParams)
+    });
+    {{/if}}
+
+    // TODO: Implement {{operationId}} handler
+    
+    return NextResponse.json({ 
+      message: '{{summary}}' 
+    });
+  } catch (error) {
+    return NextResponse.json(
+      { error: error.message },
+      { status: error.status || 500 }
+    );
+  }
+}`,
+            handler: `// Handler template`,
+            validation: `// Validation template`,
+            types: `// Types template`
+        };
+
+        return templates[templateName] || `// Default ${templateName} template`;
     }
 
     /**
@@ -234,7 +295,7 @@ class ApiRouteGenerator extends BaseGenerator {
         const nextjsPath = this.pathUtils.openApiToNextJs(routePath);
         const routeDir = path.join(this.outputDir, ...nextjsPath);
 
-        // Generate main route file
+        // Generate a main route file
         const routeFile = await this._generateRouteFile(routeGroup, context);
         files.push({
             path: path.join(routeDir, 'route.ts'),
@@ -282,7 +343,7 @@ class ApiRouteGenerator extends BaseGenerator {
     }
 
     /**
-     * Generate main route file
+     * Generate a main route file
      */
     async _generateRouteFile(routeGroup, context) {
         const methods = Object.keys(routeGroup.operations);
@@ -592,6 +653,7 @@ class ApiRouteGenerator extends BaseGenerator {
     // ============================================================================
 
     /**
+     *
      * Render template with error handling
      */
     async _renderTemplate(template, data) {
@@ -607,7 +669,7 @@ class ApiRouteGenerator extends BaseGenerator {
                 const loadedTemplate = await this.templateEngine.load(template);
                 return await loadedTemplate.render(data);
             } else if (template.render) {
-                // If template has a render method, use it
+                // If a template has a render method, use it
                 return await template.render(data);
             } else {
                 // Otherwise, use the template engine to render
@@ -654,7 +716,7 @@ class ApiRouteGenerator extends BaseGenerator {
     }
 
     /**
-     * Extract API version from spec
+     * Extract an API version from spec
      */
     _extractApiVersion(swagger) {
         return swagger.info?.version || '1.0.0';
@@ -778,7 +840,7 @@ class ApiRouteGenerator extends BaseGenerator {
     }
 
     /**
-     * Check if route group has validation
+     * Check if a route group has validation
      */
     _hasValidation(routeGroup) {
         for (const operation of Object.values(routeGroup.operations)) {
@@ -790,7 +852,7 @@ class ApiRouteGenerator extends BaseGenerator {
     }
 
     /**
-     * Check if route group has specific types
+     * Check if a route group has specific types
      */
     _hasRouteTypes(routeGroup) {
         for (const operation of Object.values(routeGroup.operations)) {
@@ -836,7 +898,7 @@ class ApiRouteGenerator extends BaseGenerator {
             return operation['x-rate-limit'];
         }
 
-        // Default based on operation type
+        // Default based on an operation type
         const operationId = operation.operationId?.toLowerCase() || '';
 
         if (operationId.includes('create') || operationId.includes('update')) {
@@ -1217,7 +1279,7 @@ class ApiRouteGenerator extends BaseGenerator {
             body: null
         };
 
-        // Add test data based on scenario
+        // Add test data based on a scenario
         switch (scenario) {
             case 'success':
                 // Add valid test data

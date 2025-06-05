@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- * SWAGGER-TO-NEXTJS GENERATOR - AI PROMPT
+ * SWAGGER-TO-NEXTJS GENERATOR - BASE GENERATOR
  * ============================================================================
  * FILE: src/generators/BaseGenerator.js
  * VERSION: 2025-05-30 11:34:23
@@ -8,9 +8,8 @@
  * CATEGORY: 🏗️ Base Generators
  * ============================================================================
  *
- * AI GENERATION PROMPT:
- *
- * Create a sophisticated abstract base generator class that:
+ * PURPOSE:
+ * Sophisticated abstract base generator class that:
  * - Implements a template method pattern for generation workflow
  * - Provides lifecycle hooks (before, during, after generation)
  * - Implements dependency injection for services
@@ -21,6 +20,7 @@
  * - Implements generation metrics
  * - Supports dry-run mode
  * - Provides extension points for customization
+ * - Includes all utility classes for child generators
  *
  * ============================================================================
  */
@@ -37,8 +37,15 @@ const DirectoryManager = require('../core/DirectoryManager');
 // Phase 3 components
 const TemplateEngine = require('../templates/TemplateEngine');
 
+// Import all utility classes
+const StringUtils = require('../utils/StringUtils');
+const SchemaUtils = require('../utils/SchemaUtils');
+const PathUtils = require('../utils/PathUtils');
+const ValidationUtils = require('../utils/ValidationUtils');
+
 /**
  * Abstract base generator class implementing a template method pattern
+ * with integrated utilities for all child generators
  */
 class BaseGenerator extends EventEmitter {
     constructor(options = {}) {
@@ -61,6 +68,20 @@ class BaseGenerator extends EventEmitter {
         this.templateEngine = options.templateEngine || new TemplateEngine(options);
         this.directoryManager = options.directoryManager || new DirectoryManager(options);
         this.templateLoader = options.templateLoader; // Optional, from Phase 3
+
+        // Initialize utility instances for all child generators
+        this.utils = {
+            string: options.stringUtils || new StringUtils(),
+            schema: options.schemaUtils || new SchemaUtils(),
+            path: options.pathUtils || new PathUtils(),
+            validation: options.validationUtils || new ValidationUtils()
+        };
+
+        // Convenience references (for easier access in child classes)
+        this.stringUtils = this.utils.string;
+        this.schemaUtils = this.utils.schema;
+        this.pathUtils = this.utils.path;
+        this.validationUtils = this.utils.validation;
 
         // Output directory
         this.outputDir = path.join(
@@ -233,8 +254,8 @@ class BaseGenerator extends EventEmitter {
     async prepare(context) {
         this.logger.debug('Preparing context');
 
-        // Default preparation
-        const prepared = {
+        // Extract common data using utilities
+        const enhancedContext = {
             ...context,
             outputDir: this.outputDir,
             generator: {
@@ -244,8 +265,26 @@ class BaseGenerator extends EventEmitter {
             }
         };
 
+        // Use utilities to enhance context if swagger is present
+        if (context.swagger || context.openapi) {
+            const spec = context.swagger || context.openapi;
+
+            // Extract schemas using SchemaUtils
+            if (!enhancedContext.schemas) {
+                enhancedContext.schemas = this.schemaUtils.extractSchemas(spec);
+            }
+
+            // Extract paths using PathUtils
+            if (!enhancedContext.paths) {
+                enhancedContext.paths = this.pathUtils.extractPaths(spec);
+            }
+
+            // Group paths by resource
+            enhancedContext.resourceGroups = this.pathUtils.groupPathsByResource(enhancedContext.paths);
+        }
+
         // Subclass-specific preparation
-        const customPrepared = await this.doPrepare(prepared);
+        const customPrepared = await this.doPrepare(enhancedContext);
 
         this.emit('prepared', customPrepared);
         return customPrepared;
@@ -479,6 +518,86 @@ class BaseGenerator extends EventEmitter {
         this.extensions.set(name, extension);
         this.logger.debug(`Registered extension: ${name}`);
         return this;
+    }
+
+    // ============================================================================
+    // Utility Helper Methods (Available to all child generators)
+    // ============================================================================
+
+    /**
+     * Generate safe file path
+     * @param {string} filePath - Original file path
+     * @returns {string} Safe file path
+     */
+    generateSafeFilePath(filePath) {
+        // Use PathUtils to ensure safe path
+        const safePath = this.pathUtils.generateSafePath(filePath);
+        return path.join(this.outputDir, safePath);
+    }
+
+    /**
+     * Generate TypeScript type from schema
+     * @param {object} schema - OpenAPI schema
+     * @param {string} name - Type name
+     * @returns {string} TypeScript type definition
+     */
+    generateTypeFromSchema(schema, name) {
+        return this.schemaUtils.schemaToTypeScript(schema, name, {
+            export: true,
+            readonly: false
+        });
+    }
+
+    /**
+     * Generate validation schema
+     * @param {object} schema - OpenAPI schema
+     * @param {string} library - Validation library
+     * @returns {string} Validation schema code
+     */
+    generateValidation(schema, library = 'zod') {
+        return this.validationUtils.generateValidationSchema(schema, library);
+    }
+
+    /**
+     * Convert string to various cases
+     */
+    toCamelCase(str) { return this.stringUtils.toCamelCase(str); }
+    toPascalCase(str) { return this.stringUtils.toPascalCase(str); }
+    toKebabCase(str) { return this.stringUtils.toKebabCase(str); }
+    toSnakeCase(str) { return this.stringUtils.toSnakeCase(str); }
+    toConstantCase(str) { return this.stringUtils.toConstantCase(str); }
+
+    /**
+     * Generate component name from resource
+     * @param {string} resource - Resource name
+     * @param {string} suffix - Component suffix
+     * @returns {string} Component name
+     */
+    generateComponentName(resource, suffix = 'Component') {
+        return this.stringUtils.toPascalCase(resource) + suffix;
+    }
+
+    /**
+     * Generate file header comment
+     * @param {string} filename - File name
+     * @param {string} description - File description
+     * @returns {string} File header comment
+     */
+    generateFileHeader(filename, description) {
+        const timestamp = new Date().toISOString();
+        const generatorName = this.constructor.name;
+
+        return `/**
+ * ${filename}
+ * ${description}
+ * 
+ * Generated by: ${generatorName}
+ * Generated at: ${timestamp}
+ * Generator version: ${this.options.version || '1.0.0'}
+ * 
+ * DO NOT EDIT THIS FILE MANUALLY
+ * All changes will be overwritten on next generation
+ */`;
     }
 
     // ============================================================================

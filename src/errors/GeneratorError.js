@@ -1,318 +1,221 @@
-/**
- * ============================================================================
- * SWAGGER-TO-NEXTJS GENERATOR - AI PROMPT
- * ============================================================================
- * FILE: src/errors/GeneratorError.js
- * VERSION: 2025-05-30 11:34:23
- * PHASE: PHASE 2: Core System Components
- * CATEGORY: 🚨 Error Handling System
- * ============================================================================
- *
- * AI GENERATION PROMPT:
- *
- * Create a sophisticated GeneratorError base class that:
- * - Extends Error with rich metadata 
- * - Implements error codes and categories 
- * - Provides structured error context 
- * - Supports error chaining and causation 
- * - Implements serialization for different outputs 
- * - Provides user-friendly messages 
- * - Includes recovery suggestions 
- * - Supports internationalization 
- * - Integrates with logging systems 
- * - Implements error fingerprinting for tracking
- *
- * ============================================================================
- */
+// src/errors/GeneratorError.js
+
+const BaseError = require('./BaseError');
 const crypto = require('crypto');
-const os = require('os');
-const { format } = require('util');
 
 /**
- * Base error class for all generator-specific errors
- * Provides rich metadata, error chaining, and sophisticated error handling
+ * @class GeneratorError
+ * @extends BaseError
+ * @description Generator-specific error with additional context
  */
-class GeneratorError extends Error {
+class GeneratorError extends BaseError {
+    /**
+     * @param {string} message - Error message
+     * @param {string} code - Error code
+     * @param {Object} options - Additional options
+     */
     constructor(message, code = 'GENERATOR_ERROR', options = {}) {
-        super(message);
+        // Extract category, phase, and component before passing to super
+        const { category = 'generator', phase = 'unknown', component = 'unknown', ...restOptions } = options;
 
-        // Essential error properties
-        this.name = this.constructor.name;
-        this.code = code;
-        this.timestamp = new Date();
-        this.id = this._generateErrorId();
+        super(message, code, restOptions, options.originalError);
 
-        // Error categorization
-        this.category = options.category || this._inferCategory();
-        this.severity = options.severity || 'error'; // error, warning, info
-        this.recoverable = options.recoverable !== undefined ? options.recoverable : true;
+        // Generate unique ID for this error
+        this.id = this._generateId();
 
-        // Context and metadata
-        this.context = options.context || {};
-        this.metadata = {
-            ...this._getSystemMetadata(),
-            ...options.metadata
-        };
+        // Generator-specific properties
+        this.category = category;
+        this.phase = phase;
+        this.component = component;
 
-        // Error chaining
-        this.cause = options.cause || null;
-        this.causedBy = [];
-        if (this.cause) {
-            this._processCause(this.cause);
-        }
-
-        // User-facing information
-        this.userMessage = options.userMessage || this._generateUserMessage();
-        this.suggestion = options.suggestion || this._generateSuggestion();
-        this.documentation = options.documentation || this._getDocumentationLink();
-
-        // Technical details
+        // File/location information
         this.file = options.file || null;
         this.line = options.line || null;
         this.column = options.column || null;
-        this.operation = options.operation || null;
 
-        // Internationalization
-        this.locale = options.locale || 'en';
-        this.translations = options.translations || {};
+        // Severity and recovery
+        this.severity = options.severity || 'error';
+        this.recoverable = options.recoverable !== undefined ? options.recoverable : true;
 
-        // Error fingerprint for tracking
-        this.fingerprint = this._generateFingerprint();
+        // Additional metadata
+        this.documentation = options.documentation || this.getDocumentationUrl();
+        this.suggestion = options.suggestion || null;
+        this.affectedFiles = options.affectedFiles || [];
 
-        // Capture stack trace
-        Error.captureStackTrace(this, this.constructor);
+        // Performance metrics
+        this.duration = options.duration || null;
+        this.memoryUsage = options.memoryUsage || null;
 
-        // Parse stack for additional context
-        this._parseStack();
+        // Add generator-specific context
+        this.addContext({
+            category: this.category,
+            phase: this.phase,
+            component: this.component,
+            severity: this.severity,
+            recoverable: this.recoverable
+        });
+
+        // Add location context if available
+        if (this.file) {
+            this.addContext({
+                file: this.file,
+                line: this.line,
+                column: this.column
+            });
+        }
     }
 
     /**
-     * Generate unique error ID
+     * Generate unique ID for error instance
+     * @private
      */
-    _generateErrorId() {
-        const timestamp = Date.now().toString(36);
-        const random = Math.random().toString(36).substr(2, 5);
-        return `${this.constructor.name.toLowerCase()}_${timestamp}_${random}`;
+    _generateId() {
+        const timestamp = Date.now();
+        const random = crypto.randomBytes(4).toString('hex');
+        return `${this.code}-${timestamp}-${random}`;
     }
 
     /**
-     * Generate error fingerprint for tracking similar errors
+     * Get documentation URL for this error
      */
-    _generateFingerprint() {
-        const fingerprintData = [
+    getDocumentationUrl() {
+        const baseUrl = process.env.DOCS_URL || 'https://docs.swagger-to-nextjs.dev/errors';
+        const errorCode = this.code.toLowerCase().replace(/_/g, '-');
+        return `${baseUrl}/${errorCode}`;
+    }
+
+    /**
+     * Get error location as string
+     */
+    getLocation() {
+        if (!this.file) return null;
+
+        let location = this.file;
+        if (this.line) {
+            location += `:${this.line}`;
+            if (this.column) {
+                location += `:${this.column}`;
+            }
+        }
+        return location;
+    }
+
+    /**
+     * Add affected file
+     */
+    addAffectedFile(filepath, reason) {
+        this.affectedFiles.push({ filepath, reason });
+        return this;
+    }
+
+    /**
+     * Set suggestion for fixing the error
+     */
+    setSuggestion(suggestion) {
+        this.suggestion = suggestion;
+        return this;
+    }
+
+    /**
+     * Check if error is recoverable
+     */
+    isRecoverable() {
+        return this.recoverable;
+    }
+
+    /**
+     * Get error fingerprint for deduplication
+     */
+    getFingerprint() {
+        const parts = [
             this.code,
             this.category,
-            this.operation,
-            this.file,
-            this.line
-        ].filter(Boolean).join(':');
+            this.phase,
+            this.component,
+            this.file || 'no-file'
+        ];
 
-        return crypto
-            .createHash('md5')
-            .update(fingerprintData)
-            .digest('hex')
-            .substr(0, 16);
+        return parts.join(':');
     }
 
     /**
-     * Infer error category from error code
-     */
-    _inferCategory() {
-        const codePrefix = this.code.split('_')[0];
-        const categoryMap = {
-            'VALIDATION': 'validation',
-            'NETWORK': 'network',
-            'FILE': 'filesystem',
-            'TEMPLATE': 'template',
-            'CONFIG': 'configuration',
-            'AUTH': 'authentication',
-            'PARSE': 'parsing',
-            'GENERATE': 'generation'
-        };
-
-        return categoryMap[codePrefix] || 'general';
-    }
-
-    /**
-     * Get system metadata
-     */
-    _getSystemMetadata() {
-        return {
-            platform: os.platform(),
-            nodeVersion: process.version,
-            generatorVersion: process.env.GENERATOR_VERSION || 'unknown',
-            environment: process.env.NODE_ENV || 'production',
-            hostname: os.hostname(),
-            pid: process.pid,
-            memory: {
-                used: process.memoryUsage(),
-                available: os.freemem(),
-                total: os.totalmem()
-            }
-        };
-    }
-
-    /**
-     * Process error cause chain
-     */
-    _processCause(cause) {
-        let currentCause = cause;
-        while (currentCause) {
-            this.causedBy.push({
-                name: currentCause.name || 'Error',
-                message: currentCause.message,
-                code: currentCause.code,
-                stack: currentCause.stack
-            });
-            currentCause = currentCause.cause;
-        }
-    }
-
-    /**
-     * Generate user-friendly message
-     */
-    _generateUserMessage() {
-        const messages = {
-            'validation': 'The provided input is invalid',
-            'network': 'A network error occurred',
-            'filesystem': 'A file system error occurred',
-            'template': 'A template processing error occurred',
-            'configuration': 'A configuration error occurred',
-            'parsing': 'Failed to parse the input',
-            'generation': 'Failed to generate the output'
-        };
-
-        return messages[this.category] || 'An error occurred';
-    }
-
-    /**
-     * Generate recovery suggestion
-     */
-    _generateSuggestion() {
-        // Override in subclasses for specific suggestions
-        const suggestions = {
-            'validation': 'Please check your input against the schema',
-            'network': 'Please check your internet connection and try again',
-            'filesystem': 'Please check file permissions and available disk space',
-            'template': 'Please verify your template syntax',
-            'configuration': 'Please review your configuration settings',
-            'parsing': 'Please ensure the input format is correct',
-            'generation': 'Please check the logs for more details'
-        };
-
-        return suggestions[this.category] || null;
-    }
-
-    /**
-     * Get documentation link
-     */
-    _getDocumentationLink() {
-        const baseUrl = 'https://docs.swagger-to-nextjs.dev/errors';
-        return `${baseUrl}/${this.code.toLowerCase()}`;
-    }
-
-    /**
-     * Parse stack trace for additional context
-     */
-    _parseStack() {
-        if (!this.stack) return;
-
-        const stackLines = this.stack.split('\n');
-        const firstRelevantLine = stackLines.find(line =>
-            line.includes('/src/') && !line.includes('node_modules')
-        );
-
-        if (firstRelevantLine) {
-            const match = firstRelevantLine.match(/\((.+):(\d+):(\d+)\)/);
-            if (match) {
-                this.file = this.file || match[1];
-                this.line = this.line || parseInt(match[2]);
-                this.column = this.column || parseInt(match[3]);
-            }
-        }
-    }
-
-    /**
-     * Add context to the error
-     */
-    addContext(key, value) {
-        this.context[key] = value;
-        return this;
-    }
-
-    /**
-     * Add metadata
-     */
-    addMetadata(key, value) {
-        this.metadata[key] = value;
-        return this;
-    }
-
-    /**
-     * Set error location
-     */
-    setLocation(file, line, column) {
-        this.file = file;
-        this.line = line;
-        this.column = column;
-        return this;
-    }
-
-    /**
-     * Get a localized message
-     */
-    getLocalizedMessage(locale = this.locale) {
-        if (this.translations[locale]) {
-            return this.translations[locale];
-        }
-        return this.userMessage;
-    }
-
-    /**
-     * Check if the error is of a specific type
-     */
-    is(errorCode) {
-        return this.code === errorCode || this.code.startsWith(errorCode);
-    }
-
-    /**
-     * Check if error has specific category
-     */
-    hasCategory(category) {
-        return this.category === category;
-    }
-
-    /**
-     * Get error chain as array
-     */
-    getErrorChain() {
-        const chain = [this];
-        let current = this.cause;
-
-        while (current) {
-            chain.push(current);
-            current = current.cause;
-        }
-
-        return chain;
-    }
-
-    /**
-     * Serialize for different output formats
+     * Serialize error based on format
      */
     serialize(format = 'json') {
         switch (format) {
-            case 'json':
-                return this._serializeJSON();
             case 'cli':
                 return this._serializeCLI();
-            case 'html':
-                return this._serializeHTML();
+            case 'json':
+                return this._serializeJSON();
             case 'log':
                 return this._serializeLog();
+            case 'html':
+                return this._serializeHTML();
             default:
-                return this._serializeJSON();
+                return this.toString();
         }
+    }
+
+    /**
+     * CLI serialization with color and formatting
+     */
+    _serializeCLI() {
+        const chalk = require('chalk');
+        const parts = [];
+
+        // Error header with severity icon
+        const icon = this.severity === 'error' ? '✖' : '⚠';
+        const color = this.severity === 'error' ? chalk.red : chalk.yellow;
+
+        parts.push(color(`${icon} ${this.name}: ${this.message}`));
+
+        // Location information
+        if (this.file) {
+            parts.push(chalk.gray(`  at ${this.getLocation()}`));
+        }
+
+        // Phase and component
+        if (this.phase !== 'unknown' || this.component !== 'unknown') {
+            const info = [];
+            if (this.phase !== 'unknown') info.push(`Phase: ${this.phase}`);
+            if (this.component !== 'unknown') info.push(`Component: ${this.component}`);
+            parts.push(chalk.gray(`  ${info.join(' | ')}`));
+        }
+
+        // Error code
+        parts.push(chalk.gray(`  Code: ${this.code}`));
+
+        // Suggestion
+        if (this.suggestion) {
+            parts.push(chalk.green(`  💡 Suggestion: ${this.suggestion}`));
+        }
+
+        // Affected files
+        if (this.affectedFiles.length > 0) {
+            parts.push(chalk.yellow('  📁 Affected files:'));
+            this.affectedFiles.forEach(({ filepath, reason }) => {
+                parts.push(chalk.gray(`     • ${filepath}${reason ? ` (${reason})` : ''}`));
+            });
+        }
+
+        // Documentation link
+        if (this.documentation) {
+            parts.push(chalk.blue(`  📚 Docs: ${this.documentation}`));
+        }
+
+        // Stack trace in debug mode
+        if (process.env.DEBUG === 'true' && this.stack) {
+            parts.push(chalk.gray('\n  Stack trace:'));
+            const stackLines = this.stack.split('\n').slice(1, 6);
+            stackLines.forEach(line => {
+                parts.push(chalk.gray(`  ${line.trim()}`));
+            });
+            if (this.stack.split('\n').length > 6) {
+                parts.push(chalk.gray('  ...'));
+            }
+        }
+
+        return parts.join('\n');
     }
 
     /**
@@ -322,205 +225,291 @@ class GeneratorError extends Error {
         return {
             id: this.id,
             name: this.name,
-            code: this.code,
             message: this.message,
-            userMessage: this.userMessage,
+            code: this.code,
             category: this.category,
+            phase: this.phase,
+            component: this.component,
             severity: this.severity,
             recoverable: this.recoverable,
-            suggestion: this.suggestion,
-            documentation: this.documentation,
-            context: this.context,
-            metadata: this.metadata,
-            location: {
+            location: this.file ? {
                 file: this.file,
                 line: this.line,
                 column: this.column
-            },
-            timestamp: this.timestamp.toISOString(),
-            fingerprint: this.fingerprint,
-            causedBy: this.causedBy,
-            stack: process.env.NODE_ENV === 'development' ? this.stack : undefined
+            } : null,
+            context: this.context,
+            suggestion: this.suggestion,
+            documentation: this.documentation,
+            affectedFiles: this.affectedFiles,
+            timestamp: this.timestamp,
+            stack: process.env.INCLUDE_STACK === 'true' ? this.stack : undefined
         };
-    }
-
-    /**
-     * CLI-friendly serialization
-     */
-    _serializeCLI() {
-        const parts = [];
-
-        // Error header
-        parts.push(`${this._getSeverityEmoji()} ${this.userMessage}`);
-        parts.push(`   Error Code: ${this.code}`);
-
-        // Location info
-        if (this.file) {
-            parts.push(`   Location: ${this.file}:${this.line}:${this.column}`);
-        }
-
-        // Suggestion
-        if (this.suggestion) {
-            parts.push(`   💡 ${this.suggestion}`);
-        }
-
-        // Documentation
-        if (this.documentation) {
-            parts.push(`   📚 More info: ${this.documentation}`);
-        }
-
-        // Context (if any)
-        if (Object.keys(this.context).length > 0) {
-            parts.push('   Context:');
-            Object.entries(this.context).forEach(([key, value]) => {
-                parts.push(`     ${key}: ${JSON.stringify(value)}`);
-            });
-        }
-
-        // Stack trace in debug mode
-        if (process.env.DEBUG === 'true' && this.stack) {
-            parts.push('\n   Stack Trace:');
-            this.stack.split('\n').slice(1).forEach(line => {
-                parts.push(`   ${line}`);
-            });
-        }
-
-        return parts.join('\n');
     }
 
     /**
      * HTML serialization
      */
     _serializeHTML() {
-        return `
-      <div class="error error-${this.severity}">
-        <h3>${this._getSeverityEmoji()} ${this.userMessage}</h3>
-        <dl>
-          <dt>Error Code:</dt>
-          <dd><code>${this.code}</code></dd>
-          
-          ${this.file ? `
-            <dt>Location:</dt>
-            <dd><code>${this.file}:${this.line}:${this.column}</code></dd>
-          ` : ''}
-          
-          ${this.suggestion ? `
-            <dt>Suggestion:</dt>
-            <dd>${this.suggestion}</dd>
-          ` : ''}
-          
-          ${this.documentation ? `
-            <dt>Documentation:</dt>
-            <dd><a href="${this.documentation}" target="_blank">Learn more</a></dd>
-          ` : ''}
-        </dl>
-        
-        ${Object.keys(this.context).length > 0 ? `
-          <details>
-            <summary>Context</summary>
-            <pre>${JSON.stringify(this.context, null, 2)}</pre>
-          </details>
-        ` : ''}
-        
-        ${process.env.NODE_ENV === 'development' && this.stack ? `
-          <details>
-            <summary>Stack Trace</summary>
-            <pre>${this.stack}</pre>
-          </details>
-        ` : ''}
-      </div>
-    `;
+        const severityClass = `error-${this.severity}`;
+        const icon = this.severity === 'error' ? '❌' : '⚠️';
+
+        let html = `<div class="error ${severityClass}">`;
+        html += `<h3>${icon} ${this.name}: ${this._escapeHtml(this.message)}</h3>`;
+
+        if (this.file) {
+            html += `<p class="location">at ${this._escapeHtml(this.getLocation())}</p>`;
+        }
+
+        html += `<dl>`;
+        html += `<dt>Code:</dt><dd><code>${this._escapeHtml(this.code)}</code></dd>`;
+        html += `<dt>Category:</dt><dd>${this._escapeHtml(this.category)}</dd>`;
+        html += `<dt>Phase:</dt><dd>${this._escapeHtml(this.phase)}</dd>`;
+
+        if (this.suggestion) {
+            html += `<dt>Suggestion:</dt><dd>${this._escapeHtml(this.suggestion)}</dd>`;
+        }
+
+        if (this.affectedFiles.length > 0) {
+            html += `<dt>Affected Files:</dt><dd><ul>`;
+            this.affectedFiles.forEach(({ filepath, reason }) => {
+                html += `<li>${this._escapeHtml(filepath)}`;
+                if (reason) html += ` - ${this._escapeHtml(reason)}`;
+                html += `</li>`;
+            });
+            html += `</ul></dd>`;
+        }
+
+        if (this.documentation) {
+            html += `<dt>Documentation:</dt><dd><a href="${this._escapeHtml(this.documentation)}">${this._escapeHtml(this.documentation)}</a></dd>`;
+        }
+
+        html += `</dl>`;
+
+        if (process.env.INCLUDE_STACK === 'true' && this.stack) {
+            html += `<details><summary>Stack Trace</summary><pre>${this._escapeHtml(this.stack)}</pre></details>`;
+        }
+
+        html += `</div>`;
+
+        return html;
+    }
+
+    /**
+     * Escape HTML special characters
+     * @private
+     */
+    _escapeHtml(str) {
+        if (!str) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
     }
 
     /**
      * Log format serialization
      */
     _serializeLog() {
-        return format('%s [%s] %s - %s %o',
-            this.timestamp.toISOString(),
-            this.severity.toUpperCase(),
-            this.code,
-            this.message,
-            {
-                id: this.id,
-                category: this.category,
-                context: this.context,
-                fingerprint: this.fingerprint
-            }
-        );
+        const location = this.getLocation();
+        const parts = [
+            `[${this.timestamp}]`,
+            `[${this.severity.toUpperCase()}]`,
+            `[${this.code}]`,
+            this.message
+        ];
+
+        if (location) {
+            parts.push(`at ${location}`);
+        }
+
+        if (this.phase !== 'unknown') {
+            parts.push(`(${this.phase})`);
+        }
+
+        return parts.join(' ');
     }
 
     /**
-     * Get severity emoji
+     * Convert to plain object (includes ID)
      */
-    _getSeverityEmoji() {
-        const emojis = {
-            'error': '❌',
-            'warning': '⚠️',
-            'info': 'ℹ️'
+    toObject() {
+        const base = super.toObject();
+
+        return {
+            ...base,
+            id: this.id,
+            category: this.category,
+            phase: this.phase,
+            component: this.component,
+            severity: this.severity,
+            recoverable: this.recoverable,
+            file: this.file,
+            line: this.line,
+            column: this.column,
+            suggestion: this.suggestion,
+            documentation: this.documentation,
+            affectedFiles: this.affectedFiles
         };
-        return emojis[this.severity] || '❌';
     }
 
     /**
-     * Create a new error with additional context
-     */
-    wrap(message, context = {}) {
-        return new this.constructor(message, this.code, {
-            ...this.options,
-            context: { ...this.context, ...context },
-            cause: this
-        });
-    }
-
-    /**
-     * Convert to JSON (for JSON.stringify)
-     */
-    toJSON() {
-        return this._serializeJSON();
-    }
-
-    /**
-     * Custom inspect for console.log
-     */
-    [Symbol.for('nodejs.util.inspect.custom')]() {
-        return this._serializeCLI();
-    }
-
-    /**
-     * Static factory method
-     */
-    static create(message, code, options) {
-        return new this(message, code, options);
-    }
-
-    /**
-     * Check if the value is a GeneratorError
+     * Check if a value is a GeneratorError instance
+     * @param {*} value - Value to check
+     * @returns {boolean}
      */
     static isGeneratorError(value) {
         return value instanceof GeneratorError;
     }
 
     /**
-     * Wrap unknown errors
+     * Wrap an error as a GeneratorError
+     * @param {*} error - Error to wrap
+     * @param {string} [code] - Error code
+     * @param {Object} [context] - Additional context
+     * @returns {GeneratorError}
      */
-    static wrap(error, code = 'WRAPPED_ERROR', options = {}) {
+    static wrap(error, code = 'WRAPPED_ERROR', context = {}) {
         if (error instanceof GeneratorError) {
             return error;
         }
 
-        return new GeneratorError(
-            error.message || 'An unknown error occurred',
-            code,
-            {
-                ...options,
-                cause: error,
-                context: {
-                    originalError: error.name || 'Error',
-                    originalStack: error.stack
-                }
-            }
-        );
+        // Extract useful information from the original error
+        const message = error?.message || String(error) || 'An error occurred';
+        const errorCode = error?.code || code;
+
+        return new GeneratorError(message, errorCode, {
+            ...context,
+            originalError: error,
+            originalName: error?.name,
+            originalStack: error?.stack,
+            recoverable: context.recoverable !== undefined ? context.recoverable : true
+        });
+    }
+
+    /**
+     * Create from unknown thrown value
+     * @param {*} thrown - The thrown value
+     * @param {string} [defaultMessage] - Default message
+     * @param {string} [defaultCode] - Default code
+     * @returns {GeneratorError}
+     */
+    static from(thrown, defaultMessage = 'An error occurred', defaultCode = 'GENERATOR_ERROR') {
+        if (thrown instanceof GeneratorError) {
+            return thrown;
+        }
+
+        return GeneratorError.wrap(thrown, defaultCode, {
+            phase: 'unknown',
+            component: 'unknown'
+        });
+    }
+
+    /**
+     * Static factory methods for common generator errors
+     */
+    static validation(message, context = {}) {
+        return new GeneratorError(message, 'VALIDATION_ERROR', {
+            phase: 'validation',
+            category: 'validation',
+            severity: 'error',
+            ...context
+        });
+    }
+
+    static configuration(message, context = {}) {
+        return new GeneratorError(message, 'CONFIG_ERROR', {
+            phase: 'configuration',
+            category: 'configuration',
+            severity: 'error',
+            ...context
+        });
+    }
+
+    static fileSystem(message, context = {}) {
+        return new GeneratorError(message, 'FILE_SYSTEM_ERROR', {
+            phase: 'file_operations',
+            category: 'filesystem',
+            severity: 'error',
+            ...context
+        });
+    }
+
+    static template(message, context = {}) {
+        return new GeneratorError(message, 'TEMPLATE_ERROR', {
+            phase: 'template_processing',
+            category: 'template',
+            severity: 'error',
+            ...context
+        });
+    }
+
+    static parsing(message, context = {}) {
+        return new GeneratorError(message, 'PARSE_ERROR', {
+            phase: 'parsing',
+            category: 'parsing',
+            severity: 'error',
+            ...context
+        });
+    }
+
+    static network(message, context = {}) {
+        return new GeneratorError(message, 'NETWORK_ERROR', {
+            phase: 'network_operations',
+            category: 'network',
+            severity: 'error',
+            recoverable: true,
+            ...context
+        });
+    }
+
+    static plugin(message, context = {}) {
+        return new GeneratorError(message, 'PLUGIN_ERROR', {
+            phase: 'plugin_execution',
+            category: 'plugin',
+            severity: 'error',
+            ...context
+        });
+    }
+
+    static hook(message, context = {}) {
+        return new GeneratorError(message, 'HOOK_ERROR', {
+            phase: 'hook_execution',
+            category: 'hook',
+            severity: 'error',
+            ...context
+        });
+    }
+
+    static worker(message, context = {}) {
+        return new GeneratorError(message, 'WORKER_ERROR', {
+            phase: 'worker_execution',
+            category: 'worker',
+            severity: 'error',
+            ...context
+        });
+    }
+
+    static fatal(message, context = {}) {
+        return new GeneratorError(message, 'FATAL_ERROR', {
+            phase: context.phase || 'unknown',
+            category: 'fatal',
+            severity: 'fatal',
+            recoverable: false,
+            ...context
+        });
+    }
+
+    /**
+     * Create a warning (non-fatal error)
+     */
+    static warning(message, context = {}) {
+        return new GeneratorError(message, 'WARNING', {
+            severity: 'warning',
+            recoverable: true,
+            ...context
+        });
     }
 }
 
