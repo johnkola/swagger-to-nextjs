@@ -1,20 +1,28 @@
 /**
  * ============================================================================
- * SWAGGER-TO-NEXTJS GENERATOR - SCHEMA UTILITIES
+ * SWAGGER-TO-NEXTJS GENERATOR - AI PROMPT
  * ============================================================================
  * FILE: src/utils/SchemaUtils.js
- * VERSION: 2025-05-30 11:34:23
- * PHASE: PHASE 3: Code Generation Engine
- * CATEGORY: 🛠️ Utilities
+ * VERSION: 2025-06-16 16:25:36
+ * PHASE: Phase 3: Utility Modules
  * ============================================================================
  *
- * PURPOSE:
- * Comprehensive schema processing utilities for OpenAPI/Swagger specifications.
- * Handles schema transformation, validation, and code generation.
+ * AI GENERATION PROMPT:
+ *
+ * Build a utility module for converting OpenAPI schemas to TypeScript types
+ * and handling schema-related operations. Create functions to convert
+ * OpenAPI schema objects to TypeScript type strings, map OpenAPI types
+ * (string, integer, number, boolean) to TypeScript types, handle array
+ * types with proper TypeScript array syntax, process nested object schemas
+ * recursively, resolve $ref references to get actual schema definitions,
+ * generate valid TypeScript interface names from schema names, handle
+ * nullable types using TypeScript union types, process enum schemas to
+ * TypeScript enums or union types, manage schema composition (allOf, oneOf,
+ * anyOf), detect and handle circular references, and extract descriptions
+ * for JSDoc comments.
  *
  * ============================================================================
  */
-
 class SchemaUtils {
     constructor() {
         // OpenAPI data types mapping
@@ -27,7 +35,6 @@ class SchemaUtils {
             object: 'object',
             null: 'null'
         };
-
         // TypeScript type mappings
         this.typeScriptTypes = {
             string: 'string',
@@ -39,7 +46,6 @@ class SchemaUtils {
             null: 'null',
             any: 'any'
         };
-
         // Zod schema mappings
         this.zodTypes = {
             string: 'z.string()',

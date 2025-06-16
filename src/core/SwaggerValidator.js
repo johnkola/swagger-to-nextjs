@@ -3,317 +3,549 @@
  * SWAGGER-TO-NEXTJS GENERATOR - AI PROMPT
  * ============================================================================
  * FILE: src/core/SwaggerValidator.js
- * VERSION: 2025-05-30 11:34:23
- * PHASE: PHASE 2: Core System Components
- * CATEGORY: 🔍 Core Infrastructure
+ * VERSION: 2025-06-16 16:25:36
+ * PHASE: Phase 2: Core System Components
  * ============================================================================
  *
  * AI GENERATION PROMPT:
  *
- * Build a comprehensive validator class that:
- * - Validates against official OpenAPI schemas
- * - Provides detailed error messages with line numbers
- * - Suggests fixes for common mistakes
- * - Warns about deprecated features
- * - Checks for security best practices
- * - Validates example data against schemas
- * - Ensures referential integrity
- * - Checks for naming convention compliance
- * - Provides severity levels (error, warning, info)
- * - Generates validation reports in multiple formats
+ * Build a validator class for OpenAPI specifications that ensures the spec
+ * is valid and ready for code generation. It should check for required
+ * fields (openapi/swagger version, info, paths), verify each path has at
+ * least one operation, generate missing operationIds from path and method,
+ * validate that all referenced schemas exist, check for common issues like
+ * empty paths or missing response schemas, separate validation results into
+ * errors (blocking) and warnings (non-blocking), provide detailed error
+ * messages with the path to the problem (e.g.,
+ * "paths./pets.get.responses.200.content is missing"), and return a
+ * validation result object with valid boolean, errors array, and warnings
+ * array.
  *
  * ============================================================================
  */
-const { EventEmitter } = require('events');
-const chalk = require('chalk');
-
-class SwaggerValidator extends EventEmitter {
-    constructor(options = {}) {
-        super();
-        this.options = options;
+class SwaggerValidator {
+    constructor() {
         this.errors = [];
         this.warnings = [];
-        this.validationResult = null;
     }
 
-    async validate(spec) {
-        // Reset state
+    /**
+     * Validate an OpenAPI specification
+     * @param {Object} spec - The specification to validate
+     * @returns {Object} Validation result with valid boolean, errors, and warnings
+     */
+    validate(spec) {
         this.errors = [];
         this.warnings = [];
 
-        console.log(chalk.gray('  [SwaggerValidator] Validating specification...'));
+        // Check basic structure
+        this.validateBasicStructure(spec);
 
-        try {
-            // Basic validation
-            this._validateBasicStructure(spec);
+        // Validate info section
+        this.validateInfo(spec);
 
-            // Version validation
-            this._validateVersion(spec);
+        // Validate paths
+        this.validatePaths(spec);
 
-            // Path validation
-            this._validatePaths(spec);
+        // Validate components/definitions
+        this.validateComponents(spec);
 
-            // Schema validation
-            this._validateSchemas(spec);
+        // Check for common issues
+        this.checkCommonIssues(spec);
 
-            // Operation validation
-            this._validateOperations(spec);
-
-            const result = {
-                valid: this.errors.length === 0,
-                errors: this.errors,
-                warnings: this.warnings,
-                stats: {
-                    paths: Object.keys(spec.paths || {}).length,
-                    operations: this._countOperations(spec),
-                    schemas: Object.keys(spec.components?.schemas || spec.definitions || {}).length
-                }
-            };
-
-            // Log validation summary
-            if (this.errors.length > 0) {
-                console.log(chalk.red(`  ✗ Validation failed with ${this.errors.length} errors`));
-                this.errors.forEach(err => console.log(chalk.red(`    - ${err}`)));
-            } else if (this.warnings.length > 0) {
-                console.log(chalk.yellow(`  ⚠ Validation passed with ${this.warnings.length} warnings`));
-                this.warnings.forEach(warn => console.log(chalk.yellow(`    - ${warn}`)));
-            } else {
-                console.log(chalk.green('  ✓ Validation passed'));
-            }
-
-            this.validationResult = result;
-            return result;
-
-        } catch (error) {
-            if (error.message === 'Validation failed') {
-                throw error;
-            }
-            this.errors.push(`Unexpected error: ${error.message}`);
-            throw new Error('Validation failed');
-        }
+        return {
+            valid: this.errors.length === 0,
+            errors: [...this.errors],
+            warnings: [...this.warnings]
+        };
     }
 
-    _validateBasicStructure(spec) {
-        if (!spec) {
-            this.errors.push('Swagger document is empty or null');
-            throw new Error('Validation failed');
-        }
-
-        if (typeof spec !== 'object') {
-            this.errors.push('Swagger document must be an object');
-            throw new Error('Validation failed');
-        }
-
-        if (!spec.paths) {
-            this.errors.push('No paths found in Swagger document - required for API generation');
-            throw new Error('Validation failed');
-        }
-
-        if (Object.keys(spec.paths).length === 0) {
-            this.errors.push('No API paths found - nothing to generate');
-            throw new Error('Validation failed');
-        }
-
-        if (!spec.info) {
-            this.warnings.push('No info section found - recommended for proper documentation');
-        }
-    }
-
-    _validateVersion(spec) {
+    /**
+     * Validate basic specification structure
+     * @param {Object} spec - The specification
+     */
+    validateBasicStructure(spec) {
+        // Check for version
         if (!spec.openapi && !spec.swagger) {
-            this.warnings.push('No OpenAPI/Swagger version specified - may cause compatibility issues');
+            this.addError('Missing version field. Expected "openapi" (3.x) or "swagger" (2.0)');
             return;
         }
 
-        if (spec.openapi) {
-            // Accept any 3.x version
-            if (!spec.openapi.match(/^3\.\d+\.\d+$/)) {
-                this.warnings.push(`OpenAPI version ${spec.openapi} may not be fully supported`);
-            } else {
-                console.log(chalk.gray(`  Detected OpenAPI version: ${spec.openapi}`));
+        // Check version format
+        if (spec.openapi && !spec.openapi.match(/^3\.\d+\.\d+$/)) {
+            this.addError(`Invalid OpenAPI version: ${spec.openapi}. Expected format: 3.x.x`);
+        }
+
+        if (spec.swagger && !spec.swagger.match(/^2\.\d+$/)) {
+            this.addError(`Invalid Swagger version: ${spec.swagger}. Expected format: 2.x`);
+        }
+
+        // Check for required top-level fields
+        if (!spec.info) {
+            this.addError('Missing required field: info');
+        }
+
+        if (!spec.paths) {
+            this.addError('Missing required field: paths');
+        }
+    }
+
+    /**
+     * Validate info section
+     * @param {Object} spec - The specification
+     */
+    validateInfo(spec) {
+        if (!spec.info) return;
+
+        const info = spec.info;
+        const infoPath = 'info';
+
+        if (!info.title) {
+            this.addError(`${infoPath}.title is required`);
+        }
+
+        if (!info.version) {
+            this.addError(`${infoPath}.version is required`);
+        }
+
+        if (info.title && typeof info.title !== 'string') {
+            this.addError(`${infoPath}.title must be a string`);
+        }
+
+        if (info.version && typeof info.version !== 'string') {
+            this.addError(`${infoPath}.version must be a string`);
+        }
+
+        if (info.description && typeof info.description !== 'string') {
+            this.addError(`${infoPath}.description must be a string`);
+        }
+    }
+
+    /**
+     * Validate paths section
+     * @param {Object} spec - The specification
+     */
+    validatePaths(spec) {
+        if (!spec.paths) return;
+
+        const paths = spec.paths;
+
+        // Check if paths is empty
+        if (Object.keys(paths).length === 0) {
+            this.addError('paths object is empty. At least one path is required');
+            return;
+        }
+
+        // Validate each path
+        for (const [pathName, pathItem] of Object.entries(paths)) {
+            this.validatePath(pathName, pathItem, spec);
+        }
+    }
+
+    /**
+     * Validate a single path
+     * @param {string} pathName - The path name
+     * @param {Object} pathItem - The path item object
+     * @param {Object} spec - The full specification
+     */
+    validatePath(pathName, pathItem, spec) {
+        const pathPrefix = `paths.${pathName}`;
+
+        // Check if path starts with /
+        if (!pathName.startsWith('/')) {
+            this.addWarning(`${pathPrefix}: Path should start with '/'`);
+        }
+
+        // Check for at least one operation
+        const operations = ['get', 'put', 'post', 'delete', 'options', 'head', 'patch'];
+        const hasOperation = operations.some(op => pathItem[op]);
+
+        if (!hasOperation) {
+            this.addError(`${pathPrefix}: Path must have at least one operation (${operations.join(', ')})`);
+            return;
+        }
+
+        // Validate each operation
+        operations.forEach(method => {
+            if (pathItem[method]) {
+                this.validateOperation(pathName, method, pathItem[method], spec);
             }
-        } else if (spec.swagger) {
-            if (spec.swagger !== '2.0') {
-                this.warnings.push(`Swagger version ${spec.swagger} may not be fully supported`);
+        });
+
+        // Check path parameters
+        if (pathName.includes('{')) {
+            this.validatePathParameters(pathName, pathItem);
+        }
+    }
+
+    /**
+     * Validate a single operation
+     * @param {string} pathName - The path name
+     * @param {string} method - The HTTP method
+     * @param {Object} operation - The operation object
+     * @param {Object} spec - The full specification
+     */
+    validateOperation(pathName, method, operation, spec) {
+        const opPath = `paths.${pathName}.${method}`;
+
+        // Check or generate operationId
+        if (!operation.operationId) {
+            const generatedId = this.generateOperationId(pathName, method);
+            operation.operationId = generatedId;
+            this.addWarning(`${opPath}: Missing operationId. Generated: ${generatedId}`);
+        } else if (!/^[a-zA-Z0-9_]+$/.test(operation.operationId)) {
+            this.addWarning(`${opPath}.operationId contains invalid characters. Should only contain alphanumeric and underscore`);
+        }
+
+        // Validate responses
+        if (!operation.responses) {
+            this.addError(`${opPath}: Missing required field 'responses'`);
+        } else {
+            this.validateResponses(opPath, operation.responses, spec);
+        }
+
+        // Validate parameters
+        if (operation.parameters) {
+            this.validateParameters(`${opPath}.parameters`, operation.parameters, pathName);
+        }
+
+        // Validate request body (OpenAPI 3.0)
+        if (operation.requestBody) {
+            this.validateRequestBody(`${opPath}.requestBody`, operation.requestBody, spec);
+        }
+
+        // Check for summary or description
+        if (!operation.summary && !operation.description) {
+            this.addWarning(`${opPath}: Operation should have a summary or description`);
+        }
+    }
+
+    /**
+     * Generate an operationId from path and method
+     * @param {string} path - The path
+     * @param {string} method - The HTTP method
+     * @returns {string} Generated operationId
+     */
+    generateOperationId(path, method) {
+        // Convert path to camelCase operationId
+        const parts = path.split('/').filter(Boolean);
+        const processed = parts.map((part, index) => {
+            // Handle parameter names
+            if (part.includes('{')) {
+                // Remove braces and capitalize
+                const paramName = part.replace(/[{}]/g, '');
+                return 'By' + this.capitalize(paramName);
+            }
+
+            // Regular path segments
+            if (index === 0) {
+                // First segment after method - don't capitalize
+                return part;
             } else {
-                console.log(chalk.gray(`  Detected Swagger version: ${spec.swagger}`));
+                // Subsequent segments capitalized
+                return this.capitalize(part);
+            }
+        });
+
+        // Combine method with path parts (don't capitalize the first path part)
+        const pathPart = processed.join('');
+        return method.toLowerCase() + this.capitalize(pathPart.charAt(0)) + pathPart.slice(1);
+    }
+
+    /**
+     * Capitalize first letter
+     * @param {string} str - String to capitalize
+     * @returns {string} Capitalized string
+     */
+    capitalize(str) {
+        return str.charAt(0).toUpperCase() + str.slice(1);
+    }
+
+    /**
+     * Validate responses object
+     * @param {string} path - Path to the responses object
+     * @param {Object} responses - The responses object
+     * @param {Object} spec - The full specification
+     */
+    validateResponses(path, responses, spec) {
+        if (Object.keys(responses).length === 0) {
+            this.addError(`${path}: Responses object is empty`);
+            return;
+        }
+
+        // Check for at least one success response
+        const successCodes = Object.keys(responses).filter(code =>
+            code >= '200' && code < '300'
+        );
+
+        if (successCodes.length === 0) {
+            this.addWarning(`${path}: No success response (2xx) defined`);
+        }
+
+        // Validate each response
+        for (const [statusCode, response] of Object.entries(responses)) {
+            this.validateResponse(`${path}.${statusCode}`, statusCode, response, spec);
+        }
+    }
+
+    /**
+     * Validate a single response
+     * @param {string} path - Path to the response
+     * @param {string} statusCode - The status code
+     * @param {Object} response - The response object
+     * @param {Object} spec - The full specification
+     */
+    validateResponse(path, statusCode, response, spec) {
+        // Check description
+        if (!response.description) {
+            this.addError(`${path}: Response must have a description`);
+        }
+
+        // For success responses, check for content/schema
+        if (statusCode >= '200' && statusCode < '300' && statusCode !== '204') {
+            if (spec.openapi) {
+                // OpenAPI 3.0
+                if (!response.content) {
+                    this.addWarning(`${path}: Success response should define content`);
+                }
+            } else {
+                // Swagger 2.0
+                if (!response.schema) {
+                    this.addWarning(`${path}: Success response should define a schema`);
+                }
             }
         }
     }
 
-    _validatePaths(spec) {
-        if (!spec.paths) return;
+    /**
+     * Validate parameters array
+     * @param {string} path - Path to the parameters
+     * @param {Array} parameters - The parameters array
+     * @param {string} pathName - The path name for parameter validation
+     */
+    validateParameters(path, parameters, pathName) {
+        if (!Array.isArray(parameters)) {
+            this.addError(`${path}: Parameters must be an array`);
+            return;
+        }
 
-        Object.entries(spec.paths).forEach(([path, pathItem]) => {
-            if (typeof pathItem !== 'object' || pathItem === null) {
-                this.errors.push(`Path '${path}' has invalid definition`);
-                return;
+        const seenParams = new Set();
+
+        parameters.forEach((param, index) => {
+            const paramPath = `${path}[${index}]`;
+
+            // Check required fields
+            if (!param.name) {
+                this.addError(`${paramPath}: Parameter must have a name`);
             }
 
-            // Check for operations
-            const operations = ['get', 'post', 'put', 'delete', 'patch', 'options', 'head'];
-            const hasOperations = operations.some(op => pathItem[op]);
-
-            if (!hasOperations) {
-                this.warnings.push(`Path '${path}' has no HTTP operations defined`);
+            if (!param.in) {
+                this.addError(`${paramPath}: Parameter must have 'in' property`);
             }
 
-            // Check for special characters that might cause issues with Next.js
-            if (path.match(/[@#$%^&*()+=\[\]{}|\\:;"'<>,?]/)) {
-                this.warnings.push(`Path '${path}' contains special characters that may cause issues with Next.js routing`);
+            // Check for duplicates
+            const key = `${param.in}-${param.name}`;
+            if (seenParams.has(key)) {
+                this.addError(`${paramPath}: Duplicate parameter '${param.name}' in '${param.in}'`);
             }
+            seenParams.add(key);
 
-            // Check parameter names
-            const paramMatches = path.match(/{([^}]+)}/g);
-            if (paramMatches) {
-                paramMatches.forEach(param => {
-                    const paramName = param.slice(1, -1);
-                    if (!paramName.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {
-                        this.warnings.push(`Parameter '${param}' in path '${path}' may not be valid in Next.js`);
+            // Validate path parameters exist in path
+            if (param.in === 'path') {
+                if (!pathName.includes(`{${param.name}}`)) {
+                    this.addError(`${paramPath}: Path parameter '${param.name}' not found in path '${pathName}'`);
+                }
+
+                if (!param.required || param.required !== true) {
+                    this.addError(`${paramPath}: Path parameters must be required`);
+                }
+            }
+        });
+    }
+
+    /**
+     * Validate path parameters
+     * @param {string} pathName - The path name
+     * @param {Object} pathItem - The path item
+     */
+    validatePathParameters(pathName, pathItem) {
+        const paramMatches = pathName.match(/{([^}]+)}/g) || [];
+        const pathParams = paramMatches.map(p => p.slice(1, -1));
+
+        // Check each operation has definitions for path parameters
+        const operations = ['get', 'put', 'post', 'delete', 'options', 'head', 'patch'];
+
+        operations.forEach(method => {
+            if (pathItem[method]) {
+                const operation = pathItem[method];
+                const allParams = [
+                    ...(pathItem.parameters || []),
+                    ...(operation.parameters || [])
+                ];
+
+                pathParams.forEach(paramName => {
+                    const hasParam = allParams.some(p =>
+                        p.name === paramName && p.in === 'path'
+                    );
+
+                    if (!hasParam) {
+                        this.addError(`paths.${pathName}.${method}: Missing definition for path parameter '${paramName}'`);
                     }
                 });
             }
         });
     }
 
-    _validateOperations(spec) {
-        if (!spec.paths) return;
+    /**
+     * Validate request body (OpenAPI 3.0)
+     * @param {string} path - Path to the request body
+     * @param {Object} requestBody - The request body object
+     * @param {Object} spec - The full specification
+     */
+    validateRequestBody(path, requestBody, spec) {
+        if (!requestBody.content) {
+            this.addError(`${path}: Request body must have content`);
+            return;
+        }
 
-        Object.entries(spec.paths).forEach(([path, pathItem]) => {
-            if (typeof pathItem !== 'object') return;
+        if (Object.keys(requestBody.content).length === 0) {
+            this.addError(`${path}.content: Content object is empty`);
+        }
 
-            ['get', 'post', 'put', 'delete', 'patch'].forEach(method => {
-                const operation = pathItem[method];
-                if (!operation) return;
+        // Check each content type has a schema
+        for (const [mediaType, content] of Object.entries(requestBody.content)) {
+            if (!content.schema) {
+                this.addWarning(`${path}.content.${mediaType}: Missing schema definition`);
+            }
+        }
+    }
 
-                const operationPath = `${path}.${method}`;
+    /**
+     * Validate components/definitions section
+     * @param {Object} spec - The specification
+     */
+    validateComponents(spec) {
+        // OpenAPI 3.0
+        if (spec.components && spec.components.schemas) {
+            this.validateSchemas('components.schemas', spec.components.schemas);
+        }
 
-                // Check responses
-                if (!operation.responses) {
-                    this.warnings.push(`Operation ${operationPath} has no response definitions`);
-                } else {
-                    const responseCodes = Object.keys(operation.responses);
-                    const hasSuccessResponse = responseCodes.some(code => {
-                        const codeNum = parseInt(code);
-                        return (codeNum >= 200 && codeNum < 300) || code === 'default';
-                    });
+        // Swagger 2.0
+        if (spec.definitions) {
+            this.validateSchemas('definitions', spec.definitions);
+        }
+    }
 
-                    if (!hasSuccessResponse) {
-                        this.warnings.push(`Operation ${operationPath}: No success response defined`);
+    /**
+     * Validate schemas
+     * @param {string} path - Path to the schemas
+     * @param {Object} schemas - The schemas object
+     */
+    validateSchemas(path, schemas) {
+        for (const [schemaName, schema] of Object.entries(schemas)) {
+            this.validateSchema(`${path}.${schemaName}`, schema);
+        }
+    }
+
+    /**
+     * Validate a single schema
+     * @param {string} path - Path to the schema
+     * @param {Object} schema - The schema object
+     */
+    validateSchema(path, schema) {
+        // Basic type validation
+        if (!schema.type && !schema.$ref && !schema.allOf && !schema.oneOf && !schema.anyOf) {
+            this.addWarning(`${path}: Schema should define a type or composition`);
+        }
+
+        // Validate object schemas
+        if (schema.type === 'object') {
+            if (!schema.properties) {
+                this.addWarning(`${path}: Object schema should define properties`);
+            }
+
+            // Check required array
+            if (schema.required && !Array.isArray(schema.required)) {
+                this.addError(`${path}.required: Must be an array`);
+            }
+
+            // Validate required properties exist
+            if (schema.required && schema.properties) {
+                schema.required.forEach(prop => {
+                    if (!schema.properties[prop]) {
+                        this.addError(`${path}.required: Required property '${prop}' not defined in properties`);
                     }
-                }
+                });
+            }
+        }
 
-                // Check documentation
-                if (!operation.summary && !operation.description) {
-                    this.warnings.push(`Operation ${operationPath} has no summary or description`);
-                }
+        // Validate array schemas
+        if (schema.type === 'array' && !schema.items) {
+            this.addError(`${path}: Array schema must define items`);
+        }
+    }
 
-                // Check parameters
-                if (operation.parameters) {
-                    operation.parameters.forEach((param, index) => {
-                        if (!param.name) {
-                            this.errors.push(`Operation ${operationPath}: Parameter at index ${index} has no name`);
-                        }
-                        if (!param.in) {
-                            this.errors.push(`Operation ${operationPath}: Parameter '${param.name || index}' has no location (in)`);
-                        }
-                        if (!param.schema && !param.type) {
-                            this.warnings.push(`Operation ${operationPath}: Parameter '${param.name || index}' has no schema or type`);
-                        }
-                    });
-                }
+    /**
+     * Check for common issues
+     * @param {Object} spec - The specification
+     */
+    checkCommonIssues(spec) {
+        // Check for empty schemas
+        const schemas = spec.components?.schemas || spec.definitions || {};
+        for (const [name, schema] of Object.entries(schemas)) {
+            if (Object.keys(schema).length === 0) {
+                this.addWarning(`Schema '${name}' is empty`);
+            }
+        }
 
-                // Check request body for operations that typically have one
-                if (['post', 'put', 'patch'].includes(method)) {
-                    if (!operation.requestBody && !operation.parameters?.some(p => p.in === 'body')) {
-                        this.warnings.push(`Operation ${operationPath}: ${method.toUpperCase()} operation typically has a request body`);
+        // Check for operations without tags
+        let untaggedCount = 0;
+        if (spec.paths) {
+            for (const [path, pathItem] of Object.entries(spec.paths)) {
+                const operations = ['get', 'put', 'post', 'delete', 'options', 'head', 'patch'];
+                operations.forEach(method => {
+                    if (pathItem[method] && !pathItem[method].tags) {
+                        untaggedCount++;
                     }
-                }
-            });
+                });
+            }
+        }
+
+        if (untaggedCount > 0) {
+            this.addWarning(`${untaggedCount} operations have no tags. Consider adding tags for better organization`);
+        }
+
+        // Check for missing servers/host
+        if (spec.openapi && (!spec.servers || spec.servers.length === 0)) {
+            this.addWarning('No servers defined. Consider adding server information');
+        }
+
+        if (spec.swagger && !spec.host) {
+            this.addWarning('No host defined. Consider adding host information');
+        }
+    }
+
+    /**
+     * Add an error
+     * @param {string} message - Error message
+     */
+    addError(message) {
+        this.errors.push({
+            type: 'error',
+            message
         });
     }
 
-    _validateSchemas(spec) {
-        // Check for schemas in OpenAPI 3.x
-        if (spec.components?.schemas) {
-            Object.entries(spec.components.schemas).forEach(([name, schema]) => {
-                if (typeof schema !== 'object' || schema === null) {
-                    this.errors.push(`Schema '${name}' has invalid definition`);
-                }
-            });
-            console.log(chalk.gray(`  Found ${Object.keys(spec.components.schemas).length} schemas in components`));
-        }
-        // Check for definitions in Swagger 2.0
-        else if (spec.definitions) {
-            Object.entries(spec.definitions).forEach(([name, schema]) => {
-                if (typeof schema !== 'object' || schema === null) {
-                    this.errors.push(`Definition '${name}' has invalid definition`);
-                }
-            });
-            console.log(chalk.gray(`  Found ${Object.keys(spec.definitions).length} definitions`));
-        }
-        // No schemas found
-        else {
-            this.warnings.push('No schemas or definitions found - may limit type generation capabilities');
-        }
-    }
-
-    _countOperations(spec) {
-        let count = 0;
-        if (spec.paths) {
-            Object.values(spec.paths).forEach(pathItem => {
-                if (typeof pathItem === 'object') {
-                    ['get', 'post', 'put', 'delete', 'patch', 'options', 'head'].forEach(method => {
-                        if (pathItem[method]) count++;
-                    });
-                }
-            });
-        }
-        return count;
-    }
-
     /**
-     * Get validation summary for CLI output
+     * Add a warning
+     * @param {string} message - Warning message
      */
-    getSummary() {
-        if (!this.validationResult) {
-            return 'Validation not yet performed';
-        }
-
-        const { valid, stats, errors, warnings } = this.validationResult;
-
-        let summary = `Validation ${valid ? 'passed' : 'failed'}. `;
-        summary += `Found ${stats.paths} paths, ${stats.operations} operations`;
-
-        if (stats.schemas > 0) {
-            summary += `, ${stats.schemas} schemas`;
-        }
-
-        if (errors.length > 0) {
-            summary += `. ${errors.length} errors`;
-        }
-
-        if (warnings.length > 0) {
-            summary += `. ${warnings.length} warnings`;
-        }
-
-        return summary;
-    }
-
-    /**
-     * Check if the spec has minimum required structure for generation
-     */
-    canGenerate() {
-        // If no validation has been performed, return false
-        if (!this.validationResult) {
-            return false;
-        }
-
-        // Check if validation passed and has required content
-        return this.validationResult.valid &&
-            this.validationResult.stats.paths > 0 &&
-            this.validationResult.stats.operations > 0;
+    addWarning(message) {
+        this.warnings.push({
+            type: 'warning',
+            message
+        });
     }
 }
 
-module.exports = SwaggerValidator;
+export default SwaggerValidator;

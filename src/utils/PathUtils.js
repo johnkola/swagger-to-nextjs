@@ -1,29 +1,34 @@
 /**
  * ============================================================================
- * SWAGGER-TO-NEXTJS GENERATOR - PATH UTILITIES
+ * SWAGGER-TO-NEXTJS GENERATOR - AI PROMPT
  * ============================================================================
  * FILE: src/utils/PathUtils.js
- * VERSION: 2025-05-30 11:34:23
- * PHASE: PHASE 3: Code Generation Engine
- * CATEGORY: 🛠️ Utilities
+ * VERSION: 2025-06-16 16:25:36
+ * PHASE: Phase 3: Utility Modules
  * ============================================================================
  *
- * PURPOSE:
- * Comprehensive path processing utilities for converting OpenAPI paths
- * to Next.js App Router conventions and handling path operations.
+ * AI GENERATION PROMPT:
+ *
+ * Create a utility module for path and route manipulation between OpenAPI
+ * and Next.js conventions. Include functions to convert OpenAPI paths like
+ * /users/{userId}/posts/{postId} to Next.js routes like
+ * /users/[userId]/posts/[postId], extract parameter names from paths,
+ * convert paths to file system safe directory structures, group related
+ * paths by resource (all /users paths together), determine if a path
+ * represents a collection (typically GET without ID) or single resource,
+ * generate appropriate file names from paths, handle special characters and
+ * edge cases in path conversion, and ensure all generated paths are valid
+ * for both Next.js routing and file systems.
  *
  * ============================================================================
  */
-
 const path = require('path');
-
 class PathUtils {
     constructor() {
         // Next.js App Router conventions
         this.dynamicSegmentPattern = /\{([^}]+)\}/g;
         this.catchAllPattern = /\{\.\.\.([^}]+)\}/g;
         this.optionalCatchAllPattern = /\{\[\[\.\.\.([^}]+)\]\]\}/g;
-
         // Common API path patterns
         this.versionPattern = /^\/?(v\d+|api\/v\d+)\//i;
         this.resourcePattern = /^\/([^\/]+)/;

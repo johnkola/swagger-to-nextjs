@@ -3,545 +3,390 @@
  * SWAGGER-TO-NEXTJS GENERATOR - AI PROMPT
  * ============================================================================
  * FILE: src/core/SwaggerLoader.js
- * VERSION: 2025-05-30 11:34:23
- * PHASE: PHASE 2: Core System Components
- * CATEGORY: 🔍 Core Infrastructure
+ * VERSION: 2025-06-16 16:25:36
+ * PHASE: Phase 2: Core System Components
  * ============================================================================
  *
  * AI GENERATION PROMPT:
  *
- * Create an advanced SwaggerLoader class that:
- * - Loads OpenAPI/Swagger specs from multiple sources (URL, file, stdin) 
- * - Supports authentication for protected endpoints (Bearer, API key,
- *   Basic) 
- * - Implements smart caching with ETags and cache invalidation 
- * - Handles large specifications with streaming support 
- * - Resolves external references ($ref) recursively 
- * - Supports both JSON and YAML with automatic detection 
- * - Implements retry logic with exponential backoff 
- * - Provides progress callbacks for large downloads 
- * - Validates a spec format before processing 
- * - Supports OpenAPI 3.0, 3.1, and Swagger 2.0
+ * Create a class that loads and parses OpenAPI/Swagger specifications from
+ * various sources. It should support loading from local file paths and
+ * HTTP/HTTPS URLs, automatically detect JSON vs YAML format, parse YAML
+ * using js-yaml library, resolve internal $ref references within the
+ * document, support both OpenAPI 3.x and Swagger 2.0 formats (converting
+ * Swagger 2.0 to OpenAPI 3.0 structure internally), handle file reading and
+ * network errors gracefully, implement basic timeout for URL fetching, and
+ * return a normalized specification object ready for processing.
  *
  * ============================================================================
  */
-const fs = require('fs').promises;
-const path = require('path');
-const axios = require('axios');
-const yaml = require('js-yaml');
-const { EventEmitter } = require('events');
-const crypto = require('crypto');
-const { pipeline } = require('stream').promises;
-const { createReadStream, createWriteStream } = require('fs');
-const $RefParser = require('@apidevtools/json-schema-ref-parser');
-
 /**
- * Advanced SwaggerLoader class for loading OpenAPI/Swagger specifications
- * from various sources with comprehensive features
+ * SwaggerLoader.js
+ *
+ * Loads and parses OpenAPI/Swagger specifications from various sources
+ * Supports both local files and remote URLs, handles JSON and YAML formats
  */
-class SwaggerLoader extends EventEmitter {
+
+import fs from 'fs/promises';
+import path from 'path';
+import yaml from 'js-yaml';
+import { URL } from 'url';
+import https from 'https';
+import http from 'http';
+
+class SwaggerLoader {
     constructor(options = {}) {
-        super();
-
-        this.options = {
-            // Cache configuration
-            cacheEnabled: options.cacheEnabled !== false,
-            cacheDir: options.cacheDir || path.join(process.cwd(), '.swagger-cache'),
-            cacheTTL: options.cacheTTL || 3600000, // 1 hour default
-
-            // Network configuration
-            timeout: options.timeout || 30000,
-            maxRetries: options.maxRetries || 3,
-            retryDelay: options.retryDelay || 1000,
-            userAgent: options.userAgent || 'swagger-to-nextjs/1.0',
-
-            // Authentication
-            auth: options.auth || {},
-
-            // Progress reporting
-            progressInterval: options.progressInterval || 100,
-
-            // Validation
-            validateOnLoad: options.validateOnLoad !== false,
-            strictMode: options.strictMode || false,
-
-            // Reference resolution
-            resolveReferences: options.resolveReferences !== false,
-            referenceCache: new Map(),
-
-            // Streaming
-            streamThreshold: options.streamThreshold || 5 * 1024 * 1024, // 5MB
-
-            ...options
-        };
-
+        this.timeout = options.timeout || 30000; // 30 seconds default
         this.cache = new Map();
-        this.etagCache = new Map();
-        this.activeRequests = new Map();
     }
 
     /**
-     * Load specification from any source
-     * @param {string} source - URL, file path, or '-' for stdin
-     * @param {object} options - Override options for this load
-     * @returns {Promise<object>} Parsed specification
+     * Load a specification from a file path or URL
+     * @param {string} source - File path or URL to the specification
+     * @returns {Promise<Object>} Parsed specification object
      */
-    async load(source, options = {}) {
-        const loadOptions = { ...this.options, ...options };
+    async load(source) {
+        // Check cache first
+        if (this.cache.has(source)) {
+            return this.cache.get(source);
+        }
 
+        let content;
+
+        if (this.isUrl(source)) {
+            content = await this.loadFromUrl(source);
+        } else {
+            content = await this.loadFromFile(source);
+        }
+
+        const spec = this.parseContent(content, source);
+        const normalizedSpec = await this.normalizeSpec(spec, source);
+
+        // Cache the result
+        this.cache.set(source, normalizedSpec);
+
+        return normalizedSpec;
+    }
+
+    /**
+     * Check if the source is a URL
+     * @param {string} source - Source to check
+     * @returns {boolean}
+     */
+    isUrl(source) {
         try {
-            this.emit('load:start', { source });
-
-            let spec;
-
-            // Determine source type
-            if (source === '-' || source === 'stdin') {
-                spec = await this._loadFromStdin(loadOptions);
-            } else if (this._isUrl(source)) {
-                spec = await this._loadFromUrl(source, loadOptions);
-            } else {
-                spec = await this._loadFromFile(source, loadOptions);
-            }
-
-            // Detect and validate format
-            this._detectFormat(spec);
-
-            // Resolve references if enabled
-            if (loadOptions.resolveReferences) {
-                spec = await this._resolveReferences(spec, source, loadOptions);
-            }
-
-            // Basic format validation
-            if (loadOptions.validateOnLoad) {
-                this._validateBasicFormat(spec);
-            }
-
-            this.emit('load:complete', { source, spec });
-
-            return spec;
-        } catch (error) {
-            this.emit('load:error', { source, error });
-            throw this._enhanceError(error, source);
+            new URL(source);
+            return source.startsWith('http://') || source.startsWith('https://');
+        } catch {
+            return false;
         }
     }
 
     /**
-     * Load from stdin
+     * Load specification from a file
+     * @param {string} filePath - Path to the file
+     * @returns {Promise<string>} File content
      */
-    async _loadFromStdin(options) {
+    async loadFromFile(filePath) {
+        try {
+            const absolutePath = path.resolve(filePath);
+            const content = await fs.readFile(absolutePath, 'utf8');
+            return content;
+        } catch (error) {
+            if (error.code === 'ENOENT') {
+                throw new Error(`Specification file not found: ${filePath}`);
+            }
+            if (error.code === 'EACCES') {
+                throw new Error(`Permission denied reading file: ${filePath}`);
+            }
+            throw new Error(`Failed to read specification file: ${error.message}`);
+        }
+    }
+
+    /**
+     * Load specification from a URL
+     * @param {string} url - URL to fetch
+     * @returns {Promise<string>} Response content
+     */
+    async loadFromUrl(url) {
         return new Promise((resolve, reject) => {
-            let data = '';
+            const urlObj = new URL(url);
+            const client = urlObj.protocol === 'https:' ? https : http;
 
-            process.stdin.setEncoding('utf8');
-
-            process.stdin.on('data', chunk => {
-                data += chunk;
-                this.emit('progress', {
-                    type: 'stdin',
-                    bytes: Buffer.byteLength(data)
-                });
-            });
-
-            process.stdin.on('end', () => {
-                try {
-                    const spec = this._parseContent(data);
-                    resolve(spec);
-                } catch (error) {
-                    reject(new Error(`Failed to parse stdin: ${error.message}`));
+            const request = client.get(url, { timeout: this.timeout }, (response) => {
+                if (response.statusCode !== 200) {
+                    reject(new Error(`Failed to fetch specification: HTTP ${response.statusCode}`));
+                    return;
                 }
+
+                let data = '';
+                response.on('data', (chunk) => data += chunk);
+                response.on('end', () => resolve(data));
             });
 
-            process.stdin.on('error', reject);
+            request.on('error', (error) => {
+                reject(new Error(`Failed to fetch specification from URL: ${error.message}`));
+            });
+
+            request.on('timeout', () => {
+                request.destroy();
+                reject(new Error(`Request timeout: Failed to fetch specification within ${this.timeout}ms`));
+            });
         });
     }
 
     /**
-     * Load from URL with authentication and caching
+     * Parse content as JSON or YAML
+     * @param {string} content - Content to parse
+     * @param {string} source - Source identifier for error messages
+     * @returns {Object} Parsed object
      */
-    async _loadFromUrl(url, options) {
-        // Check if request is already in progress
-        if (this.activeRequests.has(url)) {
-            return this.activeRequests.get(url);
-        }
-
-        // Check cache first
-        if (options.cacheEnabled) {
-            const cached = await this._checkCache(url);
-            if (cached) {
-                this.emit('cache:hit', { url });
-                return cached;
-            }
-        }
-
-        // Create request promise
-        const requestPromise = this._doHttpRequest(url, options);
-        this.activeRequests.set(url, requestPromise);
-
+    parseContent(content, source) {
+        // Try JSON first
         try {
-            const result = await requestPromise;
-            return result;
-        } finally {
-            this.activeRequests.delete(url);
+            return JSON.parse(content);
+        } catch (jsonError) {
+            // If JSON fails, try YAML
+            try {
+                const parsed = yaml.load(content);
+                // yaml.load can return undefined for empty content
+                if (parsed === undefined || parsed === null) {
+                    throw new Error('Empty or invalid YAML content');
+                }
+                return parsed;
+            } catch (yamlError) {
+                throw new Error(`Not valid JSON or YAML`);
+            }
         }
     }
 
     /**
-     * Perform HTTP request with retries
+     * Normalize specification to OpenAPI 3.0 format
+     * @param {Object} spec - Raw specification object
+     * @param {string} source - Source path for resolving references
+     * @returns {Promise<Object>} Normalized specification
      */
-    async _doHttpRequest(url, options, attempt = 1) {
-        try {
-            const headers = this._buildHeaders(url, options);
-
-            const response = await axios({
-                url,
-                method: 'GET',
-                headers,
-                timeout: options.timeout,
-                responseType: 'text',
-                maxContentLength: Infinity,
-                maxBodyLength: Infinity,
-                onDownloadProgress: (progressEvent) => {
-                    this.emit('progress', {
-                        type: 'download',
-                        loaded: progressEvent.loaded,
-                        total: progressEvent.total,
-                        percentage: progressEvent.total
-                            ? Math.round((progressEvent.loaded / progressEvent.total) * 100)
-                            : 0
-                    });
-                },
-                validateStatus: (status) => status < 500 // Don't throw on 4xx
-            });
-
-            // Handle different status codes
-            if (response.status === 304 && options.cacheEnabled) {
-                // Not modified, use cache
-                const cached = await this._getCached(url);
-                if (cached) return cached;
-            }
-
-            if (response.status >= 400) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            }
-
-            // Parse content
-            const spec = this._parseContent(response.data, url);
-
-            // Cache if enabled
-            if (options.cacheEnabled && response.headers.etag) {
-                await this._saveToCache(url, spec, response.headers.etag);
-            }
-
-            return spec;
-
-        } catch (error) {
-            // Retry logic
-            if (attempt < options.maxRetries && this._shouldRetry(error)) {
-                const delay = options.retryDelay * Math.pow(2, attempt - 1); // Exponential backoff
-
-                this.emit('retry', {
-                    url,
-                    attempt,
-                    delay,
-                    error: error.message
-                });
-
-                await new Promise(resolve => setTimeout(resolve, delay));
-                return this._doHttpRequest(url, options, attempt + 1);
-            }
-
-            throw error;
+    async normalizeSpec(spec, source) {
+        // Check if it's Swagger 2.0 and convert to OpenAPI 3.0
+        if (spec.swagger && spec.swagger.startsWith('2.')) {
+            spec = this.convertSwagger2ToOpenAPI3(spec);
         }
+
+        // Resolve all $ref references
+        // For URLs, use the full URL as base; for files, use the full file path
+        const basePath = this.isUrl(source) ? source : path.resolve(source);
+        const resolved = await this.resolveReferences(spec, spec, basePath);
+
+        return resolved;
     }
 
     /**
-     * Build request headers with authentication
+     * Convert Swagger 2.0 to OpenAPI 3.0 structure
+     * @param {Object} swagger2 - Swagger 2.0 specification
+     * @returns {Object} OpenAPI 3.0 specification
      */
-    _buildHeaders(url, options) {
-        const headers = {
-            'User-Agent': options.userAgent,
-            'Accept': 'application/json, application/yaml, application/x-yaml, text/yaml, text/x-yaml'
+    convertSwagger2ToOpenAPI3(swagger2) {
+        const openapi3 = {
+            openapi: '3.0.0',
+            info: swagger2.info,
+            servers: [],
+            paths: {},
+            components: {
+                schemas: swagger2.definitions || {},
+                securitySchemes: {}
+            }
         };
 
-        // Add authentication
-        const auth = options.auth;
-
-        if (auth.bearer) {
-            headers['Authorization'] = `Bearer ${auth.bearer}`;
-        } else if (auth.apiKey) {
-            if (auth.apiKey.in === 'header') {
-                headers[auth.apiKey.name] = auth.apiKey.value;
-            }
-            // Query params handled in URL
-        } else if (auth.basic) {
-            const credentials = Buffer.from(`${auth.basic.username}:${auth.basic.password}`).toString('base64');
-            headers['Authorization'] = `Basic ${credentials}`;
+        // Convert host/basePath to servers
+        if (swagger2.host) {
+            const scheme = swagger2.schemes ? swagger2.schemes[0] : 'https';
+            const basePath = swagger2.basePath || '';
+            openapi3.servers.push({
+                url: `${scheme}://${swagger2.host}${basePath}`
+            });
         }
 
-        // Add ETag for cache validation
-        const etag = this.etagCache.get(url);
-        if (etag && options.cacheEnabled) {
-            headers['If-None-Match'] = etag;
-        }
+        // Convert paths
+        if (swagger2.paths) {
+            for (const [pathKey, pathItem] of Object.entries(swagger2.paths)) {
+                openapi3.paths[pathKey] = {};
 
-        return headers;
-    }
+                for (const [method, operation] of Object.entries(pathItem)) {
+                    if (method === 'parameters') continue; // Skip path-level parameters for now
 
-    /**
-     * Load from file system
-     */
-    async _loadFromFile(filePath, options) {
-        const absolutePath = path.resolve(filePath);
+                    const convertedOp = { ...operation };
 
-        // Check if file exists
-        try {
-            await fs.access(absolutePath);
-        } catch (error) {
-            throw new Error(`File not found: ${filePath}`);
-        }
+                    // Convert produces/consumes to content types
+                    if (operation.responses) {
+                        convertedOp.responses = {};
+                        for (const [status, response] of Object.entries(operation.responses)) {
+                            convertedOp.responses[status] = {
+                                description: response.description || ''
+                            };
 
-        // Get file stats for large file handling
-        const stats = await fs.stat(absolutePath);
+                            if (response.schema) {
+                                const produces = operation.produces || swagger2.produces || ['application/json'];
+                                convertedOp.responses[status].content = {};
+                                produces.forEach(mediaType => {
+                                    convertedOp.responses[status].content[mediaType] = {
+                                        schema: response.schema
+                                    };
+                                });
+                            }
+                        }
+                    }
 
-        this.emit('progress', {
-            type: 'file',
-            path: absolutePath,
-            size: stats.size
-        });
+                    // Convert parameters
+                    if (operation.parameters) {
+                        convertedOp.parameters = [];
+                        convertedOp.requestBody = null;
 
-        // Read file
-        const content = await fs.readFile(absolutePath, 'utf8');
+                        operation.parameters.forEach(param => {
+                            if (param.in === 'body') {
+                                const consumes = operation.consumes || swagger2.consumes || ['application/json'];
+                                convertedOp.requestBody = {
+                                    content: {}
+                                };
+                                consumes.forEach(mediaType => {
+                                    convertedOp.requestBody.content[mediaType] = {
+                                        schema: param.schema
+                                    };
+                                });
+                            } else {
+                                convertedOp.parameters.push(param);
+                            }
+                        });
 
-        // Parse content
-        return this._parseContent(content, absolutePath);
-    }
+                        // Remove requestBody if it wasn't set
+                        if (!convertedOp.requestBody) {
+                            delete convertedOp.requestBody;
+                        }
 
-    /**
-     * Parse content (JSON or YAML)
-     */
-    _parseContent(content, source = 'unknown') {
-        // Try to detect format
-        const trimmed = content.trim();
+                        // Remove parameters array if empty
+                        if (convertedOp.parameters.length === 0) {
+                            delete convertedOp.parameters;
+                        }
+                    }
 
-        if (!trimmed) {
-            throw new Error('Empty specification');
-        }
-
-        // Try JSON first
-        if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
-            try {
-                return JSON.parse(trimmed);
-            } catch (jsonError) {
-                // Not JSON, try YAML
-                try {
-                    return yaml.load(trimmed, { filename: source });
-                } catch (yamlError) {
-                    throw new Error(`Failed to parse as JSON or YAML: ${jsonError.message}`);
+                    openapi3.paths[pathKey][method] = convertedOp;
                 }
             }
         }
 
-        // Try YAML
-        try {
-            return yaml.load(trimmed, { filename: source });
-        } catch (yamlError) {
-            // Last attempt as JSON (might have leading spaces)
-            try {
-                return JSON.parse(trimmed);
-            } catch (jsonError) {
-                throw new Error(`Failed to parse specification: ${yamlError.message}`);
-            }
-        }
-    }
-
-    /**
-     * Resolve external references
-     */
-    async _resolveReferences(spec, baseUrl, options) {
-        try {
-            this.emit('references:start');
-
-            const resolved = await $RefParser.dereference(spec, {
-                continueOnError: false,
-                dereference: {
-                    circular: 'ignore'
-                },
-                resolve: {
-                    external: true,
-                    http: {
-                        timeout: options.timeout,
-                        headers: this._buildHeaders(baseUrl, options)
+        // Convert security definitions
+        if (swagger2.securityDefinitions) {
+            for (const [name, def] of Object.entries(swagger2.securityDefinitions)) {
+                if (def.type === 'basic') {
+                    openapi3.components.securitySchemes[name] = {
+                        type: 'http',
+                        scheme: 'basic'
+                    };
+                } else if (def.type === 'apiKey') {
+                    openapi3.components.securitySchemes[name] = {
+                        type: 'apiKey',
+                        in: def.in,
+                        name: def.name
+                    };
+                } else if (def.type === 'oauth2') {
+                    openapi3.components.securitySchemes[name] = {
+                        type: 'oauth2',
+                        flows: {}
+                    };
+                    // Simplified OAuth2 conversion
+                    if (def.flow === 'implicit') {
+                        openapi3.components.securitySchemes[name].flows.implicit = {
+                            authorizationUrl: def.authorizationUrl,
+                            scopes: def.scopes || {}
+                        };
                     }
                 }
-            });
-
-            this.emit('references:complete');
-
-            return resolved;
-        } catch (error) {
-            this.emit('references:error', error);
-            throw new Error(`Failed to resolve references: ${error.message}`);
+            }
         }
+
+        return openapi3;
     }
 
     /**
-     * Detect specification format
+     * Resolve $ref references in the specification
+     * @param {Object} obj - Object to resolve references in
+     * @param {Object} root - Root specification object
+     * @param {string} basePath - Base path for external references
+     * @returns {Promise<Object>} Object with resolved references
      */
-    _detectFormat(spec) {
-        if (spec.openapi) {
-            const version = spec.openapi;
-            if (version.startsWith('3.0')) {
-                this.format = 'openapi-3.0';
-            } else if (version.startsWith('3.1')) {
-                this.format = 'openapi-3.1';
-            } else {
-                throw new Error(`Unsupported OpenAPI version: ${version}`);
+    async resolveReferences(obj, root, basePath) {
+        if (!obj || typeof obj !== 'object') {
+            return obj;
+        }
+
+        // Handle $ref
+        if (obj.$ref) {
+            const resolved = await this.resolveReference(obj.$ref, root, basePath);
+            return this.resolveReferences(resolved, root, basePath);
+        }
+
+        // Handle arrays
+        if (Array.isArray(obj)) {
+            return Promise.all(obj.map(item => this.resolveReferences(item, root, basePath)));
+        }
+
+        // Handle objects
+        const resolved = {};
+        for (const [key, value] of Object.entries(obj)) {
+            resolved[key] = await this.resolveReferences(value, root, basePath);
+        }
+        return resolved;
+    }
+
+    /**
+     * Resolve a single $ref reference
+     * @param {string} ref - Reference string
+     * @param {Object} root - Root specification object
+     * @param {string} basePath - Base path for external references
+     * @returns {Promise<Object>} Resolved reference
+     */
+    async resolveReference(ref, root, basePath) {
+        // Internal reference
+        if (ref.startsWith('#/')) {
+            const path = ref.substring(2).split('/');
+            let current = root;
+
+            for (const segment of path) {
+                current = current[segment];
+                if (!current) {
+                    throw new Error(`Failed to resolve reference: ${ref}`);
+                }
             }
-        } else if (spec.swagger === '2.0') {
-            this.format = 'swagger-2.0';
+
+            return current;
+        }
+
+        // External reference
+        const [file, fragment] = ref.split('#');
+        let externalPath;
+
+        if (this.isUrl(basePath)) {
+            externalPath = new URL(file, basePath).toString();
         } else {
-            throw new Error('Unable to detect specification format');
+            // For file paths, resolve relative to the directory of the base file
+            const baseDir = path.dirname(basePath);
+            externalPath = path.resolve(baseDir, file);
         }
 
-        this.emit('format:detected', this.format);
-        return this.format;
+        const externalSpec = await this.load(externalPath);
+
+        if (fragment) {
+            return this.resolveReference(`#${fragment}`, externalSpec, externalPath);
+        }
+
+        return externalSpec;
     }
 
     /**
-     * Basic format validation
+     * Clear the cache
      */
-    _validateBasicFormat(spec) {
-        const required = this.format === 'swagger-2.0'
-            ? ['swagger', 'info', 'paths']
-            : ['openapi', 'info', 'paths'];
-
-        for (const field of required) {
-            if (!spec[field]) {
-                throw new Error(`Missing required field: ${field}`);
-            }
-        }
-
-        // Validate info object
-        if (!spec.info.title || !spec.info.version) {
-            throw new Error('Missing required info fields: title and version');
-        }
-
-        return true;
-    }
-
-    /**
-     * Cache management
-     */
-    async _checkCache(url) {
-        if (!this.options.cacheEnabled) return null;
-
-        const cacheKey = this._getCacheKey(url);
-        const cachePath = path.join(this.options.cacheDir, cacheKey);
-
-        try {
-            const stats = await fs.stat(cachePath);
-            const age = Date.now() - stats.mtime.getTime();
-
-            if (age > this.options.cacheTTL) {
-                // Cache expired
-                return null;
-            }
-
-            const content = await fs.readFile(cachePath, 'utf8');
-            return JSON.parse(content);
-        } catch (error) {
-            // Cache miss
-            return null;
-        }
-    }
-
-    async _saveToCache(url, spec, etag) {
-        if (!this.options.cacheEnabled) return;
-
-        try {
-            await fs.mkdir(this.options.cacheDir, { recursive: true });
-
-            const cacheKey = this._getCacheKey(url);
-            const cachePath = path.join(this.options.cacheDir, cacheKey);
-
-            await fs.writeFile(cachePath, JSON.stringify(spec, null, 2));
-
-            if (etag) {
-                this.etagCache.set(url, etag);
-                const etagPath = `${cachePath}.etag`;
-                await fs.writeFile(etagPath, etag);
-            }
-
-            this.emit('cache:saved', { url, cacheKey });
-        } catch (error) {
-            this.emit('cache:error', error);
-        }
-    }
-
-    async _getCached(url) {
-        const cacheKey = this._getCacheKey(url);
-        const cachePath = path.join(this.options.cacheDir, cacheKey);
-
-        try {
-            const content = await fs.readFile(cachePath, 'utf8');
-            return JSON.parse(content);
-        } catch (error) {
-            return null;
-        }
-    }
-
-    _getCacheKey(url) {
-        return crypto.createHash('sha256').update(url).digest('hex');
-    }
-
-    /**
-     * Utility methods
-     */
-    _isUrl(source) {
-        return /^https?:\/\//.test(source);
-    }
-
-    _shouldRetry(error) {
-        // Retry on network errors or 5xx status codes
-        return error.code === 'ECONNRESET' ||
-            error.code === 'ETIMEDOUT' ||
-            error.code === 'ENOTFOUND' ||
-            (error.response && error.response.status >= 500);
-    }
-
-    _enhanceError(error, source) {
-        error.source = source;
-        error.loader = 'SwaggerLoader';
-        return error;
-    }
-
-    /**
-     * Clear cache
-     */
-    async clearCache() {
-        if (this.options.cacheDir) {
-            try {
-                await fs.rmdir(this.options.cacheDir, { recursive: true });
-                this.cache.clear();
-                this.etagCache.clear();
-                this.emit('cache:cleared');
-            } catch (error) {
-                this.emit('cache:error', error);
-            }
-        }
-    }
-
-    /**
-     * Get loader statistics
-     */
-    getStats() {
-        return {
-            cacheSize: this.cache.size,
-            etagCacheSize: this.etagCache.size,
-            activeRequests: this.activeRequests.size,
-            format: this.format
-        };
+    clearCache() {
+        this.cache.clear();
     }
 }
 
-module.exports = SwaggerLoader;
+export default SwaggerLoader;

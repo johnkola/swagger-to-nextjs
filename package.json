@@ -2,16 +2,21 @@
   "name": "@yourapp/swagger-to-nextjs",
   "version": "1.0.0",
   "description": "Generate Next.js applications from Swagger/OpenAPI specifications",
+  "type": "module",
   "main": "src/index.js",
   "bin": {
-    "swagger-to-nextjs": "bin/swagger-to-nextjs"
+    "swagger-to-nextjs": "bin/swagger-to-nextjs.js"
   },
   "scripts": {
     "generate": "node src/cli.js",
     "help": "node src/cli.js --help",
-    "setup": "node update-comments-swagger-nextjs-files.js _nextjs-code-generator-roadmap.md",
+    "setup": "node scripts/update-comments-swagger-nextjs-files.js _nextjs-code-generator-roadmap.md",
     "dev": "node bin/swagger-to-nextjs.js --help",
-    "lint": "eslint src/"
+    "lint": "eslint src/",
+    "test": "node --test",
+    "test:watch": "node --test --watch",
+    "test:coverage": "node --test --experimental-test-coverage",
+    "test:only": "node --test --test-only"
   },
   "keywords": [
     "swagger",
@@ -25,7 +30,7 @@
   "author": "Your Name",
   "license": "MIT",
   "engines": {
-    "node": ">=14.0.0"
+    "node": ">=20.0.0"
   },
   "dependencies": {
     "@apidevtools/json-schema-ref-parser": "^12.0.2",
@@ -34,7 +39,7 @@
     "ajv-draft-04": "^1.0.0",
     "ajv-formats": "^3.0.1",
     "axios": "^1.9.0",
-    "chalk": "^4.1.2",
+    "chalk": "^5.3.0",
     "chokidar": "^4.0.3",
     "cli-progress": "^3.12.0",
     "commander": "^11.1.0",
@@ -44,14 +49,14 @@
     "fs-extra": "^11.3.0",
     "glob": "^10.3.10",
     "handlebars": "^4.7.8",
-    "inquirer": "^8.2.6",
+    "inquirer": "^9.2.12",
     "isomorphic-dompurify": "^2.25.0",
     "json-pointer": "^0.6.2",
     "json-schema-to-typescript": "^15.0.4",
-    "lodash": "^4.17.21",
+    "lodash-es": "^4.17.21",
     "node-fetch": "^3.3.2",
-    "ora": "^5.4.1",
-    "p-limit": "^3.1.0",
+    "ora": "^6.3.1",
+    "p-limit": "^4.0.0",
     "pluralize": "^8.0.0",
     "semver": "^7.7.2",
     "slugify": "^1.6.6",
@@ -63,8 +68,6 @@
     "zod": "^3.25.42"
   },
   "devDependencies": {
-    "@babel/core": "^7.27.3",
-    "@babel/preset-env": "^7.27.2",
     "@types/node": "^20.17.57",
     "ejs": "^3.1.10",
     "eslint": "^8.57.1",
@@ -92,7 +95,6 @@
   "homepage": "https://github.com/yourusername/swagger-to-nextjs#readme",
   "directories": {
     "example": "examples",
-    "test": "tests"
-  },
-  "type": "commonjs"
+    "test": "test"
+  }
 }

@@ -1,20 +1,29 @@
 /**
  * ============================================================================
- * SWAGGER-TO-NEXTJS GENERATOR - STRING UTILITIES
+ * SWAGGER-TO-NEXTJS GENERATOR - AI PROMPT
  * ============================================================================
  * FILE: src/utils/StringUtils.js
- * VERSION: 2025-05-30 11:34:23
- * PHASE: PHASE 3: Code Generation Engine
- * CATEGORY: 🛠️ Utilities
+ * VERSION: 2025-06-16 16:25:36
+ * PHASE: Phase 3: Utility Modules
  * ============================================================================
  *
- * PURPOSE:
- * Comprehensive string manipulation utilities for code generation.
- * Handles naming conventions, string transformations, and text processing.
+ * AI GENERATION PROMPT:
+ *
+ * Create a comprehensive string manipulation utility module for various
+ * naming convention conversions needed in code generation. Include
+ * functions to convert strings between different cases: toPascalCase (for
+ * class names like UserProfile), toCamelCase (for variables like userId),
+ * toKebabCase (for file names like user-profile), toSnakeCase (for some
+ * APIs like user_id), and toUpperCase (for constants like USER_ID). Add
+ * functions for pluralization and singularization of resource names,
+ * capitalizing first letters, sanitizing strings to valid JavaScript
+ * identifiers, handling special characters and numbers in conversions,
+ * preserving acronyms appropriately (API stays API, not Api), and ensuring
+ * all conversions handle edge cases like empty strings, single characters,
+ * and mixed input formats.
  *
  * ============================================================================
  */
-
 class StringUtils {
     constructor() {
         // Common words to handle in naming conventions
@@ -23,7 +32,6 @@ class StringUtils {
         this.conjunctions = new Set(['and', 'or', 'but', 'nor', 'for', 'yet', 'so']);
         this.prepositions = new Set(['in', 'on', 'at', 'by', 'for', 'with', 'from', 'to', 'of']);
     }
-
     /**
      * Convert string to camelCase
      * @param {string} str - Input string
@@ -32,7 +40,6 @@ class StringUtils {
      */
     toCamelCase(str, preserveAcronyms = true) {
         if (!str) return '';
-
         // First normalize the string
         let normalized = this.normalizeString(str);
 

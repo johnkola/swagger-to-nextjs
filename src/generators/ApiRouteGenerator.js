@@ -3,24 +3,23 @@
  * SWAGGER-TO-NEXTJS GENERATOR - AI PROMPT
  * ============================================================================
  * FILE: src/generators/ApiRouteGenerator.js
- * VERSION: 2025-05-30 11:34:23
- * PHASE: PHASE 3: Code Generation Engine
- * CATEGORY: 🏗️ Base Generators
+ * VERSION: 2025-06-16 16:25:36
+ * PHASE: Phase 6: Main Code Generators
  * ============================================================================
  *
  * AI GENERATION PROMPT:
  *
- * Build an intelligent API route generator that:
- * - Generates Next.js 13+ App Router API routes
- * - Implements proper TypeScript typing from OpenAPI schemas
- * - Generates request/response validation using Zod
- * - Implements error handling middleware
- * - Generates authentication guards
- * - Supports file upload handling
- * - Implements rate limiting
- * - Generates API documentation
- * - Supports WebSocket endpoints
- * - Implements request/response logging
+ * Create a generator class that produces Next.js 14 App Router API route
+ * handlers from OpenAPI path definitions. For each path in the OpenAPI
+ * spec, generate a route.ts file in the appropriate app/api directory
+ * structure, convert OpenAPI paths like /pets/{id} to Next.js dynamic
+ * routes like /pets/[id], create named export functions for each HTTP
+ * method (GET, POST, PUT, DELETE, PATCH), import generated TypeScript types
+ * for request/response typing, add request body parsing and basic
+ * validation, include proper error handling with appropriate HTTP status
+ * codes, use NextRequest and NextResponse from Next.js, add TODO comments
+ * where business logic should be implemented, and organize routes following
+ * RESTful conventions.
  *
  * ============================================================================
  */
@@ -31,8 +30,6 @@ const PathUtils = require('../utils/PathUtils');
 const SchemaUtils = require('../utils/SchemaUtils');
 const StringUtils = require('../utils/StringUtils');
 const ValidationUtils = require('../utils/ValidationUtils');
-
-
 /**
  * Generates Next.js 13+ App Router API routes from OpenAPI specs
  */
@@ -43,7 +40,6 @@ class ApiRouteGenerator extends BaseGenerator {
             templateDir: 'api',
             outputSubdir: 'app/api'
         });
-
         // Initialize utilities
         this.pathUtils = new PathUtils();
         this.schemaUtils = new SchemaUtils();

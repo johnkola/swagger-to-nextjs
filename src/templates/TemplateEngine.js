@@ -3,24 +3,20 @@
  * SWAGGER-TO-NEXTJS GENERATOR - AI PROMPT
  * ============================================================================
  * FILE: src/templates/TemplateEngine.js
- * VERSION: 2025-05-30 11:34:23
- * PHASE: PHASE 3: Code Generation Engine
- * CATEGORY: 📄 Template System
+ * VERSION: 2025-06-16 16:25:36
+ * PHASE: Phase 4: Template System
  * ============================================================================
  *
  * AI GENERATION PROMPT:
  *
- * Create a powerful template engine that:
- * - Extends Handlebars with custom functionality 
- * - Implements template caching and precompilation 
- * - Supports multiple template languages 
- * - Provides async helper support 
- * - Implements template composition 
- * - Supports conditional compilation 
- * - Provides debugging capabilities 
- * - Implements security sandboxing 
- * - Supports custom delimiters 
- * - Provides performance optimization
+ * Create a template engine wrapper class around Handlebars that manages
+ * template loading and rendering for the code generator. This class should
+ * load templates from the templates directory, compile and cache templates
+ * for performance, register custom Handlebars helpers for code generation
+ * tasks, support template overrides from user-specified directories, render
+ * templates with provided data contexts, handle missing templates with
+ * clear error messages, support partials for reusable template fragments,
+ * and provide debugging information when template rendering fails.
  *
  * ============================================================================
  */
@@ -30,7 +26,6 @@ const fs = require('fs').promises;
 const path = require('path');
 const crypto = require('crypto');
 const vm = require('vm');
-
 /**
  * Advanced template engine with extended Handlebars functionality
  * @extends EventEmitter
@@ -38,7 +33,6 @@ const vm = require('vm');
 class TemplateEngine extends EventEmitter {
     constructor(options = {}) {
         super();
-
         this.options = {
             cacheEnabled: true,
             cacheSize: 100,
@@ -51,7 +45,6 @@ class TemplateEngine extends EventEmitter {
             securityLevel: 'strict',
             ...options
         };
-
         // Initialize engines
         this.engines = new Map();
         this.cache = new Map();

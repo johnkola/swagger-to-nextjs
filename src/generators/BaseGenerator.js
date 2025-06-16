@@ -1,26 +1,24 @@
 /**
  * ============================================================================
- * SWAGGER-TO-NEXTJS GENERATOR - BASE GENERATOR
+ * SWAGGER-TO-NEXTJS GENERATOR - AI PROMPT
  * ============================================================================
  * FILE: src/generators/BaseGenerator.js
- * VERSION: 2025-05-30 11:34:23
- * PHASE: PHASE 3: Code Generation Engine
- * CATEGORY: 🏗️ Base Generators
+ * VERSION: 2025-06-16 16:25:36
+ * PHASE: Phase 5: Base Generator
  * ============================================================================
  *
- * PURPOSE:
- * Sophisticated abstract base generator class that:
- * - Implements a template method pattern for generation workflow
- * - Provides lifecycle hooks (before, during, after generation)
- * - Implements dependency injection for services
- * - Provides template variable resolution
- * - Implements file conflict resolution strategies
- * - Supports incremental generation
- * - Provides rollback capabilities
- * - Implements generation metrics
- * - Supports dry-run mode
- * - Provides extension points for customization
- * - Includes all utility classes for child generators
+ * AI GENERATION PROMPT:
+ *
+ * Create an abstract base class that all specific generators (types, API
+ * routes, pages, etc.) will extend. This class should accept the OpenAPI
+ * specification and generator options in its constructor, define an
+ * abstract generate() method that subclasses must implement, provide common
+ * utility methods like getOperations() to extract all operations from
+ * paths, getSchemas() to get all schema definitions, and renderTemplate()
+ * to render Handlebars templates. Include event emission for progress
+ * reporting, error handling with context about what was being generated,
+ * support for dry-run mode, and helper methods for common tasks like
+ * creating operation IDs or extracting path parameters.
  *
  * ============================================================================
  */
@@ -28,15 +26,12 @@ const { EventEmitter } = require('events');
 const path = require('path');
 const fs = require('fs').promises;
 const { performance } = require('perf_hooks');
-
 // Phase 2 components
 const Logger = require('../logging/Logger');
 const GeneratorError = require('../errors/GeneratorError');
 const DirectoryManager = require('../core/DirectoryManager');
-
 // Phase 3 components
 const TemplateEngine = require('../templates/TemplateEngine');
-
 // Import all utility classes
 const StringUtils = require('../utils/StringUtils');
 const SchemaUtils = require('../utils/SchemaUtils');
