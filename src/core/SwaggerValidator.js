@@ -3,23 +3,25 @@
  * SWAGGER-TO-NEXTJS GENERATOR - AI PROMPT
  * ============================================================================
  * FILE: src/core/SwaggerValidator.js
- * VERSION: 2025-06-16 16:25:36
+ * VERSION: 2025-06-17 16:21:39
  * PHASE: Phase 2: Core System Components
  * ============================================================================
  *
  * AI GENERATION PROMPT:
  *
- * Build a validator class for OpenAPI specifications that ensures the spec
- * is valid and ready for code generation. It should check for required
+ * Build a validator class using ES Module syntax for OpenAPI specifications
+ * that ensures the spec is valid and ready for code generation. Import
+ * necessary utilities using ES Module imports. It should check for required
  * fields (openapi/swagger version, info, paths), verify each path has at
  * least one operation, generate missing operationIds from path and method,
  * validate that all referenced schemas exist, check for common issues like
- * empty paths or missing response schemas, separate validation results into
- * errors (blocking) and warnings (non-blocking), provide detailed error
- * messages with the path to the problem (e.g.,
- * "paths./pets.get.responses.200.content is missing"), and return a
- * validation result object with valid boolean, errors array, and warnings
- * array.
+ * empty paths or missing response schemas, extract any UI hints or display
+ * preferences from spec extensions that could influence DaisyUI component
+ * selection, separate validation results into errors (blocking) and
+ * warnings (non-blocking), provide detailed error messages with the path to
+ * the problem (e.g., "paths./pets.get.responses.200.content is missing"),
+ * and return a validation result object with valid boolean, errors array,
+ * and warnings array. Export as default.
  *
  * ============================================================================
  */
@@ -28,7 +30,6 @@ class SwaggerValidator {
         this.errors = [];
         this.warnings = [];
     }
-
     /**
      * Validate an OpenAPI specification
      * @param {Object} spec - The specification to validate
@@ -37,7 +38,6 @@ class SwaggerValidator {
     validate(spec) {
         this.errors = [];
         this.warnings = [];
-
         // Check basic structure
         this.validateBasicStructure(spec);
 

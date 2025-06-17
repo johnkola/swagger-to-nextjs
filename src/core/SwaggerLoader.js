@@ -3,20 +3,24 @@
  * SWAGGER-TO-NEXTJS GENERATOR - AI PROMPT
  * ============================================================================
  * FILE: src/core/SwaggerLoader.js
- * VERSION: 2025-06-16 16:25:36
+ * VERSION: 2025-06-17 16:21:39
  * PHASE: Phase 2: Core System Components
  * ============================================================================
  *
  * AI GENERATION PROMPT:
  *
- * Create a class that loads and parses OpenAPI/Swagger specifications from
- * various sources. It should support loading from local file paths and
- * HTTP/HTTPS URLs, automatically detect JSON vs YAML format, parse YAML
- * using js-yaml library, resolve internal $ref references within the
- * document, support both OpenAPI 3.x and Swagger 2.0 formats (converting
- * Swagger 2.0 to OpenAPI 3.0 structure internally), handle file reading and
- * network errors gracefully, implement basic timeout for URL fetching, and
- * return a normalized specification object ready for processing.
+ * Create a class using ES Module syntax that loads and parses
+ * OpenAPI/Swagger specifications from various sources. Import dependencies
+ * like js-yaml, fs-extra, and node-fetch using ES Module imports. The class
+ * should support loading from local file paths and HTTP/HTTPS URLs,
+ * automatically detect JSON vs YAML format, parse YAML using js-yaml
+ * library, resolve internal $ref references within the document, support
+ * both OpenAPI 3.x and Swagger 2.0 formats (converting Swagger 2.0 to
+ * OpenAPI 3.0 structure internally), handle file reading and network errors
+ * gracefully, implement basic timeout for URL fetching, extract any
+ * branding colors or theme information from the spec for potential DaisyUI
+ * theme customization, and return a normalized specification object ready
+ * for processing. Export the class as the default export.
  *
  * ============================================================================
  */
@@ -26,14 +30,12 @@
  * Loads and parses OpenAPI/Swagger specifications from various sources
  * Supports both local files and remote URLs, handles JSON and YAML formats
  */
-
 import fs from 'fs/promises';
 import path from 'path';
 import yaml from 'js-yaml';
 import { URL } from 'url';
 import https from 'https';
 import http from 'http';
-
 class SwaggerLoader {
     constructor(options = {}) {
         this.timeout = options.timeout || 30000; // 30 seconds default

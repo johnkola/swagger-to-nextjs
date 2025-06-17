@@ -1,8 +1,29 @@
 /**
+ * ============================================================================
+ * SWAGGER-TO-NEXTJS GENERATOR - AI PROMPT
+ * ============================================================================
+ * FILE: test/core/FileWriter.test.js
+ * VERSION: 2025-06-17 16:21:39
+ * PHASE: Phase 9: Test Files
+ * ============================================================================
+ *
+ * AI GENERATION PROMPT:
+ *
+ * Create a test file using Node.js built-in test framework for the
+ * FileWriter class. Use ES Module imports and mock file system operations.
+ * Write tests to verify directory creation, file writing with content,
+ * handling of existing files with force option, dry-run mode operation,
+ * error handling for permissions, progress callback execution, atomic write
+ * operations, file formatting with Prettier for different file types, CSS
+ * file formatting, tracking of written files with categories, and proper
+ * cleanup in tests. Use before/after hooks for test setup and cleanup.
+ *
+ * ============================================================================
+ */
+/**
  * FileWriter.test.js
  * Unit tests for the FileWriter class
  */
-
 import { describe, it, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { fileURLToPath } from 'url';

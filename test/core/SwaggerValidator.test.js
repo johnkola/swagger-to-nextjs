@@ -1,8 +1,31 @@
 /**
+ * ============================================================================
+ * SWAGGER-TO-NEXTJS GENERATOR - AI PROMPT
+ * ============================================================================
+ * FILE: test/core/SwaggerValidator.test.js
+ * VERSION: 2025-06-17 16:21:39
+ * PHASE: Phase 9: Test Files
+ * ============================================================================
+ *
+ * AI GENERATION PROMPT:
+ *
+ * Create a test file using Node.js built-in test framework for the
+ * SwaggerValidator class. Use ES Module imports for test, assert, and the
+ * SwaggerValidator class. Write tests to verify validation of complete
+ * valid specs, detection of missing required fields, generation of
+ * operationIds when missing, validation of path operations, detection of
+ * invalid $ref references, separation of errors and warnings, detailed
+ * error message formatting, handling of empty paths object, validation of
+ * response schemas, extraction of UI hints from x-ui extensions, and edge
+ * cases in OpenAPI specifications. Use describe and it blocks with async
+ * functions where needed.
+ *
+ * ============================================================================
+ */
+/**
  * SwaggerValidator.test.js
  * Unit tests for the SwaggerValidator class
  */
-
 import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import SwaggerValidator from '../../src/core/SwaggerValidator.js';

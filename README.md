@@ -3,23 +3,29 @@
 SWAGGER-TO-NEXTJS GENERATOR - AI PROMPT
 ==============================================================================
 FILE: README.md
-VERSION: 2025-06-16 16:25:36
+VERSION: 2025-06-17 16:21:39
 PHASE: Phase 1: Foundation & Core Infrastructure
 ==============================================================================
 
 AI GENERATION PROMPT:
 
 Write a comprehensive README for a CLI tool that generates Next.js
-applications from OpenAPI/Swagger specifications. Explain that this tool takes
-an OpenAPI spec (YAML or JSON) and generates a complete Next.js 14+
-application with TypeScript types, API routes, client library, and UI
-components. Include installation instructions for global npm installation, a
-quick start example showing the basic command "swagger-to-nextjs generate
-petstore.yaml my-app", and explain what gets generated. List key features like
-TypeScript support, automatic API client generation, CRUD UI components, and
+applications from OpenAPI/Swagger specifications with beautiful DaisyUI
+components. Explain that this tool takes an OpenAPI spec (YAML or JSON) and
+generates a complete Next.js 14+ application with TypeScript types, API
+routes, client library, and UI components styled with DaisyUI. Mention that
+the project uses ES Modules and requires Node.js 18+. Include installation
+instructions for global npm installation, a quick start example showing the
+basic command "swagger-to-nextjs generate petstore.yaml my-app", and explain
+what gets generated including DaisyUI-styled components. List key features
+like TypeScript support, automatic API client generation, CRUD UI components
+with DaisyUI theming, responsive design out of the box, dark mode support, and
 customizable templates. Provide basic usage documentation with common options
-like --force, --dry-run, --no-pages. Include requirements (Node.js 16+) and
-MIT license information.
+like --force, --dry-run, --no-pages, --theme (for DaisyUI theme selection),
+--themes (list of themes to include). Include a section on theming explaining
+how to customize DaisyUI themes. Include a testing section explaining how to
+run tests using the native Node.js test runner. Include requirements (Node.js
+18+) and MIT license information.
 
 ==============================================================================
 -->
@@ -37,9 +43,7 @@ MIT license information.
 10. [Implementation Guide](#10-implementation-guide)
 11. [Testing Strategy](#11-testing-strategy)
 ---
-
 ## 1. Executive Summary
-
 ### 1.1 Overview
 The Swagger-to-Next.js Generator is a command-line tool that automatically generates a complete, production-ready Next.js application from an OpenAPI/Swagger specification. It transforms API definitions into a fully functional web application with TypeScript types, API routes, client libraries, and UI components.
 

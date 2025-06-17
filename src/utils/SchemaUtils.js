@@ -3,978 +3,454 @@
  * SWAGGER-TO-NEXTJS GENERATOR - AI PROMPT
  * ============================================================================
  * FILE: src/utils/SchemaUtils.js
- * VERSION: 2025-06-16 16:25:36
+ * VERSION: 2025-06-17 16:21:39
  * PHASE: Phase 3: Utility Modules
  * ============================================================================
  *
  * AI GENERATION PROMPT:
  *
- * Build a utility module for converting OpenAPI schemas to TypeScript types
- * and handling schema-related operations. Create functions to convert
- * OpenAPI schema objects to TypeScript type strings, map OpenAPI types
- * (string, integer, number, boolean) to TypeScript types, handle array
- * types with proper TypeScript array syntax, process nested object schemas
- * recursively, resolve $ref references to get actual schema definitions,
- * generate valid TypeScript interface names from schema names, handle
- * nullable types using TypeScript union types, process enum schemas to
- * TypeScript enums or union types, manage schema composition (allOf, oneOf,
- * anyOf), detect and handle circular references, and extract descriptions
- * for JSDoc comments.
+ * Build a utility module using ES Module syntax for converting OpenAPI
+ * schemas to TypeScript types and extracting UI hints for DaisyUI
+ * components. Export named functions to convert OpenAPI schema objects to
+ * TypeScript type strings, map OpenAPI types (string, integer, number,
+ * boolean) to TypeScript types, handle array types with proper TypeScript
+ * array syntax, process nested object schemas recursively, resolve $ref
+ * references to get actual schema definitions, generate valid TypeScript
+ * interface names from schema names, handle nullable types using TypeScript
+ * union types, process enum schemas to TypeScript enums or union types (and
+ * determine if they should be rendered as select, radio, or badges in
+ * DaisyUI), manage schema composition (allOf, oneOf, anyOf), detect and
+ * handle circular references, extract descriptions for JSDoc comments and
+ * form field help text, determine appropriate DaisyUI input components
+ * based on schema properties (text input, textarea, select, checkbox,
+ * etc.), and identify fields that should use specific DaisyUI components
+ * (dates with date picker, colors with color picker, etc.). Use export
+ * keyword for each function.
  *
  * ============================================================================
  */
-class SchemaUtils {
-    constructor() {
-        // OpenAPI data types mapping
-        this.openApiTypes = {
-            string: 'string',
-            number: 'number',
-            integer: 'number',
-            boolean: 'boolean',
-            array: 'array',
-            object: 'object',
-            null: 'null'
-        };
-        // TypeScript type mappings
-        this.typeScriptTypes = {
-            string: 'string',
-            number: 'number',
-            integer: 'number',
-            boolean: 'boolean',
-            array: 'any[]',
-            object: 'Record<string, any>',
-            null: 'null',
-            any: 'any'
-        };
-        // Zod schema mappings
-        this.zodTypes = {
-            string: 'z.string()',
-            number: 'z.number()',
-            integer: 'z.number().int()',
-            boolean: 'z.boolean()',
-            null: 'z.null()',
-            any: 'z.any()'
-        };
+/**
+ * SchemaUtils.js - Utility module for OpenAPI schema processing
+ * Converts schemas to TypeScript types and extracts UI hints for DaisyUI
+ * Uses ES Module named exports as required by generators
+ */
+import { toPascalCase, toHumanReadable } from './StringUtils.js';
 
-        // Format mappings
-        this.formatMappings = {
-            // String formats
-            'date': { ts: 'string', zod: 'z.string().datetime()' },
-            'date-time': { ts: 'string', zod: 'z.string().datetime()' },
-            'time': { ts: 'string', zod: 'z.string().regex(/^([01]\\d|2[0-3]):([0-5]\\d):([0-5]\\d)$/)' },
-            'duration': { ts: 'string', zod: 'z.string()' },
-            'email': { ts: 'string', zod: 'z.string().email()' },
-            'hostname': { ts: 'string', zod: 'z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9-]{0,61}[a-zA-Z0-9](?:\\.[a-zA-Z0-9][a-zA-Z0-9-]{0,61}[a-zA-Z0-9])*$/)' },
-            'ipv4': { ts: 'string', zod: 'z.string().ip({ version: "v4" })' },
-            'ipv6': { ts: 'string', zod: 'z.string().ip({ version: "v6" })' },
-            'uri': { ts: 'string', zod: 'z.string().url()' },
-            'uri-reference': { ts: 'string', zod: 'z.string()' },
-            'uuid': { ts: 'string', zod: 'z.string().uuid()' },
-            'password': { ts: 'string', zod: 'z.string().min(8)' },
-            // Number formats
-            'float': { ts: 'number', zod: 'z.number()' },
-            'double': { ts: 'number', zod: 'z.number()' },
-            'int32': { ts: 'number', zod: 'z.number().int().min(-2147483648).max(2147483647)' },
-            'int64': { ts: 'bigint', zod: 'z.bigint()' },
-            // Binary formats
-            'binary': { ts: 'Blob | Buffer', zod: 'z.instanceof(Blob)' },
-            'byte': { ts: 'string', zod: 'z.string().base64()' }
-        };
+/**
+ * Convert OpenAPI schema to TypeScript type string
+ * Main function used by TypeGenerator
+ */
+export function convertSchemaToTypeScript(schema, options = {}) {
+    if (!schema) return 'any';
 
-        // Common schema patterns
-        this.commonPatterns = {
-            id: { type: 'string', format: 'uuid' },
-            email: { type: 'string', format: 'email' },
-            url: { type: 'string', format: 'uri' },
-            timestamp: { type: 'string', format: 'date-time' },
-            date: { type: 'string', format: 'date' },
-            phone: { type: 'string', pattern: '^\\+?[1-9]\\d{1,14}$' }
-        };
+    // Handle references
+    if (schema.$ref) {
+        const refName = schema.$ref.split('/').pop();
+        return toPascalCase(refName);
     }
 
-    /**
-     * Extract schemas from OpenAPI specification
-     * @param {object} spec - OpenAPI/Swagger specification
-     * @returns {object} Extracted schemas
-     */
-    extractSchemas(spec) {
-        const schemas = {};
-
-        // OpenAPI 3.0
-        if (spec.components?.schemas) {
-            Object.assign(schemas, spec.components.schemas);
-        }
-
-        // Swagger 2.0
-        if (spec.definitions) {
-            Object.assign(schemas, spec.definitions);
-        }
-
-        // Extract inline schemas from paths
-        if (spec.paths) {
-            this._extractInlineSchemas(spec.paths, schemas);
-        }
-
-        return schemas;
+    // Handle arrays
+    if (schema.type === 'array') {
+        const itemType = convertSchemaToTypeScript(schema.items, options);
+        return `${itemType}[]`;
     }
 
-    /**
-     * Convert OpenAPI schema to TypeScript interface
-     * @param {object} schema - OpenAPI schema
-     * @param {string} name - Interface name
-     * @param {object} options - Conversion options
-     * @returns {string} TypeScript interface
-     */
-    schemaToTypeScript(schema, name = 'Schema', options = {}) {
-        const {
-            export: shouldExport = true,
-            readonly = false,
-            partial = false,
-            required = true
-        } = options;
-
-        if (!schema) return 'any';
-
-        // Handle references
-        if (schema.$ref) {
-            return this._extractRefName(schema.$ref);
-        }
-
-        // Handle basic types
-        if (!schema.type && !schema.oneOf && !schema.anyOf && !schema.allOf) {
-            return 'any';
-        }
-
-        // Generate interface for objects
-        if (schema.type === 'object' || schema.properties) {
-            return this._generateTypeScriptInterface(schema, name, {
-                export: shouldExport,
-                readonly,
-                partial,
-                required
-            });
-        }
-
-        // Handle other types
-        return this._getTypeScriptType(schema);
-    }
-
-    /**
-     * Generate Zod validation schema
-     * @param {object} schema - OpenAPI schema
-     * @param {object} options - Generation options
-     * @returns {string} Zod schema code
-     */
-    generateZodSchema(schema, options = {}) {
-        const {
-            name = 'schema',
-            export: shouldExport = true,
-            strict = true
-        } = options;
-
-        if (!schema) return 'z.any()';
-
-        const zodSchema = this._schemaToZod(schema, { strict });
-
-        if (shouldExport) {
-            return `export const ${name} = ${zodSchema};`;
-        }
-
-        return zodSchema;
-    }
-
-    /**
-     * Find all $ref references in a schema
-     * @param {object} schema - Schema to search
-     * @returns {string[]} Array of references
-     */
-    findReferences(schema) {
-        const refs = new Set();
-
-        const traverse = (obj) => {
-            if (!obj || typeof obj !== 'object') return;
-
-            if (obj.$ref) {
-                refs.add(obj.$ref);
-            }
-
-            for (const value of Object.values(obj)) {
-                if (Array.isArray(value)) {
-                    value.forEach(traverse);
-                } else if (typeof value === 'object') {
-                    traverse(value);
-                }
-            }
-        };
-
-        traverse(schema);
-        return Array.from(refs);
-    }
-
-    /**
-     * Resolve schema references
-     * @param {object} schema - Schema with references
-     * @param {object} definitions - Schema definitions
-     * @returns {object} Resolved schema
-     */
-    resolveReferences(schema, definitions) {
-        if (!schema) return schema;
-
-        // Deep clone to avoid mutations
-        const resolved = JSON.parse(JSON.stringify(schema));
-
-        const resolve = (obj) => {
-            if (!obj || typeof obj !== 'object') return obj;
-
-            if (obj.$ref) {
-                const refName = this._extractRefName(obj.$ref);
-                const definition = definitions[refName];
-
-                if (definition) {
-                    // Replace reference with resolved definition
-                    return resolve(definition);
-                }
-            }
-
-            for (const [key, value] of Object.entries(obj)) {
-                if (Array.isArray(value)) {
-                    obj[key] = value.map(resolve);
-                } else if (typeof value === 'object') {
-                    obj[key] = resolve(value);
-                }
-            }
-
-            return obj;
-        };
-
-        return resolve(resolved);
-    }
-
-    /**
-     * Merge multiple schemas
-     * @param {object[]} schemas - Schemas to merge
-     * @returns {object} Merged schema
-     */
-    mergeSchemas(...schemas) {
-        const merged = {
-            type: 'object',
-            properties: {},
-            required: []
-        };
-
-        for (const schema of schemas) {
-            if (!schema) continue;
-
-            // Merge properties
-            if (schema.properties) {
-                Object.assign(merged.properties, schema.properties);
-            }
-
-            // Merge required fields
-            if (schema.required) {
-                merged.required = [...new Set([...merged.required, ...schema.required])];
-            }
-
-            // Merge other properties
-            for (const [key, value] of Object.entries(schema)) {
-                if (!['properties', 'required', 'type'].includes(key)) {
-                    merged[key] = value;
-                }
-            }
-        }
-
-        return merged;
-    }
-
-    /**
-     * Generate mock data from schema
-     * @param {object} schema - OpenAPI schema
-     * @param {object} options - Generation options
-     * @returns {any} Mock data
-     */
-    generateMockData(schema, options = {}) {
-        const {
-            useExamples = true,
-            seed = null
-        } = options;
-
-        if (!schema) return null;
-
-        // Use example if available
-        if (useExamples && schema.example !== undefined) {
-            return schema.example;
-        }
-
-        // Handle references
-        if (schema.$ref) {
-            return `{{${this._extractRefName(schema.$ref)}}}`;
-        }
-
-        // Generate based on type
-        switch (schema.type) {
-            case 'string':
-                return this._generateMockString(schema);
-            case 'number':
-            case 'integer':
-                return this._generateMockNumber(schema);
-            case 'boolean':
-                return Math.random() > 0.5;
-            case 'array':
-                return this._generateMockArray(schema, options);
-            case 'object':
-                return this._generateMockObject(schema, options);
-            case 'null':
-                return null;
-            default:
-                return null;
-        }
-    }
-
-    /**
-     * Validate schema structure
-     * @param {object} schema - Schema to validate
-     * @returns {object} Validation result
-     */
-    validateSchema(schema) {
-        const errors = [];
-        const warnings = [];
-
-        if (!schema) {
-            errors.push('Schema is null or undefined');
-            return { valid: false, errors, warnings };
-        }
-
-        // Check for type
-        if (!schema.type && !schema.$ref && !schema.oneOf && !schema.anyOf && !schema.allOf) {
-            warnings.push('Schema has no type specified');
-        }
-
-        // Validate object schemas
-        if (schema.type === 'object') {
-            if (!schema.properties && !schema.additionalProperties) {
-                warnings.push('Object schema has no properties defined');
-            }
-
-            if (schema.required && !Array.isArray(schema.required)) {
-                errors.push('Required field must be an array');
-            }
-
-            if (schema.required && schema.properties) {
-                for (const field of schema.required) {
-                    if (!schema.properties[field]) {
-                        errors.push(`Required field "${field}" is not defined in properties`);
-                    }
-                }
-            }
-        }
-
-        // Validate array schemas
-        if (schema.type === 'array' && !schema.items) {
-            errors.push('Array schema must have items defined');
-        }
-
-        // Validate string patterns
-        if (schema.pattern) {
-            try {
-                new RegExp(schema.pattern);
-            } catch (e) {
-                errors.push(`Invalid regex pattern: ${schema.pattern}`);
-            }
-        }
-
-        return {
-            valid: errors.length === 0,
-            errors,
-            warnings
-        };
-    }
-
-    /**
-     * Extract form fields from schema
-     * @param {object} schema - OpenAPI schema
-     * @returns {object[]} Form field definitions
-     */
-    extractFormFields(schema) {
-        const fields = [];
-
-        if (!schema || schema.type !== 'object' || !schema.properties) {
-            return fields;
-        }
-
-        for (const [name, fieldSchema] of Object.entries(schema.properties)) {
-            const field = {
-                name,
-                type: this._getFormFieldType(fieldSchema),
-                label: this._generateLabel(name),
-                required: schema.required?.includes(name) || false,
-                ...this._extractFieldMetadata(fieldSchema)
-            };
-
-            fields.push(field);
-        }
-
-        return fields;
-    }
-
-    /**
-     * Convert schema to JSON Schema
-     * @param {object} schema - OpenAPI schema
-     * @returns {object} JSON Schema
-     */
-    toJsonSchema(schema) {
-        if (!schema) return {};
-
-        const jsonSchema = {
-            $schema: 'http://json-schema.org/draft-07/schema#',
-            ...JSON.parse(JSON.stringify(schema))
-        };
-
-        // Remove OpenAPI specific properties
-        delete jsonSchema.discriminator;
-        delete jsonSchema.xml;
-        delete jsonSchema.externalDocs;
-        delete jsonSchema.example;
-
-        return jsonSchema;
-    }
-
-    /**
-     * Compare two schemas for compatibility
-     * @param {object} schema1 - First schema
-     * @param {object} schema2 - Second schema
-     * @returns {object} Comparison result
-     */
-    compareSchemas(schema1, schema2) {
-        const differences = {
-            compatible: true,
-            addedFields: [],
-            removedFields: [],
-            changedFields: [],
-            typeChanges: []
-        };
-
-        if (schema1.type !== schema2.type) {
-            differences.compatible = false;
-            differences.typeChanges.push({
-                from: schema1.type,
-                to: schema2.type
-            });
-        }
-
-        if (schema1.type === 'object' && schema2.type === 'object') {
-            const props1 = schema1.properties || {};
-            const props2 = schema2.properties || {};
-
-            // Check for added fields
-            for (const key of Object.keys(props2)) {
-                if (!props1[key]) {
-                    differences.addedFields.push(key);
-                }
-            }
-
-            // Check for removed fields
-            for (const key of Object.keys(props1)) {
-                if (!props2[key]) {
-                    differences.removedFields.push(key);
-                    if (schema1.required?.includes(key)) {
-                        differences.compatible = false;
-                    }
-                }
-            }
-
-            // Check for changed fields
-            for (const key of Object.keys(props1)) {
-                if (props2[key] && !this._schemasEqual(props1[key], props2[key])) {
-                    differences.changedFields.push(key);
-                }
-            }
-        }
-
-        return differences;
-    }
-
-    // ============================================================================
-    // Private Helper Methods
-    // ============================================================================
-
-    /**
-     * Extract inline schemas from paths
-     * @private
-     */
-    _extractInlineSchemas(paths, schemas) {
-        const schemaIndex = { request: 0, response: 0 };
-
-        for (const [path, pathItem] of Object.entries(paths)) {
-            for (const [method, operation] of Object.entries(pathItem)) {
-                if (typeof operation !== 'object') continue;
-
-                // Extract request body schemas
-                if (operation.requestBody?.content) {
-                    for (const [contentType, content] of Object.entries(operation.requestBody.content)) {
-                        if (content.schema && !content.schema.$ref) {
-                            const schemaName = `${this._pathToName(path)}${this._capitalize(method)}Request`;
-                            schemas[schemaName] = content.schema;
-                        }
-                    }
-                }
-
-                // Extract response schemas
-                if (operation.responses) {
-                    for (const [statusCode, response] of Object.entries(operation.responses)) {
-                        if (response.content) {
-                            for (const [contentType, content] of Object.entries(response.content)) {
-                                if (content.schema && !content.schema.$ref) {
-                                    const schemaName = `${this._pathToName(path)}${this._capitalize(method)}Response${statusCode}`;
-                                    schemas[schemaName] = content.schema;
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    /**
-     * Generate TypeScript interface
-     * @private
-     */
-    _generateTypeScriptInterface(schema, name, options) {
-        const lines = [];
-        const { export: shouldExport, readonly, partial, required } = options;
-
-        // Interface declaration
-        lines.push(`${shouldExport ? 'export ' : ''}interface ${name} {`);
-
-        // Properties
-        if (schema.properties) {
-            for (const [propName, propSchema] of Object.entries(schema.properties)) {
-                const isRequired = required && schema.required?.includes(propName);
-                const optional = partial || !isRequired ? '?' : '';
-                const readonlyMod = readonly ? 'readonly ' : '';
-                const propType = this._getTypeScriptType(propSchema);
-                const comment = propSchema.description ? `  /** ${propSchema.description} */\n` : '';
-
-                lines.push(`${comment}  ${readonlyMod}${propName}${optional}: ${propType};`);
-            }
-        }
-
-        // Additional properties
-        if (schema.additionalProperties) {
-            const valueType = typeof schema.additionalProperties === 'object'
-                ? this._getTypeScriptType(schema.additionalProperties)
-                : 'any';
-            lines.push(`  [key: string]: ${valueType};`);
-        }
-
-        lines.push('}');
-
-        return lines.join('\n');
-    }
-
-    /**
-     * Get TypeScript type for schema
-     * @private
-     */
-    _getTypeScriptType(schema) {
-        if (!schema) return 'any';
-
-        // Handle references
-        if (schema.$ref) {
-            return this._extractRefName(schema.$ref);
-        }
-
-        // Handle combined schemas
-        if (schema.oneOf) {
-            return schema.oneOf.map(s => this._getTypeScriptType(s)).join(' | ');
-        }
-
-        if (schema.anyOf) {
-            return schema.anyOf.map(s => this._getTypeScriptType(s)).join(' | ');
-        }
-
-        if (schema.allOf) {
-            return schema.allOf.map(s => this._getTypeScriptType(s)).join(' & ');
-        }
-
-        // Handle enums
-        if (schema.enum) {
-            return schema.enum.map(v => typeof v === 'string' ? `'${v}'` : v).join(' | ');
-        }
-
-        // Handle arrays
-        if (schema.type === 'array') {
-            const itemType = schema.items ? this._getTypeScriptType(schema.items) : 'any';
-            return `${itemType}[]`;
-        }
-
-        // Handle objects
-        if (schema.type === 'object') {
-            if (!schema.properties) {
-                return 'Record<string, any>';
-            }
-            // Generate inline interface
-            return this._generateInlineInterface(schema);
-        }
-
-        // Handle formatted types
-        if (schema.format && this.formatMappings[schema.format]) {
-            return this.formatMappings[schema.format].ts;
-        }
-
-        // Handle basic types
-        return this.typeScriptTypes[schema.type] || 'any';
-    }
-
-    /**
-     * Convert schema to Zod
-     * @private
-     */
-    _schemaToZod(schema, options = {}) {
-        if (!schema) return 'z.any()';
-
-        // Handle references
-        if (schema.$ref) {
-            return this._extractRefName(schema.$ref) + 'Schema';
-        }
-
-        // Handle combined schemas
-        if (schema.oneOf) {
-            const schemas = schema.oneOf.map(s => this._schemaToZod(s, options));
-            return `z.union([${schemas.join(', ')}])`;
-        }
-
-        if (schema.anyOf) {
-            const schemas = schema.anyOf.map(s => this._schemaToZod(s, options));
-            return `z.union([${schemas.join(', ')}])`;
-        }
-
-        if (schema.allOf) {
-            const schemas = schema.allOf.map(s => this._schemaToZod(s, options));
-            return schemas.length > 1
-                ? `z.intersection(${schemas.join(', ')})`
-                : schemas[0];
-        }
-
-        // Handle enums
-        if (schema.enum) {
-            const values = schema.enum.map(v => typeof v === 'string' ? `'${v}'` : v);
-            return `z.enum([${values.join(', ')}])`;
-        }
-
-        // Handle arrays
-        if (schema.type === 'array') {
-            const itemSchema = schema.items ? this._schemaToZod(schema.items, options) : 'z.any()';
-            let arraySchema = `z.array(${itemSchema})`;
-
-            if (schema.minItems !== undefined) {
-                arraySchema += `.min(${schema.minItems})`;
-            }
-            if (schema.maxItems !== undefined) {
-                arraySchema += `.max(${schema.maxItems})`;
-            }
-
-            return arraySchema;
-        }
-
-        // Handle objects
-        if (schema.type === 'object') {
-            return this._generateZodObject(schema, options);
-        }
-
-        // Handle strings
-        if (schema.type === 'string') {
-            return this._generateZodString(schema);
-        }
-
-        // Handle numbers
-        if (schema.type === 'number' || schema.type === 'integer') {
-            return this._generateZodNumber(schema);
-        }
-
-        // Handle formatted types
-        if (schema.format && this.formatMappings[schema.format]) {
-            return this.formatMappings[schema.format].zod;
-        }
-
-        // Handle basic types
-        return this.zodTypes[schema.type] || 'z.any()';
-    }
-
-    /**
-     * Generate Zod object schema
-     * @private
-     */
-    _generateZodObject(schema, options) {
-        if (!schema.properties) {
-            return schema.additionalProperties === false
-                ? 'z.object({}).strict()'
-                : 'z.record(z.any())';
-        }
-
-        const properties = [];
-
-        for (const [propName, propSchema] of Object.entries(schema.properties)) {
-            const propZod = this._schemaToZod(propSchema, options);
-            const isRequired = schema.required?.includes(propName);
-
-            properties.push(`  ${propName}: ${propZod}${isRequired ? '' : '.optional()'}`);
-        }
-
-        let objectSchema = `z.object({\n${properties.join(',\n')}\n})`;
-
-        if (options.strict && schema.additionalProperties === false) {
-            objectSchema += '.strict()';
-        }
-
-        return objectSchema;
-    }
-
-    /**
-     * Generate Zod string schema
-     * @private
-     */
-    _generateZodString(schema) {
-        let zodSchema = 'z.string()';
-
-        if (schema.format && this.formatMappings[schema.format]) {
-            return this.formatMappings[schema.format].zod;
-        }
-
-        if (schema.minLength !== undefined) {
-            zodSchema += `.min(${schema.minLength})`;
-        }
-        if (schema.maxLength !== undefined) {
-            zodSchema += `.max(${schema.maxLength})`;
-        }
-        if (schema.pattern) {
-            zodSchema += `.regex(/${schema.pattern}/)`;
-        }
-
-        return zodSchema;
-    }
-
-    /**
-     * Generate Zod number schema
-     * @private
-     */
-    _generateZodNumber(schema) {
-        let zodSchema = schema.type === 'integer' ? 'z.number().int()' : 'z.number()';
-
-        if (schema.minimum !== undefined) {
-            zodSchema += `.min(${schema.minimum})`;
-        }
-        if (schema.maximum !== undefined) {
-            zodSchema += `.max(${schema.maximum})`;
-        }
-        if (schema.multipleOf !== undefined) {
-            zodSchema += `.multipleOf(${schema.multipleOf})`;
-        }
-
-        return zodSchema;
-    }
-
-    /**
-     * Extract reference name
-     * @private
-     */
-    _extractRefName(ref) {
-        const parts = ref.split('/');
-        return parts[parts.length - 1];
-    }
-
-    /**
-     * Convert path to name
-     * @private
-     */
-    _pathToName(path) {
-        return path
-            .split('/')
-            .filter(Boolean)
-            .map(part => part.replace(/[{}]/g, ''))
-            .map(part => this._capitalize(part))
-            .join('');
-    }
-
-    /**
-     * Capitalize string
-     * @private
-     */
-    _capitalize(str) {
-        return str.charAt(0).toUpperCase() + str.slice(1);
-    }
-
-    /**
-     * Generate inline interface
-     * @private
-     */
-    _generateInlineInterface(schema) {
+    // Handle objects
+    if (schema.type === 'object' || schema.properties) {
         if (!schema.properties) return 'Record<string, any>';
 
-        const props = Object.entries(schema.properties).map(([key, value]) => {
-            const required = schema.required?.includes(key) ? '' : '?';
-            const type = this._getTypeScriptType(value);
-            return `${key}${required}: ${type}`;
-        });
+        const props = Object.entries(schema.properties)
+            .map(([key, prop]) => {
+                const required = schema.required?.includes(key);
+                const nullable = prop.nullable || schema.nullable;
+                let type = convertSchemaToTypeScript(prop, options);
 
-        return `{ ${props.join('; ')} }`;
+                if (nullable && type !== 'null') {
+                    type = `${type} | null`;
+                }
+
+                return `${key}${required ? '' : '?'}: ${type}`;
+            })
+            .join(';\n  ');
+
+        return `{\n  ${props}\n}`;
     }
 
-    /**
-     * Generate mock string
-     * @private
-     */
-    _generateMockString(schema) {
-        if (schema.enum) {
-            return schema.enum[0];
-        }
-
-        if (schema.format) {
-            switch (schema.format) {
-                case 'email': return 'user@example.com';
-                case 'uri': return 'https://example.com';
-                case 'uuid': return '123e4567-e89b-12d3-a456-426614174000';
-                case 'date': return '2024-01-01';
-                case 'date-time': return '2024-01-01T00:00:00Z';
-                default: return 'string';
-            }
-        }
-
-        if (schema.pattern) {
-            return 'pattern-string';
-        }
-
-        return schema.default || 'string';
+    // Handle enums
+    if (schema.enum) {
+        return schema.enum.map(v => typeof v === 'string' ? `'${v}'` : v).join(' | ');
     }
 
-    /**
-     * Generate mock number
-     * @private
-     */
-    _generateMockNumber(schema) {
-        if (schema.enum) {
-            return schema.enum[0];
-        }
-
-        const min = schema.minimum || 0;
-        const max = schema.maximum || 100;
-
-        if (schema.type === 'integer') {
-            return Math.floor(Math.random() * (max - min + 1)) + min;
-        }
-
-        return Math.random() * (max - min) + min;
+    // Handle allOf
+    if (schema.allOf) {
+        return schema.allOf.map(s => convertSchemaToTypeScript(s, options)).join(' & ');
     }
 
-    /**
-     * Generate mock array
-     * @private
-     */
-    _generateMockArray(schema, options) {
-        const length = schema.minItems || 1;
-        const items = [];
-
-        for (let i = 0; i < length; i++) {
-            items.push(this.generateMockData(schema.items, options));
-        }
-
-        return items;
+    // Handle oneOf
+    if (schema.oneOf) {
+        return schema.oneOf.map(s => convertSchemaToTypeScript(s, options)).join(' | ');
     }
 
-    /**
-     * Generate mock object
-     * @private
-     */
-    _generateMockObject(schema, options) {
-        const obj = {};
-
-        if (schema.properties) {
-            for (const [key, propSchema] of Object.entries(schema.properties)) {
-                obj[key] = this.generateMockData(propSchema, options);
-            }
-        }
-
-        return obj;
+    // Handle anyOf
+    if (schema.anyOf) {
+        return schema.anyOf.map(s => convertSchemaToTypeScript(s, options)).join(' | ');
     }
 
-    /**
-     * Get form field type
-     * @private
-     */
-    _getFormFieldType(schema) {
-        if (schema.enum) return 'select';
-
-        switch (schema.type) {
-            case 'string':
-                if (schema.format === 'email') return 'email';
-                if (schema.format === 'uri') return 'url';
-                if (schema.format === 'date') return 'date';
-                if (schema.format === 'date-time') return 'datetime';
-                if (schema.format === 'password') return 'password';
-                if (schema.maxLength && schema.maxLength > 255) return 'textarea';
-                return 'text';
-
-            case 'number':
-            case 'integer':
-                return 'number';
-
-            case 'boolean':
-                return 'checkbox';
-
-            case 'array':
-                return 'multiselect';
-
-            case 'object':
-                return 'fieldset';
-
-            default:
-                return 'text';
-        }
-    }
-
-    /**
-     * Generate label from property name
-     * @private
-     */
-    _generateLabel(name) {
-        return name
-            .replace(/([A-Z])/g, ' $1')
-            .replace(/[_-]/g, ' ')
-            .split(' ')
-            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-            .join(' ')
-            .trim();
-    }
-
-    /**
-     * Extract field metadata
-     * @private
-     */
-    _extractFieldMetadata(schema) {
-        const metadata = {};
-
-        if (schema.description) metadata.description = schema.description;
-        if (schema.default !== undefined) metadata.defaultValue = schema.default;
-        if (schema.example !== undefined) metadata.placeholder = schema.example;
-        if (schema.enum) metadata.options = schema.enum;
-        if (schema.minimum !== undefined) metadata.min = schema.minimum;
-        if (schema.maximum !== undefined) metadata.max = schema.maximum;
-        if (schema.minLength !== undefined) metadata.minLength = schema.minLength;
-        if (schema.maxLength !== undefined) metadata.maxLength = schema.maxLength;
-        if (schema.pattern) metadata.pattern = schema.pattern;
-        if (schema.multipleOf !== undefined) metadata.step = schema.multipleOf;
-
-        return metadata;
-    }
-
-    /**
-     * Check if schemas are equal
-     * @private
-     */
-    _schemasEqual(schema1, schema2) {
-        // Simple comparison - could be enhanced
-        return JSON.stringify(schema1) === JSON.stringify(schema2);
-    }
+    // Handle primitive types
+    return mapOpenAPITypeToTypeScript(schema.type, schema.format);
 }
 
-module.exports = SchemaUtils;
+/**
+ * Map OpenAPI types to TypeScript types
+ */
+export function mapOpenAPITypeToTypeScript(type, format) {
+    const typeMap = {
+        'string': 'string',
+        'number': 'number',
+        'integer': 'number',
+        'boolean': 'boolean',
+        'null': 'null',
+        'array': 'any[]',
+        'object': 'Record<string, any>'
+    };
+
+    // Handle string formats
+    if (type === 'string' && format) {
+        const formatMap = {
+            'date': 'string',
+            'date-time': 'string',
+            'uuid': 'string',
+            'email': 'string',
+            'uri': 'string',
+            'url': 'string',
+            'hostname': 'string',
+            'ipv4': 'string',
+            'ipv6': 'string',
+            'binary': 'Blob | File',
+            'byte': 'string',
+            'password': 'string'
+        };
+        return formatMap[format] || 'string';
+    }
+
+    return typeMap[type] || 'any';
+}
+
+/**
+ * Extract UI hints from schema extensions
+ * Used by generators to determine DaisyUI component selection
+ */
+export function extractUIHints(schema) {
+    if (!schema) return {};
+
+    const hints = {
+        component: schema['x-ui-component'],
+        variant: schema['x-ui-variant'],
+        size: schema['x-ui-size'],
+        placeholder: schema['x-ui-placeholder'],
+        helpText: schema['x-ui-help-text'],
+        section: schema['x-ui-section'],
+        badgeColors: schema['x-ui-badge-colors'],
+        noSort: schema['x-ui-no-sort'],
+        readonly: schema['x-ui-readonly'] || schema.readOnly,
+        hidden: schema['x-ui-hidden'],
+        icon: schema['x-ui-icon'],
+        layout: schema['x-ui-layout']
+    };
+
+    // Remove undefined values
+    Object.keys(hints).forEach(key => {
+        if (hints[key] === undefined) delete hints[key];
+    });
+
+    return hints;
+}
+
+/**
+ * Determine appropriate DaisyUI input type based on schema
+ * Used by PageGenerator for form field generation
+ */
+export function determineInputType(schema, fieldName = '') {
+    if (!schema) return 'text';
+
+    // Check for explicit UI hint
+    const uiHints = extractUIHints(schema);
+    if (uiHints.component) return uiHints.component;
+
+    // File upload
+    if (schema.type === 'string' && (schema.format === 'binary' || schema.format === 'byte')) {
+        return 'file';
+    }
+
+    // Date/time inputs
+    if (schema.type === 'string' && schema.format === 'date') {
+        return 'date';
+    }
+    if (schema.type === 'string' && schema.format === 'date-time') {
+        return 'datetime-local';
+    }
+    if (schema.type === 'string' && schema.format === 'time') {
+        return 'time';
+    }
+
+    // Email
+    if (schema.type === 'string' && schema.format === 'email') {
+        return 'email';
+    }
+
+    // URL
+    if (schema.type === 'string' && (schema.format === 'uri' || schema.format === 'url')) {
+        return 'url';
+    }
+
+    // Password
+    if (schema.type === 'string' && (schema.format === 'password' || fieldName.toLowerCase().includes('password'))) {
+        return 'password';
+    }
+
+    // Select for enums
+    if (schema.enum && schema.enum.length > 0) {
+        if (schema.enum.length <= 3) {
+            return 'radio';
+        }
+        return 'select';
+    }
+
+    // Checkbox for boolean
+    if (schema.type === 'boolean') {
+        return 'checkbox';
+    }
+
+    // Textarea for long text
+    if (schema.type === 'string') {
+        if (schema.maxLength && schema.maxLength > 255) {
+            return 'textarea';
+        }
+        if (fieldName && (
+            fieldName.toLowerCase().includes('description') ||
+            fieldName.toLowerCase().includes('note') ||
+            fieldName.toLowerCase().includes('comment') ||
+            fieldName.toLowerCase().includes('content') ||
+            fieldName.toLowerCase().includes('body')
+        )) {
+            return 'textarea';
+        }
+    }
+
+    // Number inputs
+    if (schema.type === 'number' || schema.type === 'integer') {
+        return 'number';
+    }
+
+    // Color picker
+    if (schema.type === 'string' && (schema.format === 'color' || (fieldName && fieldName.toLowerCase().includes('color')))) {
+        return 'color';
+    }
+
+    // Range slider for numbers with min/max
+    if ((schema.type === 'number' || schema.type === 'integer') &&
+        schema.minimum !== undefined &&
+        schema.maximum !== undefined &&
+        (schema.maximum - schema.minimum) <= 100) {
+        return 'range';
+    }
+
+    // Default to text
+    return 'text';
+}
+
+/**
+ * Resolve $ref references
+ */
+export function resolveRef(ref, definitions) {
+    if (!ref || !ref.startsWith('#/')) return null;
+
+    const path = ref.substring(2).split('/');
+    let current = definitions;
+
+    for (const segment of path) {
+        if (!current || typeof current !== 'object') return null;
+        current = current[segment];
+    }
+
+    return current;
+}
+
+/**
+ * Generate form validation rules from schema
+ */
+export function extractValidationRules(schema) {
+    const rules = [];
+
+    if (schema.minimum !== undefined) {
+        rules.push({ type: 'min', value: schema.minimum, message: `Must be at least ${schema.minimum}` });
+    }
+    if (schema.maximum !== undefined) {
+        rules.push({ type: 'max', value: schema.maximum, message: `Must be at most ${schema.maximum}` });
+    }
+    if (schema.minLength !== undefined) {
+        rules.push({ type: 'minLength', value: schema.minLength, message: `Must be at least ${schema.minLength} characters` });
+    }
+    if (schema.maxLength !== undefined) {
+        rules.push({ type: 'maxLength', value: schema.maxLength, message: `Must be at most ${schema.maxLength} characters` });
+    }
+    if (schema.pattern) {
+        rules.push({ type: 'pattern', value: schema.pattern, message: 'Invalid format' });
+    }
+    if (schema.format === 'email') {
+        rules.push({ type: 'email', message: 'Must be a valid email address' });
+    }
+    if (schema.format === 'uri' || schema.format === 'url') {
+        rules.push({ type: 'url', message: 'Must be a valid URL' });
+    }
+
+    return rules;
+}
+
+/**
+ * Get badge color based on field value
+ */
+export function getBadgeColor(value, schema) {
+    // Check for explicit color mapping
+    if (schema && schema['x-ui-colors'] && schema['x-ui-colors'][value]) {
+        return schema['x-ui-colors'][value];
+    }
+
+    // Default mappings
+    const colorMap = {
+        // Status
+        'active': 'success',
+        'inactive': 'ghost',
+        'pending': 'warning',
+        'completed': 'success',
+        'failed': 'error',
+        'error': 'error',
+        'success': 'success',
+        'warning': 'warning',
+        'info': 'info',
+        // Priority
+        'high': 'error',
+        'medium': 'warning',
+        'low': 'info',
+        // General
+        'new': 'primary',
+        'draft': 'ghost',
+        'published': 'success',
+        'archived': 'ghost'
+    };
+
+    return colorMap[value?.toLowerCase()] || 'neutral';
+}
+
+/**
+ * Detect circular references in schema
+ */
+export function detectCircularReferences(schema, visited = new Set(), path = []) {
+    if (!schema || typeof schema !== 'object') return false;
+
+    const schemaId = schema.$ref || JSON.stringify(schema);
+
+    if (visited.has(schemaId)) {
+        return { circular: true, path: [...path, schemaId] };
+    }
+
+    visited.add(schemaId);
+    path.push(schemaId);
+
+    // Check properties
+    if (schema.properties) {
+        for (const [key, prop] of Object.entries(schema.properties)) {
+            const result = detectCircularReferences(prop, new Set(visited), [...path]);
+            if (result && result.circular) return result;
+        }
+    }
+
+    // Check array items
+    if (schema.items) {
+        const result = detectCircularReferences(schema.items, new Set(visited), [...path]);
+        if (result && result.circular) return result;
+    }
+
+    // Check composition
+    const compositions = ['allOf', 'oneOf', 'anyOf'];
+    for (const comp of compositions) {
+        if (schema[comp]) {
+            for (const subSchema of schema[comp]) {
+                const result = detectCircularReferences(subSchema, new Set(visited), [...path]);
+                if (result && result.circular) return result;
+            }
+        }
+    }
+
+    return false;
+}
+
+/**
+ * Generate TypeScript interface name from schema name
+ */
+export function generateInterfaceName(schemaName) {
+    if (!schemaName) return 'Unknown';
+
+    // Ensure PascalCase and valid TypeScript identifier
+    let name = toPascalCase(schemaName);
+
+    // Ensure it doesn't start with a number
+    if (/^[0-9]/.test(name)) {
+        name = 'Type' + name;
+    }
+
+    return name;
+}
+
+/**
+ * Identify special fields that need specific DaisyUI components
+ */
+export function identifySpecialFields(schema) {
+    const specialFields = {
+        badges: [],
+        toggles: [],
+        ratings: [],
+        progress: [],
+        avatars: [],
+        stats: []
+    };
+
+    if (!schema || !schema.properties) return specialFields;
+
+    Object.entries(schema.properties).forEach(([key, prop]) => {
+        const lowerKey = key.toLowerCase();
+
+        // Status fields → badges
+        if (lowerKey.includes('status') || lowerKey.includes('state') || prop.enum) {
+            specialFields.badges.push(key);
+        }
+
+        // Boolean fields → toggles
+        if (prop.type === 'boolean' && (lowerKey.includes('enabled') || lowerKey.includes('active'))) {
+            specialFields.toggles.push(key);
+        }
+
+        // Rating fields
+        if (lowerKey.includes('rating') || lowerKey.includes('score')) {
+            specialFields.ratings.push(key);
+        }
+
+        // Progress fields
+        if (lowerKey.includes('progress') || lowerKey.includes('percent')) {
+            specialFields.progress.push(key);
+        }
+
+        // Avatar fields
+        if (lowerKey.includes('avatar') || lowerKey.includes('photo') || lowerKey.includes('image')) {
+            specialFields.avatars.push(key);
+        }
+
+        // Numeric stats
+        if ((prop.type === 'number' || prop.type === 'integer') &&
+            (lowerKey.includes('count') || lowerKey.includes('total') || lowerKey.includes('amount'))) {
+            specialFields.stats.push(key);
+        }
+    });
+
+    return specialFields;
+}

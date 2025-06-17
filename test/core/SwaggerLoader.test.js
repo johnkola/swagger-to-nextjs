@@ -1,8 +1,32 @@
 /**
+ * ============================================================================
+ * SWAGGER-TO-NEXTJS GENERATOR - AI PROMPT
+ * ============================================================================
+ * FILE: test/core/SwaggerLoader.test.js
+ * VERSION: 2025-06-17 16:21:39
+ * PHASE: Phase 9: Test Files
+ * ============================================================================
+ *
+ * AI GENERATION PROMPT:
+ *
+ * Create a test file using Node.js built-in test framework for the
+ * SwaggerLoader class. Use ES Module imports to import test and assert from
+ * 'node:test' and 'node:assert'. Import SwaggerLoader from the source file.
+ * Write tests to verify loading from local YAML files, loading from local
+ * JSON files, loading from HTTP URLs, detecting and parsing YAML format
+ * correctly, detecting and parsing JSON format correctly, resolving $ref
+ * references within the document, converting Swagger 2.0 to OpenAPI 3.0
+ * format, extracting branding colors from x-branding extensions, handling
+ * file not found errors, handling network errors for URL loading, timeout
+ * handling for slow URLs, and theme metadata extraction. Use describe and
+ * it blocks for test organization.
+ *
+ * ============================================================================
+ */
+/**
  * SwaggerLoader.test.js
  * Unit tests for the SwaggerLoader class
  */
-
 import { describe, it, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { fileURLToPath } from 'url';

@@ -1,27 +1,8 @@
 /**
- * ============================================================================
- * SWAGGER-TO-NEXTJS GENERATOR - AI PROMPT
- * ============================================================================
- * FILE: src/cli.js
- * VERSION: 2025-06-16 16:25:36
- * PHASE: Phase 1: Foundation & Core Infrastructure
- * ============================================================================
- *
- * AI GENERATION PROMPT:
- *
- * Build a Commander.js CLI interface for a Next.js code generator from
- * OpenAPI specs. The main command should be "generate <spec> [output]"
- * where spec is a path to an OpenAPI file and output is the target
- * directory. Include options for --typescript (default true), --client
- * (generate API client, default true), --pages (generate UI components,
- * default true), --force (overwrite without asking), and --dry-run (preview
- * without writing). Show a progress spinner during generation using ora,
- * display colored success/error messages with chalk, and provide helpful
- * next steps after generation. Include proper version handling and
- * comprehensive help text.
- *
- * ============================================================================
+ * cli.js - Commander.js CLI interface for swagger-to-nextjs
+ * Updated to include all DaisyUI theme options as specified in the prompt
  */
+
 import { Command } from 'commander';
 import chalk from 'chalk';
 import ora from 'ora';
@@ -55,7 +36,7 @@ export async function cli() {
 
     program
         .name('swagger-to-nextjs')
-        .description('Generate Next.js applications from OpenAPI/Swagger specifications')
+        .description('Generate Next.js applications from OpenAPI/Swagger specifications with DaisyUI components')
         .version(version, '-v, --version', 'output the current version')
         .usage('<command> [options]')
         .helpOption('-h, --help', 'display help for command');
@@ -71,10 +52,16 @@ export async function cli() {
         .option('--no-pages', 'skip UI components generation')
         .option('-f, --force', 'overwrite existing files without asking', false)
         .option('-d, --dry-run', 'preview what would be generated without writing files', false)
+        .option('--theme <theme>', 'DaisyUI theme selection (default: "light")', 'light')
+        .option('--themes <themes...>', 'list of DaisyUI themes to include (default: ["light", "dark", "cupcake", "corporate"])')
+        .option('--no-daisyui', 'generate without DaisyUI, use plain CSS')
+        .option('--custom-theme <path>', 'path to custom DaisyUI theme file')
         .option('--template-dir <path>', 'use custom templates from directory')
         .option('--config <path>', 'path to configuration file')
         .option('--verbose', 'show detailed output', false)
         .option('--silent', 'suppress all output except errors', false)
+        .option('--docker', 'generate Docker configuration files', false)
+        .option('--cicd', 'generate CI/CD configuration files', false)
         .action(async (spec, output = './generated', options) => {
             const spinner = options.silent ? null : ora();
 
@@ -83,10 +70,15 @@ export async function cli() {
                 if (!options.silent) {
                     console.log('');
                     console.log(chalk.cyan('═══════════════════════════════════════════════════════════════'));
-                    console.log(chalk.cyan.bold('  Swagger to Next.js Generator'));
+                    console.log(chalk.cyan.bold('  🚀 Swagger to Next.js Generator with DaisyUI'));
                     console.log(chalk.cyan(`  Version: ${version}`));
                     console.log(chalk.cyan('═══════════════════════════════════════════════════════════════'));
                     console.log('');
+                }
+
+                // Set default themes if not provided
+                if (!options.themes) {
+                    options.themes = ['light', 'dark', 'cupcake', 'corporate'];
                 }
 
                 // Log configuration
@@ -98,6 +90,11 @@ export async function cli() {
                     console.log(`  ${chalk.bold('TypeScript:')} ${chalk.yellow(options.typescript !== false ? 'Yes' : 'No')}`);
                     console.log(`  ${chalk.bold('API Client:')} ${chalk.yellow(options.client !== false ? 'Yes' : 'No')}`);
                     console.log(`  ${chalk.bold('UI Pages:')} ${chalk.yellow(options.pages !== false ? 'Yes' : 'No')}`);
+                    console.log(`  ${chalk.bold('DaisyUI:')} ${chalk.yellow(options.daisyui !== false ? 'Yes' : 'No')}`);
+                    if (options.daisyui !== false) {
+                        console.log(`  ${chalk.bold('Theme:')} ${chalk.yellow(options.theme)}`);
+                        console.log(`  ${chalk.bold('Themes:')} ${chalk.yellow(options.themes.join(', '))}`);
+                    }
                     console.log(`  ${chalk.bold('Mode:')} ${chalk.yellow(options.dryRun ? 'Dry Run' : 'Normal')}`);
                     console.log(chalk.gray('─'.repeat(50)));
                     console.log('');
@@ -116,9 +113,15 @@ export async function cli() {
                     generatePages: options.pages !== false,
                     force: options.force,
                     dryRun: options.dryRun,
+                    daisyui: options.daisyui !== false,
+                    theme: options.theme,
+                    themes: options.themes,
+                    customTheme: options.customTheme,
                     templateDir: options.templateDir,
                     verbose: options.verbose,
-                    silent: options.silent
+                    silent: options.silent,
+                    docker: options.docker,
+                    cicd: options.cicd
                 });
 
                 // Initialize with config if provided
@@ -157,7 +160,7 @@ export async function cli() {
 
                 // Show next steps
                 if (!options.silent && !options.dryRun) {
-                    showNextSteps(output, options.typescript !== false);
+                    showNextSteps(output, options);
                 }
 
                 // Cleanup
@@ -177,6 +180,14 @@ Examples:
   $ swagger-to-nextjs generate https://api.example.com/swagger.json
   $ swagger-to-nextjs generate spec.yaml --no-typescript --force
   $ swagger-to-nextjs generate api.json output --dry-run
+  $ swagger-to-nextjs generate api.yaml my-app --theme dark --themes light dark synthwave
+  $ swagger-to-nextjs generate spec.json --no-daisyui
+
+Theme Options:
+  Available DaisyUI themes include: light, dark, cupcake, bumblebee, emerald, corporate,
+  synthwave, retro, cyberpunk, valentine, halloween, garden, forest, aqua, lofi, pastel,
+  fantasy, wireframe, black, luxury, dracula, cmyk, autumn, business, acid, lemonade,
+  night, coffee, winter, dim, nord, sunset
 
 For more information, visit: https://github.com/yourusername/swagger-to-nextjs`);
 
@@ -222,6 +233,15 @@ async function validateInput(spec, output, options) {
             // The directory doesn't exist, which is fine
         }
     }
+
+    // Validate custom theme file if provided
+    if (options.customTheme) {
+        try {
+            await fs.access(options.customTheme);
+        } catch (error) {
+            throw new Error(`Custom theme file not found: ${options.customTheme}`);
+        }
+    }
 }
 
 /**
@@ -247,6 +267,16 @@ function showSummary(result, output, options) {
         });
     }
 
+    if (result.stats) {
+        console.log(`  ${chalk.bold('TypeScript Types:')} ${chalk.yellow(result.stats.types || 0)}`);
+        console.log(`  ${chalk.bold('API Routes:')} ${chalk.yellow(result.stats.routes || 0)}`);
+        console.log(`  ${chalk.bold('UI Pages:')} ${chalk.yellow(result.stats.pages || 0)}`);
+    }
+
+    if (options.daisyui !== false && result.daisyuiComponents?.length > 0) {
+        console.log(`  ${chalk.bold('DaisyUI Components:')} ${chalk.yellow(result.daisyuiComponents.join(', '))}`);
+    }
+
     if (result.duration) {
         console.log(`  ${chalk.bold('Duration:')} ${chalk.yellow((result.duration / 1000).toFixed(2) + 's')}`);
     }
@@ -266,7 +296,7 @@ function showSummary(result, output, options) {
 /**
  * Show next steps
  */
-function showNextSteps(output, isTypeScript) {
+function showNextSteps(output, options) {
     console.log('');
     console.log(chalk.green('🎯 Next Steps:'));
     console.log(chalk.gray('─'.repeat(50)));
@@ -283,6 +313,13 @@ function showNextSteps(output, isTypeScript) {
     console.log('  4. Start the development server:');
     console.log(chalk.cyan('     npm run dev'));
     console.log('');
+
+    if (options.daisyui !== false) {
+        console.log('  5. Switch themes:');
+        console.log(chalk.cyan('     Use the theme switcher in the navbar or update NEXT_PUBLIC_DEFAULT_THEME'));
+        console.log('');
+    }
+
     console.log(chalk.gray('─'.repeat(50)));
     console.log('');
     console.log(chalk.bold('📚 For more information, check the generated README.md'));

@@ -3,690 +3,403 @@
  * SWAGGER-TO-NEXTJS GENERATOR - AI PROMPT
  * ============================================================================
  * FILE: src/utils/StringUtils.js
- * VERSION: 2025-06-16 16:25:36
+ * VERSION: 2025-06-17 16:21:39
  * PHASE: Phase 3: Utility Modules
  * ============================================================================
  *
  * AI GENERATION PROMPT:
  *
- * Create a comprehensive string manipulation utility module for various
- * naming convention conversions needed in code generation. Include
- * functions to convert strings between different cases: toPascalCase (for
- * class names like UserProfile), toCamelCase (for variables like userId),
- * toKebabCase (for file names like user-profile), toSnakeCase (for some
- * APIs like user_id), and toUpperCase (for constants like USER_ID). Add
+ * Create a comprehensive string manipulation utility module using ES Module
+ * syntax for various naming convention conversions needed in code
+ * generation. Export individual named functions to convert strings between
+ * different cases: toPascalCase (for class names like UserProfile and React
+ * components), toCamelCase (for variables like userId), toKebabCase (for
+ * file names like user-profile and CSS classes), toSnakeCase (for some APIs
+ * like user_id), and toUpperCase (for constants like USER_ID). Add
  * functions for pluralization and singularization of resource names,
  * capitalizing first letters, sanitizing strings to valid JavaScript
- * identifiers, handling special characters and numbers in conversions,
- * preserving acronyms appropriately (API stays API, not Api), and ensuring
- * all conversions handle edge cases like empty strings, single characters,
- * and mixed input formats.
+ * identifiers, generating DaisyUI-friendly class names, handling special
+ * characters and numbers in conversions, preserving acronyms appropriately
+ * (API stays API, not Api), creating human-readable labels from field names
+ * for form labels, and ensuring all conversions handle edge cases like
+ * empty strings, single characters, and mixed input formats. Use export
+ * keyword for each function.
  *
  * ============================================================================
  */
-class StringUtils {
-    constructor() {
-        // Common words to handle in naming conventions
-        this.commonAcronyms = new Set(['API', 'URL', 'ID', 'UUID', 'JSON', 'XML', 'CSV', 'PDF', 'SQL', 'HTTP', 'HTTPS', 'REST', 'CRUD', 'JWT', 'OAuth']);
-        this.articles = new Set(['a', 'an', 'the']);
-        this.conjunctions = new Set(['and', 'or', 'but', 'nor', 'for', 'yet', 'so']);
-        this.prepositions = new Set(['in', 'on', 'at', 'by', 'for', 'with', 'from', 'to', 'of']);
-    }
-    /**
-     * Convert string to camelCase
-     * @param {string} str - Input string
-     * @param {boolean} preserveAcronyms - Whether to preserve acronyms
-     * @returns {string}
-     */
-    toCamelCase(str, preserveAcronyms = true) {
-        if (!str) return '';
-        // First normalize the string
-        let normalized = this.normalizeString(str);
-
-        // Split into words
-        const words = this.splitWords(normalized);
-
-        // Process each word
-        return words.map((word, index) => {
-            if (index === 0) {
-                return word.toLowerCase();
-            }
-
-            if (preserveAcronyms && this.commonAcronyms.has(word.toUpperCase())) {
-                return word.toUpperCase();
-            }
-
-            return this.capitalize(word.toLowerCase());
-        }).join('');
-    }
-
-    /**
-     * Convert string to PascalCase
-     * @param {string} str - Input string
-     * @param {boolean} preserveAcronyms - Whether to preserve acronyms
-     * @returns {string}
-     */
-    toPascalCase(str, preserveAcronyms = true) {
-        if (!str) return '';
-
-        const normalized = this.normalizeString(str);
-        const words = this.splitWords(normalized);
-
-        return words.map(word => {
-            if (preserveAcronyms && this.commonAcronyms.has(word.toUpperCase())) {
-                return word.toUpperCase();
-            }
-            return this.capitalize(word.toLowerCase());
-        }).join('');
-    }
-
-    /**
-     * Convert string to kebab-case
-     * @param {string} str - Input string
-     * @returns {string}
-     */
-    toKebabCase(str) {
-        if (!str) return '';
-
-        return this.normalizeString(str)
-            .replace(/([a-z])([A-Z])/g, '$1-$2')
-            .replace(/[\s_]+/g, '-')
-            .toLowerCase()
-            .replace(/[^a-z0-9-]/g, '')
-            .replace(/-+/g, '-')
-            .replace(/^-|-$/g, '');
-    }
-
-    /**
-     * Convert string to snake_case
-     * @param {string} str - Input string
-     * @returns {string}
-     */
-    toSnakeCase(str) {
-        if (!str) return '';
-
-        return this.normalizeString(str)
-            .replace(/([a-z])([A-Z])/g, '$1_$2')
-            .replace(/[\s-]+/g, '_')
-            .toLowerCase()
-            .replace(/[^a-z0-9_]/g, '')
-            .replace(/_+/g, '_')
-            .replace(/^_|_$/g, '');
-    }
-
-    /**
-     * Convert string to CONSTANT_CASE
-     * @param {string} str - Input string
-     * @returns {string}
-     */
-    toConstantCase(str) {
-        return this.toSnakeCase(str).toUpperCase();
-    }
-
-    /**
-     * Convert string to Title Case
-     * @param {string} str - Input string
-     * @param {boolean} smartCase - Use smart casing for articles, conjunctions, etc.
-     * @returns {string}
-     */
-    toTitleCase(str, smartCase = true) {
-        if (!str) return '';
-
-        const words = str.toLowerCase().split(/\s+/);
-
-        return words.map((word, index) => {
-            // Always capitalize first and last words
-            if (index === 0 || index === words.length - 1) {
-                return this.capitalize(word);
-            }
-
-            // Apply smart casing if enabled
-            if (smartCase) {
-                // Don't capitalize articles, conjunctions, or short prepositions
-                if (this.articles.has(word) ||
-                    this.conjunctions.has(word) ||
-                    (this.prepositions.has(word) && word.length < 4)) {
-                    return word;
-                }
-            }
-
-            return this.capitalize(word);
-        }).join(' ');
-    }
-
-    /**
-     * Convert string to sentence case
-     * @param {string} str - Input string
-     * @returns {string}
-     */
-    toSentenceCase(str) {
-        if (!str) return '';
-
-        return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
-    }
-
-    /**
-     * Convert string to dot.case
-     * @param {string} str - Input string
-     * @returns {string}
-     */
-    toDotCase(str) {
-        if (!str) return '';
-
-        return this.normalizeString(str)
-            .replace(/([a-z])([A-Z])/g, '$1.$2')
-            .replace(/[\s_-]+/g, '.')
-            .toLowerCase()
-            .replace(/[^a-z0-9.]/g, '')
-            .replace(/\.+/g, '.')
-            .replace(/^\.|\.$/g, '');
-    }
-
-    /**
-     * Convert string to path/case
-     * @param {string} str - Input string
-     * @returns {string}
-     */
-    toPathCase(str) {
-        if (!str) return '';
-
-        return this.normalizeString(str)
-            .replace(/([a-z])([A-Z])/g, '$1/$2')
-            .replace(/[\s_-]+/g, '/')
-            .toLowerCase()
-            .replace(/[^a-z0-9/]/g, '')
-            .replace(/\/+/g, '/')
-            .replace(/^\/|\/$/g, '');
-    }
-
-    /**
-     * Capitalize first letter of string
-     * @param {string} str - Input string
-     * @returns {string}
-     */
-    capitalize(str) {
-        if (!str) return '';
-        return str.charAt(0).toUpperCase() + str.slice(1);
-    }
-
-    /**
-     * Uncapitalize first letter of string
-     * @param {string} str - Input string
-     * @returns {string}
-     */
-    uncapitalize(str) {
-        if (!str) return '';
-        return str.charAt(0).toLowerCase() + str.slice(1);
-    }
-
-    /**
-     * Pluralize a word
-     * @param {string} word - Word to pluralize
-     * @param {number} count - Count for conditional pluralization
-     * @returns {string}
-     */
-    pluralize(word, count = 2) {
-        if (!word) return '';
-        if (count === 1) return word;
-
-        // Common irregular plurals
-        const irregulars = {
-            'child': 'children',
-            'person': 'people',
-            'man': 'men',
-            'woman': 'women',
-            'tooth': 'teeth',
-            'foot': 'feet',
-            'mouse': 'mice',
-            'goose': 'geese'
-        };
-
-        const lowerWord = word.toLowerCase();
-        if (irregulars[lowerWord]) {
-            return this.matchCase(word, irregulars[lowerWord]);
-        }
-
-        // Rules for regular plurals
-        if (lowerWord.match(/(s|ss|sh|ch|x|z)$/)) {
-            return word + 'es';
-        }
-
-        if (lowerWord.match(/[^aeiou]y$/)) {
-            return word.slice(0, -1) + 'ies';
-        }
-
-        if (lowerWord.match(/[^aeiou]o$/)) {
-            return word + 'es';
-        }
-
-        if (lowerWord.match(/(f|fe)$/)) {
-            return word.replace(/(f|fe)$/, 'ves');
-        }
-
-        return word + 's';
-    }
-
-    /**
-     * Singularize a word
-     * @param {string} word - Word to singularize
-     * @returns {string}
-     */
-    singularize(word) {
-        if (!word) return '';
-
-        // Common irregular plurals (reversed)
-        const irregulars = {
-            'children': 'child',
-            'people': 'person',
-            'men': 'man',
-            'women': 'woman',
-            'teeth': 'tooth',
-            'feet': 'foot',
-            'mice': 'mouse',
-            'geese': 'goose'
-        };
-
-        const lowerWord = word.toLowerCase();
-        if (irregulars[lowerWord]) {
-            return this.matchCase(word, irregulars[lowerWord]);
-        }
-
-        // Rules for regular singulars
-        if (lowerWord.match(/ies$/)) {
-            return word.slice(0, -3) + 'y';
-        }
-
-        if (lowerWord.match(/ves$/)) {
-            return word.slice(0, -3) + 'f';
-        }
-
-        if (lowerWord.match(/(s|ss|sh|ch|x|z)es$/)) {
-            return word.slice(0, -2);
-        }
-
-        if (lowerWord.match(/oes$/)) {
-            return word.slice(0, -2);
-        }
-
-        if (lowerWord.match(/s$/)) {
-            return word.slice(0, -1);
-        }
-
-        return word;
-    }
-
-    /**
-     * Truncate string with ellipsis
-     * @param {string} str - String to truncate
-     * @param {number} length - Maximum length
-     * @param {string} suffix - Suffix to add (default: '...')
-     * @returns {string}
-     */
-    truncate(str, length, suffix = '...') {
-        if (!str || str.length <= length) return str;
-
-        return str.slice(0, length - suffix.length) + suffix;
-    }
-
-    /**
-     * Truncate string at word boundary
-     * @param {string} str - String to truncate
-     * @param {number} length - Maximum length
-     * @param {string} suffix - Suffix to add
-     * @returns {string}
-     */
-    truncateWords(str, length, suffix = '...') {
-        if (!str || str.length <= length) return str;
-
-        const truncated = str.slice(0, length - suffix.length);
-        const lastSpace = truncated.lastIndexOf(' ');
-
-        if (lastSpace > 0) {
-            return truncated.slice(0, lastSpace) + suffix;
-        }
-
-        return truncated + suffix;
-    }
-
-    /**
-     * Pad string to specified length
-     * @param {string} str - String to pad
-     * @param {number} length - Target length
-     * @param {string} char - Character to pad with
-     * @param {string} position - 'left' | 'right' | 'both'
-     * @returns {string}
-     */
-    pad(str, length, char = ' ', position = 'right') {
-        if (!str) str = '';
-        str = String(str);
-
-        if (str.length >= length) return str;
-
-        const padLength = length - str.length;
-
-        switch (position) {
-            case 'left':
-                return char.repeat(padLength) + str;
-            case 'right':
-                return str + char.repeat(padLength);
-            case 'both':
-                const leftPad = Math.floor(padLength / 2);
-                const rightPad = padLength - leftPad;
-                return char.repeat(leftPad) + str + char.repeat(rightPad);
-            default:
-                return str;
-        }
-    }
-
-    /**
-     * Remove extra whitespace
-     * @param {string} str - Input string
-     * @returns {string}
-     */
-    collapseWhitespace(str) {
-        if (!str) return '';
-        return str.replace(/\s+/g, ' ').trim();
-    }
-
-    /**
-     * Escape string for regex
-     * @param {string} str - String to escape
-     * @returns {string}
-     */
-    escapeRegex(str) {
-        if (!str) return '';
-        return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    }
-
-    /**
-     * Escape HTML entities
-     * @param {string} str - String to escape
-     * @returns {string}
-     */
-    escapeHtml(str) {
-        if (!str) return '';
-
-        const htmlEscapes = {
-            '&': '&amp;',
-            '<': '&lt;',
-            '>': '&gt;',
-            '"': '&quot;',
-            "'": '&#39;'
-        };
-
-        return str.replace(/[&<>"']/g, char => htmlEscapes[char]);
-    }
-
-    /**
-     * Unescape HTML entities
-     * @param {string} str - String to unescape
-     * @returns {string}
-     */
-    unescapeHtml(str) {
-        if (!str) return '';
-
-        const htmlUnescapes = {
-            '&amp;': '&',
-            '&lt;': '<',
-            '&gt;': '>',
-            '&quot;': '"',
-            '&#39;': "'"
-        };
-
-        return str.replace(/&(amp|lt|gt|quot|#39);/g, entity => htmlUnescapes[entity]);
-    }
-
-    /**
-     * Generate a random string
-     * @param {number} length - Length of string
-     * @param {string} charset - Character set to use
-     * @returns {string}
-     */
-    randomString(length = 10, charset = 'alphanumeric') {
-        const charsets = {
-            numeric: '0123456789',
-            alpha: 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ',
-            alphanumeric: '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ',
-            hex: '0123456789abcdef',
-            custom: charset
-        };
-
-        const chars = charsets[charset] || charsets.alphanumeric;
-        let result = '';
-
-        for (let i = 0; i < length; i++) {
-            result += chars.charAt(Math.floor(Math.random() * chars.length));
-        }
-
-        return result;
-    }
-
-    /**
-     * Check if string contains substring (case insensitive)
-     * @param {string} str - String to search in
-     * @param {string} substring - Substring to search for
-     * @returns {boolean}
-     */
-    contains(str, substring) {
-        if (!str || !substring) return false;
-        return str.toLowerCase().includes(substring.toLowerCase());
-    }
-
-    /**
-     * Count occurrences of substring
-     * @param {string} str - String to search in
-     * @param {string} substring - Substring to count
-     * @returns {number}
-     */
-    countOccurrences(str, substring) {
-        if (!str || !substring) return 0;
-        return (str.match(new RegExp(this.escapeRegex(substring), 'g')) || []).length;
-    }
-
-    /**
-     * Replace all occurrences
-     * @param {string} str - String to process
-     * @param {string} search - String to search for
-     * @param {string} replace - Replacement string
-     * @returns {string}
-     */
-    replaceAll(str, search, replace) {
-        if (!str) return '';
-        return str.replace(new RegExp(this.escapeRegex(search), 'g'), replace);
-    }
-
-    /**
-     * Extract words from string
-     * @param {string} str - Input string
-     * @returns {string[]}
-     */
-    extractWords(str) {
-        if (!str) return [];
-        return str.match(/[A-Za-z]+/g) || [];
-    }
-
-    /**
-     * Check if string is valid identifier
-     * @param {string} str - String to check
-     * @returns {boolean}
-     */
-    isValidIdentifier(str) {
-        if (!str) return false;
-        return /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(str);
-    }
-
-    /**
-     * Convert to valid identifier
-     * @param {string} str - String to convert
-     * @returns {string}
-     */
-    toIdentifier(str) {
-        if (!str) return '';
-
-        // Replace invalid characters with underscore
-        let identifier = str.replace(/[^a-zA-Z0-9_$]/g, '_');
-
-        // Ensure it starts with a letter or underscore
-        if (!/^[a-zA-Z_$]/.test(identifier)) {
-            identifier = '_' + identifier;
-        }
-
-        // Remove consecutive underscores
-        identifier = identifier.replace(/_+/g, '_');
-
-        return identifier;
-    }
-
-    /**
-     * Wrap text to specified width
-     * @param {string} text - Text to wrap
-     * @param {number} width - Maximum line width
-     * @param {string} indent - Indentation for wrapped lines
-     * @returns {string}
-     */
-    wrapText(text, width = 80, indent = '') {
-        if (!text || text.length <= width) return text;
-
-        const words = text.split(/\s+/);
-        const lines = [];
-        let currentLine = '';
-
-        for (const word of words) {
-            if (currentLine.length + word.length + 1 <= width) {
-                currentLine += (currentLine ? ' ' : '') + word;
-            } else {
-                if (currentLine) lines.push(currentLine);
-                currentLine = indent + word;
-            }
-        }
-
-        if (currentLine) lines.push(currentLine);
-
-        return lines.join('\n');
-    }
-
-    /**
-     * Indent text
-     * @param {string} text - Text to indent
-     * @param {number} spaces - Number of spaces
-     * @returns {string}
-     */
-    indent(text, spaces = 2) {
-        if (!text) return '';
-        const indent = ' '.repeat(spaces);
-        return text.split('\n').map(line => indent + line).join('\n');
-    }
-
-    /**
-     * Remove common indentation
-     * @param {string} text - Text to dedent
-     * @returns {string}
-     */
-    dedent(text) {
-        if (!text) return '';
-
-        const lines = text.split('\n');
-        const minIndent = lines
-            .filter(line => line.trim())
-            .map(line => line.match(/^(\s*)/)[1].length)
-            .reduce((min, indent) => Math.min(min, indent), Infinity);
-
-        if (minIndent === Infinity) return text;
-
-        return lines
-            .map(line => line.slice(minIndent))
-            .join('\n');
-    }
-
-    /**
-     * Create a slug from string
-     * @param {string} str - String to slugify
-     * @returns {string}
-     */
-    slugify(str) {
-        if (!str) return '';
-
-        return str
-            .toLowerCase()
-            .trim()
-            .replace(/[^\w\s-]/g, '')
-            .replace(/[\s_-]+/g, '-')
-            .replace(/^-+|-+$/g, '');
-    }
-
-    /**
-     * Parse template variables
-     * @param {string} template - Template string
-     * @param {object} data - Data object
-     * @returns {string}
-     */
-    parseTemplate(template, data) {
-        if (!template) return '';
-
-        return template.replace(/\{([^}]+)\}/g, (match, key) => {
-            const keys = key.trim().split('.');
-            let value = data;
-
-            for (const k of keys) {
-                value = value?.[k];
-            }
-
-            return value !== undefined ? value : match;
-        });
-    }
-
-    // ============================================================================
-    // Private Helper Methods
-    // ============================================================================
-
-    /**
-     * Normalize string for processing
-     * @private
-     */
-    normalizeString(str) {
-        return str
-            .trim()
-            .replace(/[^\w\s-]/g, ' ')
-            .replace(/\s+/g, ' ');
-    }
-
-    /**
-     * Split string into words
-     * @private
-     */
-    splitWords(str) {
-        // Handle camelCase, PascalCase, kebab-case, snake_case
-        return str
-            .replace(/([a-z])([A-Z])/g, '$1 $2')
-            .split(/[\s\-_]+/)
-            .filter(Boolean);
-    }
-
-    /**
-     * Match case of source to target
-     * @private
-     */
-    matchCase(source, target) {
-        if (source === source.toUpperCase()) {
-            return target.toUpperCase();
-        }
-        if (source === this.capitalize(source.toLowerCase())) {
-            return this.capitalize(target.toLowerCase());
-        }
-        return target;
-    }
-
-    /**
-     * Create method aliases for backward compatibility
-     */
-    createAliases() {
-        this.camelCase = this.toCamelCase;
-        this.pascalCase = this.toPascalCase;
-        this.kebabCase = this.toKebabCase;
-        this.snakeCase = this.toSnakeCase;
-        this.constantCase = this.toConstantCase;
-        this.titleCase = this.toTitleCase;
-    }
+/**
+ * Convert string to PascalCase for class names and React components
+ */
+export function toPascalCase(str) {
+    if (!str) return '';
+    return str
+        .replace(/(?:^\w|[A-Z]|\b\w)/g, (word, index) => word.toUpperCase())
+        .replace(/[\s\-_]+/g, '');
+}
+/**
+ * Convert string to camelCase for variable names
+ */
+export function toCamelCase(str) {
+    if (!str) return '';
+    const pascal = toPascalCase(str);
+    return pascal.charAt(0).toLowerCase() + pascal.slice(1);
 }
 
-module.exports = StringUtils;
+/**
+ * Convert string to kebab-case for file names and CSS classes
+ */
+export function toKebabCase(str) {
+    if (!str) return '';
+    return str
+        .replace(/([a-z])([A-Z])/g, '$1-$2')
+        .replace(/[\s_]+/g, '-')
+        .toLowerCase();
+}
+
+/**
+ * Convert string to snake_case
+ */
+export function toSnakeCase(str) {
+    if (!str) return '';
+    return str
+        .replace(/([a-z])([A-Z])/g, '$1_$2')
+        .replace(/[\s\-]+/g, '_')
+        .toLowerCase();
+}
+
+/**
+ * Convert string to UPPER_CASE for constants
+ */
+export function toUpperCase(str) {
+    if (!str) return '';
+    return toSnakeCase(str).toUpperCase();
+}
+
+/**
+ * Pluralize a word (simple version)
+ */
+export function pluralize(str) {
+    if (!str) return '';
+
+    // Common irregular plurals
+    const irregulars = {
+        'person': 'people',
+        'child': 'children',
+        'man': 'men',
+        'woman': 'women',
+        'tooth': 'teeth',
+        'foot': 'feet',
+        'mouse': 'mice',
+        'goose': 'geese'
+    };
+
+    const lower = str.toLowerCase();
+    if (irregulars[lower]) {
+        return str.charAt(0) === str.charAt(0).toUpperCase()
+            ? irregulars[lower].charAt(0).toUpperCase() + irregulars[lower].slice(1)
+            : irregulars[lower];
+    }
+
+    // Rules for regular plurals
+    if (str.match(/(s|ss|sh|ch|x|z)$/i)) {
+        return str + 'es';
+    } else if (str.match(/[^aeiou]y$/i)) {
+        return str.slice(0, -1) + 'ies';
+    } else if (str.match(/f$/i)) {
+        return str.slice(0, -1) + 'ves';
+    } else if (str.match(/fe$/i)) {
+        return str.slice(0, -2) + 'ves';
+    }
+
+    return str + 's';
+}
+
+/**
+ * Singularize a word (simple version)
+ */
+export function singularize(str) {
+    if (!str) return '';
+
+    // Common irregular singulars
+    const irregulars = {
+        'people': 'person',
+        'children': 'child',
+        'men': 'man',
+        'women': 'woman',
+        'teeth': 'tooth',
+        'feet': 'foot',
+        'mice': 'mouse',
+        'geese': 'goose'
+    };
+
+    const lower = str.toLowerCase();
+    if (irregulars[lower]) {
+        return str.charAt(0) === str.charAt(0).toUpperCase()
+            ? irregulars[lower].charAt(0).toUpperCase() + irregulars[lower].slice(1)
+            : irregulars[lower];
+    }
+
+    // Rules for regular singulars
+    if (str.match(/ies$/i)) {
+        return str.slice(0, -3) + 'y';
+    } else if (str.match(/ves$/i)) {
+        return str.slice(0, -3) + 'f';
+    } else if (str.match(/(ses|xes|zes|ches|shes)$/i)) {
+        return str.slice(0, -2);
+    } else if (str.match(/s$/i) && !str.match(/ss$/i)) {
+        return str.slice(0, -1);
+    }
+
+    return str;
+}
+
+/**
+ * Capitalize first letter
+ */
+export function capitalize(str) {
+    if (!str) return '';
+    return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
+/**
+ * Sanitize string to valid JavaScript identifier
+ */
+export function toIdentifier(str) {
+    if (!str) return '';
+
+    // Remove invalid characters
+    let result = str.replace(/[^a-zA-Z0-9_$]/g, '_');
+
+    // Ensure it doesn't start with a number
+    if (/^[0-9]/.test(result)) {
+        result = '_' + result;
+    }
+
+    // Remove multiple underscores
+    result = result.replace(/_+/g, '_');
+
+    // Remove trailing underscores
+    result = result.replace(/_+$/, '');
+
+    return result || '_';
+}
+
+/**
+ * Generate DaisyUI-friendly class names
+ */
+export function toDaisyUIClass(str, prefix = '') {
+    if (!str) return '';
+
+    const base = toKebabCase(str);
+    return prefix ? `${prefix}-${base}` : base;
+}
+
+/**
+ * Generate DaisyUI component class with modifiers
+ */
+export function toDaisyUIComponentClass(component, modifiers = []) {
+    if (!component) return '';
+
+    const baseClass = toKebabCase(component);
+    if (modifiers.length === 0) return baseClass;
+
+    const modifierClasses = modifiers
+        .filter(mod => mod)
+        .map(mod => `${baseClass}-${toKebabCase(mod)}`);
+
+    return [baseClass, ...modifierClasses].join(' ');
+}
+
+/**
+ * Generate human-readable label from field name
+ */
+export function toHumanReadable(str) {
+    if (!str) return '';
+
+    // Handle camelCase and PascalCase
+    let result = str.replace(/([a-z])([A-Z])/g, '$1 $2');
+
+    // Handle snake_case and kebab-case
+    result = result.replace(/[_-]/g, ' ');
+
+    // Capitalize first letter of each word
+    result = result.replace(/\b\w/g, l => l.toUpperCase());
+
+    // Handle common abbreviations
+    result = result.replace(/\bId\b/g, 'ID');
+    result = result.replace(/\bApi\b/g, 'API');
+    result = result.replace(/\bUrl\b/g, 'URL');
+    result = result.replace(/\bHttp\b/g, 'HTTP');
+
+    return result.trim();
+}
+
+/**
+ * Generate form field label
+ */
+export function toFormLabel(str, required = false) {
+    const label = toHumanReadable(str);
+    return required ? `${label} *` : label;
+}
+
+/**
+ * Generate DaisyUI size class
+ */
+export function toDaisyUISize(size) {
+    const sizeMap = {
+        'xs': 'xs',
+        'extra-small': 'xs',
+        'sm': 'sm',
+        'small': 'sm',
+        'md': 'md',
+        'medium': 'md',
+        'lg': 'lg',
+        'large': 'lg',
+        'xl': 'xl',
+        'extra-large': 'xl'
+    };
+
+    return sizeMap[size?.toLowerCase()] || 'md';
+}
+
+/**
+ * Generate DaisyUI color/variant class
+ */
+export function toDaisyUIVariant(variant) {
+    const variantMap = {
+        'primary': 'primary',
+        'secondary': 'secondary',
+        'accent': 'accent',
+        'info': 'info',
+        'success': 'success',
+        'warning': 'warning',
+        'error': 'error',
+        'danger': 'error',
+        'neutral': 'neutral',
+        'ghost': 'ghost',
+        'link': 'link'
+    };
+
+    return variantMap[variant?.toLowerCase()] || 'primary';
+}
+
+/**
+ * Preserve acronyms in string conversions
+ */
+export function preserveAcronyms(str) {
+    if (!str) return '';
+
+    const acronyms = ['API', 'URL', 'ID', 'HTTP', 'HTTPS', 'REST', 'CRUD', 'UI', 'UX', 'CSS', 'HTML', 'JS', 'TS'];
+    let result = str;
+
+    acronyms.forEach(acronym => {
+        const regex = new RegExp(`\\b${acronym}\\b`, 'gi');
+        result = result.replace(regex, acronym);
+    });
+
+    return result;
+}
+
+/**
+ * Check if string is empty or whitespace
+ */
+export function isEmpty(str) {
+    return !str || str.trim().length === 0;
+}
+
+/**
+ * Truncate string with ellipsis
+ */
+export function truncate(str, maxLength = 50, suffix = '...') {
+    if (!str || str.length <= maxLength) return str;
+    return str.substring(0, maxLength - suffix.length) + suffix;
+}
+
+/**
+ * Generate CSS-safe class name
+ */
+export function toCSSClass(str) {
+    if (!str) return '';
+
+    // Remove invalid CSS class characters
+    let result = str.replace(/[^a-zA-Z0-9-_]/g, '-');
+
+    // Ensure it doesn't start with a number or dash
+    if (/^[0-9-]/.test(result)) {
+        result = '_' + result;
+    }
+
+    // Remove multiple dashes
+    result = result.replace(/-+/g, '-');
+
+    // Remove trailing dashes
+    result = result.replace(/-+$/, '');
+
+    return result.toLowerCase() || '_';
+}
+
+/**
+ * Generate DaisyUI button classes
+ */
+export function generateButtonClasses(options = {}) {
+    const classes = ['btn'];
+
+    if (options.variant) {
+        classes.push(`btn-${toDaisyUIVariant(options.variant)}`);
+    }
+
+    if (options.size) {
+        classes.push(`btn-${toDaisyUISize(options.size)}`);
+    }
+
+    if (options.outline) {
+        classes.push('btn-outline');
+    }
+
+    if (options.wide) {
+        classes.push('btn-wide');
+    }
+
+    if (options.block) {
+        classes.push('btn-block');
+    }
+
+    if (options.loading) {
+        classes.push('loading');
+    }
+
+    if (options.disabled) {
+        classes.push('btn-disabled');
+    }
+
+    return classes.join(' ');
+}
+
+/**
+ * Generate DaisyUI input classes
+ */
+export function generateInputClasses(options = {}) {
+    const classes = ['input', 'input-bordered'];
+
+    if (options.variant) {
+        classes.push(`input-${toDaisyUIVariant(options.variant)}`);
+    }
+
+    if (options.size) {
+        classes.push(`input-${toDaisyUISize(options.size)}`);
+    }
+
+    if (options.error) {
+        classes.push('input-error');
+    }
+
+    if (options.success) {
+        classes.push('input-success');
+    }
+
+    if (options.disabled) {
+        classes.push('input-disabled');
+    }
+
+    return classes.join(' ');
+}

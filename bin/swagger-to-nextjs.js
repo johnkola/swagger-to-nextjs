@@ -4,19 +4,21 @@
  * SWAGGER-TO-NEXTJS GENERATOR - AI PROMPT
  * ============================================================================
  * FILE: bin/swagger-to-nextjs.js
- * VERSION: 2025-06-16 16:25:36
+ * VERSION: 2025-06-17 16:21:39
  * PHASE: Phase 1: Foundation & Core Infrastructure
  * ============================================================================
  *
  * AI GENERATION PROMPT:
  *
- * Create a Node.js executable file that serves as the entry point for a CLI
- * tool. This file should have a shebang for Node.js, import and execute the
- * main CLI module from '../src/cli.js', handle any uncaught errors
- * gracefully with user-friendly messages, and exit with appropriate status
- * codes. It should also handle SIGINT signals for clean interruption when
- * users press Ctrl+C. The file should be minimal, focusing only on
- * launching the CLI and basic error handling.
+ * Create a Node.js executable file using ES Module syntax that serves as
+ * the entry point for a CLI tool. This file should have a shebang for
+ * Node.js, import and execute the main CLI module using ES Module import
+ * from '../src/cli.js', handle any uncaught errors gracefully with
+ * user-friendly messages, and exit with appropriate status codes. It should
+ * also handle SIGINT signals for clean interruption when users press
+ * Ctrl+C. The file should be minimal, focusing only on launching the CLI
+ * and basic error handling. Use top-level await if needed and ensure all
+ * imports use ES Module syntax.
  *
  * ============================================================================
  */
@@ -24,7 +26,6 @@
 import chalk from 'chalk';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-
 // Get current directory
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
