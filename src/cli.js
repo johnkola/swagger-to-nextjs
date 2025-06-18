@@ -1,8 +1,38 @@
 /**
+ * ============================================================================
+ * SWAGGER-TO-NEXTJS GENERATOR - AI PROMPT
+ * ============================================================================
+ * FILE: src/cli.js
+ * VERSION: 2025-06-17 21:42:10
+ * PHASE: Phase 1: Foundation & Core Infrastructure
+ * ============================================================================
+ *
+ * AI GENERATION PROMPT:
+ *
+ * Build a Commander.js CLI interface using ES Module syntax for a Next.js
+ * code generator from OpenAPI specs with DaisyUI styling options. Import
+ * Commander using ES Module syntax. The main command should be "generate
+ * <spec> [output]" where spec is a path to an OpenAPI file and output is
+ * the target directory. Include options for --typescript (default true),
+ * --client (generate API client, default true), --pages (generate UI
+ * components, default true), --force (overwrite without asking), --dry-run
+ * (preview without writing), --theme <theme> (DaisyUI theme selection,
+ * default "light"), --themes <themes...> (list of DaisyUI themes to
+ * include, default ["light", "dark", "cupcake", "corporate"]), --no-daisyui
+ * (generate without DaisyUI, use plain CSS), and --custom-theme <path>
+ * (path to custom DaisyUI theme file). Import and use ora for progress
+ * spinner and chalk for colored messages using ES Module imports. Display
+ * colored success/error messages and provide helpful next steps after
+ * generation including how to switch themes. Include proper version
+ * handling by reading package.json using fs.readFileSync and JSON.parse,
+ * and comprehensive help text. Export the CLI setup as the default export.
+ *
+ * ============================================================================
+ */
+/**
  * cli.js - Commander.js CLI interface for swagger-to-nextjs
  * Updated to include all DaisyUI theme options as specified in the prompt
  */
-
 import { Command } from 'commander';
 import chalk from 'chalk';
 import ora from 'ora';

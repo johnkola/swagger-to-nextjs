@@ -3,26 +3,25 @@
  * SWAGGER-TO-NEXTJS GENERATOR - AI PROMPT
  * ============================================================================
  * FILE: src/generators/ApiRouteGenerator.js
- * VERSION: 2025-06-17 16:21:39
+ * VERSION: 2025-06-17 21:42:10
  * PHASE: Phase 6: Main Code Generators
  * ============================================================================
  *
  * AI GENERATION PROMPT:
  *
  * Create a generator class using ES Module syntax that produces Next.js 14
- * App Router API route handlers from OpenAPI path definitions. Import
- * BaseGenerator and utilities using ES Module imports. For each path in the
- * OpenAPI spec, generate a route.ts file in the appropriate app/api
- * directory structure, convert OpenAPI paths like /pets/{id} to Next.js
- * dynamic routes like /pets/[id], create named export functions for each
- * HTTP method (GET, POST, PUT, DELETE, PATCH), import generated TypeScript
- * types for request/response typing, add request body parsing and basic
- * validation with error responses formatted for DaisyUI alerts, include
- * proper error handling with appropriate HTTP status codes and structured
- * error objects, use NextRequest and NextResponse from Next.js, add TODO
- * comments where business logic should be implemented, implement pagination
- * support for list endpoints, add CORS headers if specified in OpenAPI
- * spec, and organize routes following RESTful conventions. Export as
+ * App Router API route handlers by rendering the
+ * templates/api/[...route].ts.hbs template for each API path using
+ * TemplateEngine. Import BaseGenerator and utilities using ES Module
+ * imports. For each path in the OpenAPI spec, convert OpenAPI paths like
+ * /pets/{id} to file paths like app/api/pets/[id]/route.ts, prepare
+ * template context with all operations, methods, parameters, schemas, and
+ * error responses for that path, use TemplateEngine.render() with the
+ * [...route].ts.hbs template to generate the route handler code, write each
+ * rendered file to the appropriate app/api directory structure using
+ * FileWriter, let the template handle all Next.js route handler code
+ * generation including TypeScript types, request parsing, and error
+ * handling, and never write route handler code in JavaScript. Export as
  * default.
  *
  * ============================================================================
@@ -36,10 +35,8 @@ export default class ApiRouteGenerator extends BaseGenerator {
         super(spec, options);
         this.generatedRoutes = new Map();
     }
-
     async generate() {
         this.emit('progress', { step: 'api-routes', message: 'Generating API route handlers...' });
-
         const paths = this.spec.paths || {};
         const results = [];
 

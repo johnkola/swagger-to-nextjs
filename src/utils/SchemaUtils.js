@@ -3,7 +3,7 @@
  * SWAGGER-TO-NEXTJS GENERATOR - AI PROMPT
  * ============================================================================
  * FILE: src/utils/SchemaUtils.js
- * VERSION: 2025-06-17 16:21:39
+ * VERSION: 2025-06-17 21:42:10
  * PHASE: Phase 3: Utility Modules
  * ============================================================================
  *
@@ -35,14 +35,12 @@
  * Uses ES Module named exports as required by generators
  */
 import { toPascalCase, toHumanReadable } from './StringUtils.js';
-
 /**
  * Convert OpenAPI schema to TypeScript type string
  * Main function used by TypeGenerator
  */
 export function convertSchemaToTypeScript(schema, options = {}) {
     if (!schema) return 'any';
-
     // Handle references
     if (schema.$ref) {
         const refName = schema.$ref.split('/').pop();

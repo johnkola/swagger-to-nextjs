@@ -1,8 +1,34 @@
 /**
+ * ============================================================================
+ * SWAGGER-TO-NEXTJS GENERATOR - AI PROMPT
+ * ============================================================================
+ * FILE: src/index.js
+ * VERSION: 2025-06-17 21:42:10
+ * PHASE: Phase 1: Foundation & Core Infrastructure
+ * ============================================================================
+ *
+ * AI GENERATION PROMPT:
+ *
+ * Create the main orchestrator class using ES Module syntax for a code
+ * generator that coordinates the entire generation process from OpenAPI
+ * spec to Next.js application with DaisyUI components. Use ES Module
+ * imports for all dependencies. This class should accept configuration
+ * options in its constructor including theme preferences, have a main
+ * generate() method that sequentially runs all generation steps, coordinate
+ * loading the spec, validating it, and running various generators (types,
+ * API routes, client, pages with DaisyUI components, project files
+ * including Tailwind config). It should emit events for progress tracking
+ * using EventEmitter, handle errors gracefully with helpful messages, track
+ * DaisyUI theme configuration throughout the process, and return a summary
+ * of generated files. Export the class as the default export. The class
+ * should support both CLI usage and programmatic usage as a library.
+ *
+ * ============================================================================
+ */
+/**
  * index.js - Main orchestrator for swagger-to-nextjs
  * Updated to use actual Phase 6 generators
  */
-
 import { EventEmitter } from 'node:events';
 import fs from 'node:fs/promises';
 import path from 'node:path';

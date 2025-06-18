@@ -3,7 +3,7 @@
  * SWAGGER-TO-NEXTJS GENERATOR - AI PROMPT
  * ============================================================================
  * FILE: src/generators/BaseGenerator.js
- * VERSION: 2025-06-17 16:21:39
+ * VERSION: 2025-06-17 21:42:10
  * PHASE: Phase 5: Base Generator
  * ============================================================================
  *
@@ -37,11 +37,9 @@ import TemplateEngine from '../templates/TemplateEngine.js';
 export default class BaseGenerator extends EventEmitter {
     constructor(spec, options = {}) {
         super();
-
         if (new.target === BaseGenerator) {
             throw new Error('BaseGenerator is an abstract class and cannot be instantiated directly');
         }
-
         this.spec = spec;
         this.options = {
             outputDir: './generated',

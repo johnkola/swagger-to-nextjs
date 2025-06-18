@@ -3,7 +3,7 @@
  * SWAGGER-TO-NEXTJS GENERATOR - AI PROMPT
  * ============================================================================
  * FILE: src/core/SwaggerValidator.js
- * VERSION: 2025-06-17 16:21:39
+ * VERSION: 2025-06-17 21:42:10
  * PHASE: Phase 2: Core System Components
  * ============================================================================
  *
@@ -29,15 +29,35 @@ class SwaggerValidator {
     constructor() {
         this.errors = [];
         this.warnings = [];
+        this.uiHints = {
+            components: {},
+            themes: {},
+            layouts: {},
+            features: {},
+            forms: {},
+            tables: {},
+            validations: {}
+        };
     }
+
     /**
      * Validate an OpenAPI specification
      * @param {Object} spec - The specification to validate
-     * @returns {Object} Validation result with valid boolean, errors, and warnings
+     * @returns {Object} Validation result with valid boolean, errors, warnings, and UI hints
      */
     validate(spec) {
         this.errors = [];
         this.warnings = [];
+        this.uiHints = {
+            components: {},
+            themes: {},
+            layouts: {},
+            features: {},
+            forms: {},
+            tables: {},
+            validations: {}
+        };
+
         // Check basic structure
         this.validateBasicStructure(spec);
 
@@ -53,11 +73,325 @@ class SwaggerValidator {
         // Check for common issues
         this.checkCommonIssues(spec);
 
+        // Extract UI hints after validation
+        this.extractUIHints(spec);
+
         return {
             valid: this.errors.length === 0,
             errors: [...this.errors],
-            warnings: [...this.warnings]
+            warnings: [...this.warnings],
+            uiHints: this.uiHints
         };
+    }
+
+    /**
+     * Extract UI hints and display preferences from spec extensions
+     * @param {Object} spec - The specification
+     */
+    extractUIHints(spec) {
+        // Extract global UI configuration
+        if (spec['x-ui-config']) {
+            this.processUIConfig(spec['x-ui-config']);
+        }
+
+        // Extract from info section
+        if (spec.info) {
+            this.extractInfoUIHints(spec.info);
+        }
+
+        // Extract from paths
+        if (spec.paths) {
+            this.extractPathsUIHints(spec.paths);
+        }
+
+        // Extract from components/schemas
+        const schemas = spec.components?.schemas || spec.definitions || {};
+        this.extractSchemasUIHints(schemas);
+
+        // Extract from tags
+        if (spec.tags) {
+            this.extractTagsUIHints(spec.tags);
+        }
+    }
+
+    /**
+     * Process global UI configuration
+     * @param {Object} uiConfig - UI configuration object
+     */
+    processUIConfig(uiConfig) {
+        if (uiConfig.theme) {
+            this.uiHints.themes.default = uiConfig.theme;
+        }
+
+        if (uiConfig.themes) {
+            this.uiHints.themes.available = Array.isArray(uiConfig.themes)
+                ? uiConfig.themes
+                : [uiConfig.themes];
+        }
+
+        if (uiConfig.features) {
+            Object.assign(this.uiHints.features, uiConfig.features);
+        }
+
+        if (uiConfig.components) {
+            Object.assign(this.uiHints.components, uiConfig.components);
+        }
+
+        if (uiConfig.layouts) {
+            Object.assign(this.uiHints.layouts, uiConfig.layouts);
+        }
+    }
+
+    /**
+     * Extract UI hints from info section
+     * @param {Object} info - Info object
+     */
+    extractInfoUIHints(info) {
+        // Theme preferences
+        if (info['x-ui-theme']) {
+            this.uiHints.themes.default = info['x-ui-theme'];
+        }
+
+        // Color scheme
+        if (info['x-ui-colors']) {
+            this.uiHints.themes.colors = info['x-ui-colors'];
+        }
+
+        // Layout preferences
+        if (info['x-ui-layout']) {
+            this.uiHints.layouts.default = info['x-ui-layout'];
+        }
+
+        // Feature flags
+        if (info['x-ui-features']) {
+            Object.assign(this.uiHints.features, info['x-ui-features']);
+        }
+    }
+
+    /**
+     * Extract UI hints from paths
+     * @param {Object} paths - Paths object
+     */
+    extractPathsUIHints(paths) {
+        for (const [pathName, pathItem] of Object.entries(paths)) {
+            // Path-level UI hints
+            if (pathItem['x-ui-component']) {
+                this.uiHints.components[pathName] = {
+                    type: pathItem['x-ui-component'],
+                    options: pathItem['x-ui-options'] || {}
+                };
+            }
+
+            // Operation-level UI hints
+            const operations = ['get', 'put', 'post', 'delete', 'options', 'head', 'patch'];
+            operations.forEach(method => {
+                if (pathItem[method]) {
+                    const operation = pathItem[method];
+                    const operationKey = `${pathName}#${method}`;
+
+                    // Component preferences
+                    if (operation['x-ui-component']) {
+                        this.uiHints.components[operationKey] = {
+                            type: operation['x-ui-component'],
+                            options: operation['x-ui-options'] || {}
+                        };
+                    }
+
+                    // Layout hints
+                    if (operation['x-ui-layout']) {
+                        this.uiHints.layouts[operationKey] = operation['x-ui-layout'];
+                    }
+
+                    // Table configuration for list operations
+                    if (operation['x-ui-table']) {
+                        this.uiHints.tables[operationKey] = operation['x-ui-table'];
+                    }
+
+                    // Form configuration for create/update operations
+                    if (operation['x-ui-form']) {
+                        this.uiHints.forms[operationKey] = operation['x-ui-form'];
+                    }
+
+                    // Pagination hints
+                    if (operation['x-ui-pagination']) {
+                        this.uiHints.components[`${operationKey}#pagination`] = {
+                            type: 'pagination',
+                            options: operation['x-ui-pagination']
+                        };
+                    }
+
+                    // Sorting hints
+                    if (operation['x-ui-sort']) {
+                        this.uiHints.components[`${operationKey}#sort`] = {
+                            type: 'sort',
+                            options: operation['x-ui-sort']
+                        };
+                    }
+
+                    // Filter hints
+                    if (operation['x-ui-filter']) {
+                        this.uiHints.components[`${operationKey}#filter`] = {
+                            type: 'filter',
+                            options: operation['x-ui-filter']
+                        };
+                    }
+
+                    // Success/error message hints
+                    if (operation['x-ui-success-message']) {
+                        this.uiHints.components[`${operationKey}#success`] = {
+                            type: 'toast',
+                            options: { message: operation['x-ui-success-message'] }
+                        };
+                    }
+
+                    if (operation['x-ui-error-message']) {
+                        this.uiHints.components[`${operationKey}#error`] = {
+                            type: 'alert',
+                            options: { message: operation['x-ui-error-message'] }
+                        };
+                    }
+
+                    // Confirmation dialogs
+                    if (operation['x-ui-confirm']) {
+                        this.uiHints.components[`${operationKey}#confirm`] = {
+                            type: 'modal',
+                            options: operation['x-ui-confirm'] === true
+                                ? { title: 'Confirm Action', message: 'Are you sure?' }
+                                : operation['x-ui-confirm']
+                        };
+                    }
+                }
+            });
+        }
+    }
+
+    /**
+     * Extract UI hints from schemas
+     * @param {Object} schemas - Schemas object
+     */
+    extractSchemasUIHints(schemas) {
+        for (const [schemaName, schema] of Object.entries(schemas)) {
+            const schemaKey = `schema#${schemaName}`;
+
+            // Schema-level component hints
+            if (schema['x-ui-component']) {
+                this.uiHints.components[schemaKey] = {
+                    type: schema['x-ui-component'],
+                    options: schema['x-ui-options'] || {}
+                };
+            }
+
+            // Form layout for schemas
+            if (schema['x-ui-form-layout']) {
+                this.uiHints.forms[schemaKey] = {
+                    layout: schema['x-ui-form-layout']
+                };
+            }
+
+            // Process properties
+            if (schema.properties) {
+                for (const [propName, prop] of Object.entries(schema.properties)) {
+                    const propKey = `${schemaKey}.${propName}`;
+
+                    // Field-level component hints
+                    if (prop['x-ui-component']) {
+                        this.uiHints.components[propKey] = {
+                            type: prop['x-ui-component'],
+                            options: prop['x-ui-options'] || {}
+                        };
+                    }
+
+                    // Field validation hints
+                    if (prop['x-ui-validation']) {
+                        this.uiHints.validations[propKey] = prop['x-ui-validation'];
+                    }
+
+                    // Field display hints
+                    if (prop['x-ui-display']) {
+                        this.uiHints.components[`${propKey}#display`] = {
+                            type: 'display',
+                            options: prop['x-ui-display']
+                        };
+                    }
+
+                    // Placeholder text
+                    if (prop['x-ui-placeholder']) {
+                        if (!this.uiHints.components[propKey]) {
+                            this.uiHints.components[propKey] = { options: {} };
+                        }
+                        this.uiHints.components[propKey].options.placeholder = prop['x-ui-placeholder'];
+                    }
+
+                    // Help text
+                    if (prop['x-ui-help']) {
+                        if (!this.uiHints.components[propKey]) {
+                            this.uiHints.components[propKey] = { options: {} };
+                        }
+                        this.uiHints.components[propKey].options.help = prop['x-ui-help'];
+                    }
+
+                    // DaisyUI-specific hints
+                    if (prop['x-daisy-variant']) {
+                        if (!this.uiHints.components[propKey]) {
+                            this.uiHints.components[propKey] = { options: {} };
+                        }
+                        this.uiHints.components[propKey].options.variant = prop['x-daisy-variant'];
+                    }
+
+                    if (prop['x-daisy-size']) {
+                        if (!this.uiHints.components[propKey]) {
+                            this.uiHints.components[propKey] = { options: {} };
+                        }
+                        this.uiHints.components[propKey].options.size = prop['x-daisy-size'];
+                    }
+
+                    // Enum display hints
+                    if (prop.enum && prop['x-ui-enum-labels']) {
+                        if (!this.uiHints.components[propKey]) {
+                            this.uiHints.components[propKey] = { options: {} };
+                        }
+                        this.uiHints.components[propKey].options.enumLabels = prop['x-ui-enum-labels'];
+                    }
+
+                    // Badge colors for enum values
+                    if (prop.enum && prop['x-ui-enum-colors']) {
+                        if (!this.uiHints.components[propKey]) {
+                            this.uiHints.components[propKey] = { options: {} };
+                        }
+                        this.uiHints.components[propKey].options.enumColors = prop['x-ui-enum-colors'];
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Extract UI hints from tags
+     * @param {Array} tags - Tags array
+     */
+    extractTagsUIHints(tags) {
+        tags.forEach(tag => {
+            if (tag['x-ui-icon']) {
+                this.uiHints.components[`tag#${tag.name}#icon`] = {
+                    type: 'icon',
+                    options: { icon: tag['x-ui-icon'] }
+                };
+            }
+
+            if (tag['x-ui-color']) {
+                this.uiHints.components[`tag#${tag.name}#color`] = {
+                    type: 'color',
+                    options: { color: tag['x-ui-color'] }
+                };
+            }
+
+            if (tag['x-ui-order']) {
+                this.uiHints.components[`tag#${tag.name}#order`] = {
+                    type: 'order',
+                    options: { order: tag['x-ui-order'] }
+                };
+            }
+        });
     }
 
     /**

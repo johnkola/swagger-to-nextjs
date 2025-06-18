@@ -3,7 +3,7 @@
  * SWAGGER-TO-NEXTJS GENERATOR - AI PROMPT
  * ============================================================================
  * FILE: src/core/SwaggerLoader.js
- * VERSION: 2025-06-17 16:21:39
+ * VERSION: 2025-06-17 21:42:10
  * PHASE: Phase 2: Core System Components
  * ============================================================================
  *
@@ -36,6 +36,7 @@ import yaml from 'js-yaml';
 import { URL } from 'url';
 import https from 'https';
 import http from 'http';
+
 class SwaggerLoader {
     constructor(options = {}) {
         this.timeout = options.timeout || 30000; // 30 seconds default
@@ -179,7 +180,167 @@ class SwaggerLoader {
         const basePath = this.isUrl(source) ? source : path.resolve(source);
         const resolved = await this.resolveReferences(spec, spec, basePath);
 
+        // Extract branding and theme information
+        const brandingInfo = this.extractBrandingInfo(resolved);
+        if (brandingInfo) {
+            resolved.brandingInfo = brandingInfo;
+        }
+
+        // Extract UI hints and theme preferences
+        const themeHints = this.extractThemeHints(resolved);
+        if (Object.keys(themeHints).length > 0) {
+            resolved.themeHints = themeHints;
+        }
+
         return resolved;
+    }
+
+    /**
+     * Extract branding information from the specification
+     * @param {Object} spec - The specification
+     * @returns {Object|null} Branding information
+     */
+    extractBrandingInfo(spec) {
+        const branding = {};
+
+        // Check for x-branding in info
+        if (spec.info?.['x-branding']) {
+            Object.assign(branding, spec.info['x-branding']);
+        }
+
+        // Check for x-theme in info
+        if (spec.info?.['x-theme']) {
+            branding.theme = spec.info['x-theme'];
+        }
+
+        // Extract colors from various locations
+        const colors = {};
+
+        // Check info level extensions
+        if (spec.info?.['x-primary-color']) {
+            colors.primary = spec.info['x-primary-color'];
+        }
+        if (spec.info?.['x-secondary-color']) {
+            colors.secondary = spec.info['x-secondary-color'];
+        }
+        if (spec.info?.['x-accent-color']) {
+            colors.accent = spec.info['x-accent-color'];
+        }
+
+        // Check root level extensions
+        if (spec['x-ui-config']?.colors) {
+            Object.assign(colors, spec['x-ui-config'].colors);
+        }
+
+        if (Object.keys(colors).length > 0) {
+            branding.colors = colors;
+        }
+
+        // Extract logo information
+        if (spec.info?.['x-logo']) {
+            branding.logo = spec.info['x-logo'];
+        }
+
+        return Object.keys(branding).length > 0 ? branding : null;
+    }
+
+    /**
+     * Extract UI hints and theme preferences from the specification
+     * @param {Object} spec - The specification
+     * @returns {Object} Theme hints and UI preferences
+     */
+    extractThemeHints(spec) {
+        const hints = {
+            defaultTheme: null,
+            availableThemes: [],
+            components: {},
+            layouts: {},
+            features: {}
+        };
+
+        // Extract default theme
+        if (spec['x-ui-theme']) {
+            hints.defaultTheme = spec['x-ui-theme'];
+        } else if (spec.info?.['x-ui-theme']) {
+            hints.defaultTheme = spec.info['x-ui-theme'];
+        }
+
+        // Extract available themes
+        if (spec['x-ui-themes']) {
+            hints.availableThemes = Array.isArray(spec['x-ui-themes'])
+                ? spec['x-ui-themes']
+                : [spec['x-ui-themes']];
+        }
+
+        // Extract UI configuration
+        if (spec['x-ui-config']) {
+            const uiConfig = spec['x-ui-config'];
+
+            if (uiConfig.theme) {
+                hints.defaultTheme = hints.defaultTheme || uiConfig.theme;
+            }
+
+            if (uiConfig.themes) {
+                hints.availableThemes = uiConfig.themes;
+            }
+
+            if (uiConfig.features) {
+                hints.features = uiConfig.features;
+            }
+        }
+
+        // Extract component preferences from paths
+        if (spec.paths) {
+            for (const [pathName, pathItem] of Object.entries(spec.paths)) {
+                // Check path-level UI hints
+                if (pathItem['x-ui-component']) {
+                    hints.components[pathName] = pathItem['x-ui-component'];
+                }
+
+                // Check operation-level UI hints
+                const operations = ['get', 'put', 'post', 'delete', 'options', 'head', 'patch'];
+                operations.forEach(method => {
+                    if (pathItem[method]) {
+                        const operation = pathItem[method];
+                        const operationKey = `${pathName}.${method}`;
+
+                        // Extract UI component hints
+                        if (operation['x-ui-component']) {
+                            hints.components[operationKey] = operation['x-ui-component'];
+                        }
+
+                        // Extract layout hints
+                        if (operation['x-ui-layout']) {
+                            hints.layouts[operationKey] = operation['x-ui-layout'];
+                        }
+
+                        // Extract feature flags
+                        if (operation['x-ui-features']) {
+                            hints.features[operationKey] = operation['x-ui-features'];
+                        }
+                    }
+                });
+            }
+        }
+
+        // Extract from schemas/components
+        const schemas = spec.components?.schemas || spec.definitions || {};
+        for (const [schemaName, schema] of Object.entries(schemas)) {
+            if (schema['x-ui-component']) {
+                hints.components[`schema.${schemaName}`] = schema['x-ui-component'];
+            }
+
+            // Check properties for field-level hints
+            if (schema.properties) {
+                for (const [propName, prop] of Object.entries(schema.properties)) {
+                    if (prop['x-ui-component']) {
+                        hints.components[`schema.${schemaName}.${propName}`] = prop['x-ui-component'];
+                    }
+                }
+            }
+        }
+
+        return hints;
     }
 
     /**

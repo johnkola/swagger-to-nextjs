@@ -3,7 +3,7 @@
  * SWAGGER-TO-NEXTJS GENERATOR - AI PROMPT
  * ============================================================================
  * FILE: test/utils/PathUtils.test.js
- * VERSION: 2025-06-17 16:21:39
+ * VERSION: 2025-06-17 21:42:10
  * PHASE: Phase 9: Test Files
  * ============================================================================
  *
@@ -26,7 +26,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import PathUtils from '../../src/utils/PathUtils.js';
-
 describe('PathUtils', () => {
     describe('toNextRoute', () => {
         it('should convert OpenAPI paths to Next.js routes', () => {
@@ -35,7 +34,6 @@ describe('PathUtils', () => {
             assert.equal(PathUtils.toNextRoute('/users'), '/users');
             assert.equal(PathUtils.toNextRoute('/'), '/');
         });
-
         it('should handle empty or falsy paths', () => {
             assert.equal(PathUtils.toNextRoute(''), '');
             assert.equal(PathUtils.toNextRoute(null), '');

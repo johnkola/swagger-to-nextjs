@@ -3,7 +3,7 @@
  * SWAGGER-TO-NEXTJS GENERATOR - AI PROMPT
  * ============================================================================
  * FILE: src/utils/PathUtils.js
- * VERSION: 2025-06-17 16:21:39
+ * VERSION: 2025-06-17 21:42:10
  * PHASE: Phase 3: Utility Modules
  * ============================================================================
  *
@@ -38,14 +38,12 @@ export function pathToRoute(openApiPath) {
     if (!openApiPath) return '';
     return openApiPath.replace(/{([^}]+)}/g, '[$1]');
 }
-
 /**
  * Extract parameter names from OpenAPI path
  * /users/{userId}/posts/{postId} -> ['userId', 'postId']
  */
 export function extractPathParams(openApiPath) {
     if (!openApiPath) return [];
-
     const matches = openApiPath.match(/{([^}]+)}/g);
     if (!matches) return [];
 

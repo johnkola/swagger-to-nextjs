@@ -3,7 +3,7 @@
  * SWAGGER-TO-NEXTJS GENERATOR - AI PROMPT
  * ============================================================================
  * FILE: src/templates/TemplateEngine.js
- * VERSION: 2025-06-17 16:21:39
+ * VERSION: 2025-06-17 21:42:10
  * PHASE: Phase 4: Template System
  * ============================================================================
  *
@@ -34,7 +34,6 @@ import { fileURLToPath } from 'node:url';
 import * as helpers from './helpers.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
 /**
  * Template Engine wrapper around Handlebars for code generation
  */
@@ -46,7 +45,6 @@ export default class TemplateEngine {
             debug: false,
             ...options
         };
-
         // Initialize Handlebars instance
         this.handlebars = Handlebars.create();
 

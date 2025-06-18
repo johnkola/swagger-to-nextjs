@@ -3,7 +3,7 @@
  * SWAGGER-TO-NEXTJS GENERATOR - AI PROMPT
  * ============================================================================
  * FILE: src/utils/StringUtils.js
- * VERSION: 2025-06-17 16:21:39
+ * VERSION: 2025-06-17 21:42:10
  * PHASE: Phase 3: Utility Modules
  * ============================================================================
  *
@@ -44,7 +44,6 @@ export function toCamelCase(str) {
     const pascal = toPascalCase(str);
     return pascal.charAt(0).toLowerCase() + pascal.slice(1);
 }
-
 /**
  * Convert string to kebab-case for file names and CSS classes
  */
@@ -55,7 +54,6 @@ export function toKebabCase(str) {
         .replace(/[\s_]+/g, '-')
         .toLowerCase();
 }
-
 /**
  * Convert string to snake_case
  */

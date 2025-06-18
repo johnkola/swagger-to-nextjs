@@ -4,7 +4,7 @@
  * SWAGGER-TO-NEXTJS GENERATOR - AI PROMPT
  * ============================================================================
  * FILE: bin/swagger-to-nextjs.js
- * VERSION: 2025-06-17 16:21:39
+ * VERSION: 2025-06-17 21:42:10
  * PHASE: Phase 1: Foundation & Core Infrastructure
  * ============================================================================
  *
@@ -29,7 +29,6 @@ import { dirname, join } from 'path';
 // Get current directory
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-
 // Store cleanup handlers
 let isExiting = false;
 

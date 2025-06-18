@@ -3,7 +3,7 @@
  * SWAGGER-TO-NEXTJS GENERATOR - AI PROMPT
  * ============================================================================
  * FILE: test/utils/StringUtils.test.js
- * VERSION: 2025-06-17 16:21:39
+ * VERSION: 2025-06-17 21:42:10
  * PHASE: Phase 9: Test Files
  * ============================================================================
  *
@@ -26,7 +26,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import StringUtils from '../../src/utils/StringUtils.js';
-
 describe('StringUtils', () => {
     describe('toPascalCase', () => {
         it('should convert various formats to PascalCase', () => {
@@ -36,7 +35,6 @@ describe('StringUtils', () => {
             assert.equal(StringUtils.toPascalCase('UserProfile'), 'UserProfile');
             assert.equal(StringUtils.toPascalCase('user profile'), 'UserProfile');
         });
-
         it('should handle acronyms correctly', () => {
             assert.equal(StringUtils.toPascalCase('API'), 'API');
             assert.equal(StringUtils.toPascalCase('api-key'), 'APIKey');

@@ -3,7 +3,7 @@
  * SWAGGER-TO-NEXTJS GENERATOR - AI PROMPT
  * ============================================================================
  * FILE: test/core/SwaggerLoader.test.js
- * VERSION: 2025-06-17 16:21:39
+ * VERSION: 2025-06-17 21:42:10
  * PHASE: Phase 9: Test Files
  * ============================================================================
  *
@@ -35,10 +35,8 @@ import fs from 'fs/promises';
 import { createServer } from 'http';
 import os from 'os';
 import SwaggerLoader from '../../src/core/SwaggerLoader.js';
-
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-
 describe('SwaggerLoader', () => {
     let loader;
     let tempDir;

@@ -3,7 +3,7 @@
  * SWAGGER-TO-NEXTJS GENERATOR - AI PROMPT
  * ============================================================================
  * FILE: test/core/SwaggerValidator.test.js
- * VERSION: 2025-06-17 16:21:39
+ * VERSION: 2025-06-17 21:42:10
  * PHASE: Phase 9: Test Files
  * ============================================================================
  *
@@ -29,10 +29,8 @@
 import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import SwaggerValidator from '../../src/core/SwaggerValidator.js';
-
 describe('SwaggerValidator', () => {
     let validator;
-
     beforeEach(() => {
         validator = new SwaggerValidator();
     });

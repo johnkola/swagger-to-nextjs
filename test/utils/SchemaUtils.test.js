@@ -3,7 +3,7 @@
  * SWAGGER-TO-NEXTJS GENERATOR - AI PROMPT
  * ============================================================================
  * FILE: test/utils/SchemaUtils.test.js
- * VERSION: 2025-06-17 16:21:39
+ * VERSION: 2025-06-17 21:42:10
  * PHASE: Phase 9: Test Files
  * ============================================================================
  *
@@ -26,7 +26,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import SchemaUtils from '../../src/utils/SchemaUtils.js';
-
 describe('SchemaUtils', () => {
     describe('toTypeScript', () => {
         it('should convert primitive types', () => {
@@ -35,7 +34,6 @@ describe('SchemaUtils', () => {
             assert.equal(SchemaUtils.toTypeScript({ type: 'integer' }), 'number');
             assert.equal(SchemaUtils.toTypeScript({ type: 'boolean' }), 'boolean');
         });
-
         it('should handle nullable types', () => {
             assert.equal(SchemaUtils.toTypeScript({ type: 'string', nullable: true }), 'string | null');
             assert.equal(SchemaUtils.toTypeScript({ type: 'number', nullable: true }), 'number | null');
