@@ -4,7 +4,7 @@ Transform your OpenAPI/Swagger specifications into fully functional Next.js 14+ 
 
 [![npm version](https://img.shields.io/npm/v/@yourapp/swagger-to-nextjs.svg)](https://www.npmjs.com/package/@yourapp/swagger-to-nextjs)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Node.js Version](https://img.shields.io/badge/node-%3E%3D%2018.0.0-brightgreen)](https://nodejs.org)
+[![Node.js Version](https://img.shields.io/badge/node-%3E%3D%2020.0.0-brightgreen)](https://nodejs.org)
 [![ES Modules](https://img.shields.io/badge/ES%20Modules-Native-blue)](https://nodejs.org/api/esm.html)
 
 ## 🎯 What is this?
@@ -12,15 +12,17 @@ Transform your OpenAPI/Swagger specifications into fully functional Next.js 14+ 
 This CLI tool takes your OpenAPI specification (YAML or JSON) and generates a complete, production-ready Next.js 14+ application with:
 
 - 📘 **TypeScript types** derived from your API schemas
-- 🛣️ **API routes** with full type safety
+- 🛣️ **API routes** with full type safety and authentication middleware
+- 🔧 **Service wrappers** for clean separation of concerns
 - 📦 **API client library** with typed fetch functions
 - 🎨 **UI components** styled with DaisyUI's beautiful themes
 - 🌙 **Dark mode** support out of the box
 - 📱 **Responsive design** that works on all devices
+- 🧪 **Template testing** to ensure code generation quality
 
 ## 📋 Requirements
 
-- Node.js 18+ (for native test runner support)
+- Node.js 20+ (for native test runner support)
 - npm, yarn, or pnpm
 
 ## 🚀 Quick Start
@@ -49,8 +51,9 @@ swagger-to-nextjs generate petstore.yaml my-app
 
 This command will:
 1. Parse your `petstore.yaml` OpenAPI specification
-2. Generate a complete Next.js application in the `my-app` directory
-3. Include all TypeScript types, API routes, and DaisyUI-styled UI components
+2. Test all templates for errors (can be disabled with `--no-test-templates`)
+3. Generate a complete Next.js application in the `my-app` directory
+4. Include all TypeScript types, API routes, service wrappers, and DaisyUI-styled UI components
 
 ### What Gets Generated?
 
@@ -58,6 +61,11 @@ This command will:
 my-app/
 ├── app/                      # Next.js 14 App Router
 │   ├── api/                  # Generated API routes
+│   │   ├── pets/            
+│   │   │   └── [id]/        
+│   │   │       └── route.ts # API route handlers
+│   │   ├── pets-service.ts  # Service wrapper
+│   │   └── pets-api-handler.ts # Auth middleware & utilities
 │   ├── pets/                 # UI pages for pets resource
 │   │   ├── page.tsx         # List page with DaisyUI table
 │   │   └── [id]/            
@@ -69,9 +77,13 @@ my-app/
 │   └── ErrorAlert.tsx      # Error display
 ├── lib/                    # Utilities
 │   ├── api-client.ts      # Typed API client
+│   ├── service-wrapper.ts # Service configuration
+│   ├── service-hooks.ts   # React hooks for API
 │   └── toast.ts           # Toast notifications
 ├── types/                  # TypeScript definitions
 │   └── api.ts             # Generated from OpenAPI schemas
+├── utils/                  # Utilities
+│   └── logger.ts          # Logging utility
 ├── package.json           # Dependencies including DaisyUI
 ├── tailwind.config.js     # Tailwind + DaisyUI configuration
 └── ...                    # Other config files
@@ -83,16 +95,24 @@ my-app/
 - Automatically generates TypeScript interfaces from OpenAPI schemas
 - Full type safety across your entire application
 - Strict mode enabled by default
+- Type-safe API client with proper error handling
+
+### 🔧 Service-Oriented Architecture
+- Clean separation between API routes and business logic
+- Service wrappers for session management
+- Centralized authentication middleware
+- Standardized error responses
 
 ### 🤖 Automatic API Client Generation
 - Typed fetch functions for every API endpoint
+- Support for OpenAPI Generator integration
 - Automatic error handling
 - Request/response interceptors
 - Built-in loading states
 
 ### 🎨 CRUD UI Components with DaisyUI
 - Beautiful, accessible components out of the box
-- List views with tables and pagination
+- List views with tables, sorting, and pagination
 - Detail views with cards and badges
 - Forms with validation
 - All styled with DaisyUI's semantic color system
@@ -108,6 +128,12 @@ my-app/
 - Theme switcher component
 - System preference detection
 - Persistent theme selection
+
+### 🧪 Template Testing
+- Validates all templates before generation
+- Ensures code quality
+- Catches errors early
+- Can be disabled with `--no-test-templates`
 
 ### 🛠️ Customizable Templates
 - Override any template with your own
@@ -129,8 +155,19 @@ swagger-to-nextjs generate <spec> [output] [options]
 | `--force` | Overwrite existing files without prompting | `false` |
 | `--dry-run` | Preview what would be generated without writing files | `false` |
 | `--no-pages` | Skip UI component generation (API only) | `false` |
+| `--no-typescript` | Generate JavaScript instead of TypeScript | `false` |
+| `--no-client` | Skip API client generation | `false` |
 | `--theme <theme>` | Default DaisyUI theme | `"light"` |
 | `--themes <themes...>` | List of DaisyUI themes to include | `["light", "dark", "cupcake", "corporate"]` |
+| `--no-daisyui` | Generate without DaisyUI (plain CSS) | `false` |
+| `--custom-theme <path>` | Path to custom DaisyUI theme file | - |
+| `--template-dir <path>` | Use custom templates from directory | - |
+| `--config <path>` | Path to configuration file | - |
+| `--no-test-templates` | Skip template testing | `false` |
+| `--verbose` | Show detailed output | `false` |
+| `--silent` | Suppress all output except errors | `false` |
+| `--docker` | Generate Docker configuration | `false` |
+| `--cicd` | Generate CI/CD workflows | `false` |
 
 ### Examples
 
@@ -152,6 +189,44 @@ swagger-to-nextjs generate api.yaml my-app --dry-run
 API-only mode (no UI components):
 ```bash
 swagger-to-nextjs generate api.yaml my-app --no-pages
+```
+
+Skip template testing for faster generation:
+```bash
+swagger-to-nextjs generate api.yaml my-app --no-test-templates
+```
+
+Use custom templates:
+```bash
+swagger-to-nextjs generate api.yaml my-app --template-dir ./my-templates
+```
+
+### Using OpenAPI Generator Config Files
+
+You can also use OpenAPI Generator configuration files:
+
+```bash
+swagger-to-nextjs generate-from-config openapi-config.yaml my-app
+```
+
+Config file format:
+```yaml
+inputSpec: https://api.example.com/openapi.json
+outputDir: ./generated
+generatorName: typescript-axios
+additionalProperties:
+  supportsES6: true
+  withInterfaces: true
+```
+
+### Testing Templates
+
+Test all templates without generating code:
+
+```bash
+swagger-to-nextjs test-templates
+swagger-to-nextjs test-templates --verbose
+swagger-to-nextjs test-templates --list
 ```
 
 ## 🎨 Theming with DaisyUI
@@ -194,9 +269,46 @@ The generator includes support for all DaisyUI themes:
 }
 ```
 
+## 🏗️ Architecture
+
+### Service-Oriented Design
+
+The generator creates a clean architecture with:
+
+1. **API Routes** (`app/api/[resource]/route.ts`)
+   - Handle HTTP requests
+   - Delegate to service wrappers
+   - Use authentication middleware
+
+2. **Service Wrappers** (`app/api/[resource]-service.ts`)
+   - Encapsulate API client instances
+   - Manage session configuration
+   - Provide clean interfaces
+
+3. **API Handlers** (`app/api/[resource]-api-handler.ts`)
+   - Authentication middleware
+   - Error response utilities
+   - Request validation helpers
+
+### Authentication Flow
+
+```typescript
+// API routes are wrapped with authentication
+export async function GET(request: NextRequest) {
+  return withAuthenticationAsync(request, async (auth) => {
+    const service = getUsersService();
+    const config = service.withSession(auth.sessionId);
+    
+    // Make authenticated API calls
+    const response = await service.usersApi.getUsers(config);
+    return NextResponse.json({ success: true, data: response.data });
+  });
+}
+```
+
 ## 🧪 Testing
 
-The generated application includes a comprehensive test setup using Node.js's built-in test runner (Node.js 18+).
+The generated application includes a comprehensive test setup using Node.js's built-in test runner (Node.js 20+).
 
 ### Running Tests
 
@@ -250,23 +362,31 @@ The generator creates a complete project setup:
 - **Tailwind CSS**: Configured with DaisyUI plugin
 - **Environment Variables**: Type-safe with validation
 
-### Advanced Options
+### Configuration File
 
+Create a `.swagger-to-nextjs.yaml` configuration file:
+
+```yaml
+typescript: true
+generateClient: true
+generatePages: true
+generateServices: true
+serviceName: api
+theme: dark
+themes:
+  - light
+  - dark
+  - synthwave
+  - corporate
+daisyui: true
+testTemplates: true
+docker: false
+cicd: false
+```
+
+Then generate with:
 ```bash
-# Use custom templates
-swagger-to-nextjs generate api.yaml my-app --template-dir ./my-templates
-
-# Generate without TypeScript
-swagger-to-nextjs generate api.yaml my-app --no-typescript
-
-# Skip API client generation
-swagger-to-nextjs generate api.yaml my-app --no-client
-
-# Add Docker configuration
-swagger-to-nextjs generate api.yaml my-app --docker
-
-# Add CI/CD workflows
-swagger-to-nextjs generate api.yaml my-app --cicd
+swagger-to-nextjs generate api.yaml my-app --config .swagger-to-nextjs.yaml
 ```
 
 ## 📖 OpenAPI Support
@@ -284,10 +404,39 @@ swagger-to-nextjs generate api.yaml my-app --cicd
 - Authentication schemes
 - Enums and constants
 - Circular references
+- Multiple services/APIs
+
+### UI Hints
+
+Add UI hints to your OpenAPI spec using extensions:
+
+```yaml
+components:
+  schemas:
+    User:
+      type: object
+      x-ui-component: "card"  # Render as card in detail view
+      properties:
+        status:
+          type: string
+          enum: [active, inactive, pending]
+          x-ui-component: "badge"  # Render as DaisyUI badge
+          x-ui-color-map:
+            active: "success"
+            inactive: "error"
+            pending: "warning"
+```
 
 ## 🤝 Contributing
 
 We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
+
+### Development Setup
+
+1. Clone the repository
+2. Install dependencies: `npm install`
+3. Run tests: `npm test`
+4. Test template generation: `npm run test:templates`
 
 ## 📄 License
 
@@ -298,6 +447,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Built with [Next.js](https://nextjs.org/) - The React Framework
 - Styled with [DaisyUI](https://daisyui.com/) - The most popular Tailwind CSS component library
 - Powered by [Tailwind CSS](https://tailwindcss.com/) - A utility-first CSS framework
+- Templates use [Handlebars](https://handlebarsjs.com/) - Minimal templating on steroids
 
 ## 🚦 Getting Started After Generation
 
