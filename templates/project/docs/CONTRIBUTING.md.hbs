@@ -1,0 +1,137 @@
+# Contributing to {{title}}
+
+First off, thank you for considering contributing to {{title}}! It's people like you that make this project better.
+
+## Code of Conduct
+
+This project and everyone participating in it is governed by our Code of Conduct. By participating, you are expected to uphold this code.
+
+## How Can I Contribute?
+
+### Reporting Bugs
+
+Before creating bug reports, please check the existing issues as you might find out that you don't need to create one. When you are creating a bug report, please include as many details as possible:
+
+- **Use a clear and descriptive title**
+- **Describe the exact steps to reproduce the problem**
+- **Provide specific examples to demonstrate the steps**
+- **Describe the behavior you observed after following the steps**
+- **Explain which behavior you expected to see instead and why**
+- **Include screenshots if possible**
+
+### Suggesting Enhancements
+
+Enhancement suggestions are tracked as GitHub issues. When creating an enhancement suggestion, please include:
+
+- **Use a clear and descriptive title**
+- **Provide a step-by-step description of the suggested enhancement**
+- **Provide specific examples to demonstrate the steps**
+- **Describe the current behavior and explain which behavior you expected to see instead**
+- **Explain why this enhancement would be useful**
+
+### Pull Requests
+
+1. Fork the repo and create your branch from `main`
+2. If you've added code that should be tested, add tests
+3. If you've changed APIs, update the documentation
+4. Ensure the test suite passes
+5. Make sure your code follows the existing code style
+6. Issue that pull request!
+
+## Development Setup
+
+### Prerequisites
+
+- Node.js 18 or higher
+- npm, yarn, or pnpm
+
+### Setup
+
+1. Clone your fork:
+```bash
+git clone https://github.com/your-username/{{projectName}}.git
+cd {{projectName}}
+```
+
+2. Install dependencies:
+```bash
+npm install
+```
+
+3. Create a `.env.local` file:
+```bash
+cp .env.example .env.local
+```
+
+4. Start the development server:
+```bash
+npm run dev
+```
+
+### Development Workflow
+
+1. Create a new branch:
+```bash
+git checkout -b feature/your-feature-name
+```
+
+2. Make your changes and commit them:
+```bash
+git add .
+git commit -m "feat: add new feature"
+```
+
+3. Push to your fork:
+```bash
+git push origin feature/your-feature-name
+```
+
+4. Open a Pull Request
+
+## Coding Standards
+
+### TypeScript
+
+- Use TypeScript for all new code
+- Ensure no TypeScript errors with `npm run type-check`
+- Follow the existing code style
+
+### Code Style
+
+- We use ESLint and Prettier for code formatting
+- Run `npm run lint` to check for linting errors
+- Run `npm run lint:fix` to automatically fix formatting issues
+
+### Commit Messages
+
+We follow the [Conventional Commits](https://www.conventionalcommits.org/) specification:
+
+- `feat:` for new features
+- `fix:` for bug fixes
+- `docs:` for documentation changes
+- `style:` for formatting changes
+- `refactor:` for code refactoring
+- `test:` for adding tests
+- `chore:` for maintenance tasks
+
+### Testing
+
+- Write tests for new features
+- Ensure all tests pass with `npm test`
+- Aim for good test coverage
+
+## UI/UX Guidelines
+
+This project uses DaisyUI for styling. When adding new UI components:
+
+- Use existing DaisyUI components where possible
+- Follow the established theme and color patterns
+- Ensure components are accessible
+- Test with multiple themes (light, dark, etc.)
+- Make sure components are responsive
+
+## Questions?
+
+Feel free to open an issue with your question or reach out to the maintainers.
+
+Thank you for contributing! 🎉

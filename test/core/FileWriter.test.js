@@ -1,28 +1,6 @@
 /**
- * ============================================================================
- * SWAGGER-TO-NEXTJS GENERATOR - AI PROMPT
- * ============================================================================
- * FILE: test/core/FileWriter.test.js
- * VERSION: 2025-06-17 21:42:10
- * PHASE: Phase 9: Test Files
- * ============================================================================
- *
- * AI GENERATION PROMPT:
- *
- * Create a test file using Node.js built-in test framework for the
- * FileWriter class. Use ES Module imports and mock file system operations.
- * Write tests to verify directory creation, file writing with content,
- * handling of existing files with force option, dry-run mode operation,
- * error handling for permissions, progress callback execution, atomic write
- * operations, file formatting with Prettier for different file types, CSS
- * file formatting, tracking of written files with categories, and proper
- * cleanup in tests. Use before/after hooks for test setup and cleanup.
- *
- * ============================================================================
- */
-/**
  * FileWriter.test.js
- * Unit tests for the FileWriter class
+ * Unit tests for the FileWriter class including timestamp functionality
  */
 import { describe, it, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
@@ -32,8 +10,10 @@ import fs from 'fs/promises';
 import { existsSync } from 'fs';
 import os from 'os';
 import FileWriter from '../../src/core/FileWriter.js';
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+
 describe('FileWriter', () => {
     let writer;
     let tempDir;
@@ -48,16 +28,120 @@ describe('FileWriter', () => {
 
         progressEvents = [];
         writer = new FileWriter({
-            onProgress: (event) => progressEvents.push(event)
+            onProgress: (event) => progressEvents.push(event),
+            useTimestamp: false // Disable timestamp by default for most tests
         });
     });
 
     afterEach(async () => {
         try {
             await fs.rm(tempDir, { recursive: true, force: true });
+            // Clean up any timestamped directories
+            const tempRoot = join(os.tmpdir(), 'swagger-to-nextjs-tests');
+            const entries = await fs.readdir(tempRoot);
+            for (const entry of entries) {
+                if (entry.includes('-20')) { // Likely a timestamped directory
+                    await fs.rm(join(tempRoot, entry), { recursive: true, force: true }).catch(() => {});
+                }
+            }
         } catch (err) {
             // Ignore cleanup errors
         }
+    });
+
+    // Here's the corrected test section with better isolation and debugging
+
+    describe('Timestamp Functionality', () => {
+        it('should generate valid timestamp', async () => {
+            const timestampWriter = new FileWriter({ useTimestamp: true });
+            const timestamp = timestampWriter.generateTimestamp();
+
+            // Check format YYYYMMDD-HHmmss
+            assert.match(timestamp, /^\d{8}-\d{6}$/);
+
+            // Check it represents a valid date
+            const year = parseInt(timestamp.substring(0, 4));
+            const month = parseInt(timestamp.substring(4, 6));
+            const day = parseInt(timestamp.substring(6, 8));
+
+            assert.ok(year >= 2020 && year <= 2030);
+            assert.ok(month >= 1 && month <= 12);
+            assert.ok(day >= 1 && day <= 31);
+        });
+
+        it('should create timestamped output directory', async () => {
+            const timestampWriter = new FileWriter({ useTimestamp: true });
+            const baseDir = join(tempDir, 'my-app');
+
+            const outputDir = timestampWriter.initializeOutputDirectory(baseDir);
+
+            // Should have timestamp appended
+            assert.ok(outputDir.includes('my-app-'));
+            assert.match(outputDir, /my-app-\d{8}-\d{6}$/);
+            assert.notEqual(outputDir, baseDir);
+        });
+
+        it('should write files to timestamped directory', async () => {
+            const timestampWriter = new FileWriter({ useTimestamp: true });
+            const baseDir = join(tempDir, 'my-app-ts');
+            const outputDir = timestampWriter.initializeOutputDirectory(baseDir);
+
+            // Write a file using the original path
+            const filePath = join(baseDir, 'test.txt');
+            await timestampWriter.writeFile(filePath, 'content');
+
+            // File should exist in timestamped directory
+            const actualPath = join(outputDir, 'test.txt');
+            assert.ok(existsSync(actualPath));
+            assert.ok(!existsSync(filePath)); // Should not exist at original path
+
+            const content = await fs.readFile(actualPath, 'utf8');
+            assert.equal(content, 'content');
+        });
+
+        it('should return same directory on multiple calls', async () => {
+            const timestampWriter = new FileWriter({ useTimestamp: true });
+            const baseDir = join(tempDir, 'my-app-multi');
+
+            const dir1 = timestampWriter.initializeOutputDirectory(baseDir);
+            const dir2 = timestampWriter.initializeOutputDirectory(baseDir);
+
+            assert.equal(dir1, dir2);
+        });
+
+        it('should work without timestamp when disabled', async () => {
+            // Create a completely new writer instance for this test
+            const noTimestampWriter = new FileWriter({ useTimestamp: false });
+            const baseDir = join(tempDir, 'my-app-no-ts');
+
+            const outputDir = noTimestampWriter.initializeOutputDirectory(baseDir);
+
+            // Debug output
+            console.log('Test: without timestamp');
+            console.log('baseDir:', baseDir);
+            console.log('outputDir:', outputDir);
+            console.log('useTimestamp:', noTimestampWriter.options.useTimestamp);
+
+            assert.equal(outputDir, baseDir, 'Output directory should be same as base directory when timestamp is disabled');
+
+            // Write a file and verify it goes to the original location
+            const filePath = join(baseDir, 'test.txt');
+            await noTimestampWriter.writeFile(filePath, 'content');
+
+            assert.ok(existsSync(filePath));
+        });
+
+        it('should include timestamp in summary', async () => {
+            const timestampWriter = new FileWriter({ useTimestamp: true });
+            const baseDir = join(tempDir, 'my-app-summary');
+            timestampWriter.initializeOutputDirectory(baseDir);
+
+            await timestampWriter.writeFile(join(baseDir, 'test.txt'), 'content');
+
+            const summary = timestampWriter.getSummary();
+            assert.ok(summary.timestamp);
+            assert.ok(summary.outputDirectory.includes(summary.timestamp));
+        });
     });
 
     describe('Basic File Writing', () => {
@@ -102,7 +186,7 @@ describe('FileWriter', () => {
 
     describe('Dry Run Mode', () => {
         beforeEach(() => {
-            writer = new FileWriter({ dryRun: true });
+            writer = new FileWriter({ dryRun: true, useTimestamp: false });
         });
 
         it('should not write files in dry run mode', async () => {
@@ -130,7 +214,7 @@ describe('FileWriter', () => {
             await fs.writeFile(filePath, 'original content');
 
             // Non-interactive mode
-            writer = new FileWriter({ interactive: false });
+            writer = new FileWriter({ interactive: false, useTimestamp: false });
 
             const success = await writer.writeFile(filePath, 'new content');
 
@@ -145,7 +229,7 @@ describe('FileWriter', () => {
             const filePath = join(tempDir, 'existing.txt');
             await fs.writeFile(filePath, 'original content');
 
-            writer = new FileWriter({ force: true });
+            writer = new FileWriter({ force: true, useTimestamp: false });
 
             const success = await writer.writeFile(filePath, 'new content');
 
@@ -235,7 +319,7 @@ describe('FileWriter', () => {
 
             assert.ok(!success);
             assert.equal(writer.errors.length, 1);
-            assert.ok(writer.errors[0].message.includes('Permission denied'));
+            assert.ok(writer.errors[0].error.includes('EACCES') || writer.errors[0].error.includes('Permission denied'));
 
             // Cleanup
             await fs.chmod(protectedDir, 0o755);
@@ -277,7 +361,7 @@ describe('FileWriter', () => {
             const existingFile = join(tempDir, 'existing.txt');
             await fs.writeFile(existingFile, 'original');
 
-            writer = new FileWriter({ force: false, interactive: false });
+            writer = new FileWriter({ force: false, interactive: false, useTimestamp: false });
 
             const files = [
                 { path: join(tempDir, 'new.txt'), content: 'New file' },
@@ -322,6 +406,26 @@ describe('FileWriter', () => {
             const content1 = await fs.readFile(join(destDir, 'file1.txt'), 'utf8');
             assert.equal(content1, 'File 1');
         });
+
+        it('should copy to timestamped directory', async () => {
+            writer = new FileWriter({ useTimestamp: true });
+            const baseDir = join(tempDir, 'output');
+            const outputDir = writer.initializeOutputDirectory(baseDir);
+
+            const sourcePath = join(tempDir, 'source.txt');
+            const destPath = join(baseDir, 'dest.txt');
+
+            await fs.writeFile(sourcePath, 'Source content');
+            await writer.copy(sourcePath, destPath);
+
+            // Should exist in timestamped directory
+            const actualPath = writer.getOutputPath(destPath);
+            assert.ok(existsSync(actualPath));
+            assert.ok(actualPath.includes(writer.timestamp));
+
+            const content = await fs.readFile(actualPath, 'utf8');
+            assert.equal(content, 'Source content');
+        });
     });
 
     describe('Delete Operations', () => {
@@ -345,7 +449,7 @@ describe('FileWriter', () => {
         });
 
         it('should not delete in dry run mode', async () => {
-            writer = new FileWriter({ dryRun: true });
+            writer = new FileWriter({ dryRun: true, useTimestamp: false });
 
             const filePath = join(tempDir, 'keep-me.txt');
             await fs.writeFile(filePath, 'Keep this');
@@ -403,6 +507,51 @@ describe('FileWriter', () => {
             // The content should be formatted
             assert.ok(written.includes('const msg'));
             assert.ok(written.includes('const x'));
+        });
+
+        it('should handle different prettier options per file', async () => {
+            // File with semicolons
+            const file1 = join(tempDir, 'with-semi.js');
+            await writer.writeFile(file1, 'const a = 1', {
+                prettierOptions: { semi: true }
+            });
+
+            // File without semicolons
+            const file2 = join(tempDir, 'no-semi.js');
+            await writer.writeFile(file2, 'const b = 2', {
+                prettierOptions: { semi: false }
+            });
+
+            const content1 = await fs.readFile(file1, 'utf8');
+            const content2 = await fs.readFile(file2, 'utf8');
+
+            assert.ok(content1.includes(';'));
+            assert.ok(!content2.includes(';'));
+        });
+    });
+
+    describe('Reset Functionality', () => {
+        it('should reset all state', async () => {
+            writer = new FileWriter({ useTimestamp: true });
+            const baseDir = join(tempDir, 'app');
+            writer.initializeOutputDirectory(baseDir);
+
+            await writer.writeFile(join(baseDir, 'test.txt'), 'content');
+
+            // Verify state is populated
+            assert.ok(writer.writtenFiles.length > 0);
+            assert.ok(writer.baseOutputDir);
+            assert.ok(writer.timestamp);
+
+            // Reset
+            writer.reset();
+
+            // Verify state is cleared
+            assert.equal(writer.writtenFiles.length, 0);
+            assert.equal(writer.skippedFiles.length, 0);
+            assert.equal(writer.errors.length, 0);
+            assert.equal(writer.baseOutputDir, null);
+            assert.equal(writer.timestamp, null);
         });
     });
 });

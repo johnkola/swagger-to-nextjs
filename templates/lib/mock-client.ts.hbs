@@ -1,0 +1,172 @@
+{{!-- Mock client for {{serviceName}} testing --}}
+/* eslint-disable */
+{{#each apiClasses}}
+    import { {{name}} } from './api/{{file}}';
+{{/each}}
+import type * as Models from './models';
+
+/**
+* Mock data generators
+*/
+const mockGenerators = {
+{{#each schemas}}
+    {{name}}: (): Models.{{name}} => ({
+    {{#each properties}}
+        {{@key}}: {{#if (eq type "string")}}'mock-{{@key}}'{{else if (eq type "number")}}123{{else if (eq type "boolean")}}true{{else if (eq type "array")}}[]{{else}}{}{{/if}},
+    {{/each}}
+    }),
+{{/each}}
+};
+
+/**
+* Mock response delays (ms)
+*/
+const MOCK_DELAY = {
+MIN: 100,
+MAX: 500,
+};
+
+/**
+* Simulate network delay
+*/
+const delay = (ms?: number) =>
+new Promise(resolve =>
+setTimeout(resolve, ms || Math.random() * (MOCK_DELAY.MAX - MOCK_DELAY.MIN) + MOCK_DELAY.MIN)
+);
+
+{{#each apiClasses}}
+    /**
+    * Mock implementation of {{name}}
+    */
+    export class Mock{{name}} implements {{name}} {
+    private mockData: Map<string, any> = new Map();
+    private callHistory: Array<{ method: string; args: any[]; timestamp: Date }> = [];
+
+    {{#each operations}}
+        async {{operationId}}({{#if parameters}}...args: Parameters<{{../name}}['{{operationId}}']>{{/if}}): Promise<any> {
+            this.callHistory.push({ method: '{{operationId}}', args, timestamp: new Date() });
+            await delay();
+
+        {{#if (eq method "GET")}}
+            {{#if isArray}}
+                    // Return mock array
+                    return {
+                    data: Array.from({ length: 10 }, (_, i) => ({
+                    ...mockGenerators.{{returnType}}(),
+                    id: i + 1,
+                    })),
+                    };
+            {{else}}
+                    // Return mock single item
+                    const mockKey = `{{operationId}}-${JSON.stringify(args)}`;
+                    if (this.mockData.has(mockKey)) {
+                    return { data: this.mockData.get(mockKey) };
+                    }
+                    return { data: mockGenerators.{{returnType}}() };
+            {{/if}}
+        {{else if (eq method "POST")}}
+                // Create and return new item
+                const newItem = {
+                ...mockGenerators.{{returnType}}(),
+                ...args[0],
+                id: Date.now(),
+                createdAt: new Date().toISOString(),
+                };
+                this.mockData.set(`get-${newItem.id}`, newItem);
+                return { data: newItem };
+        {{else if (eq method "PUT")}}
+                // Update and return item
+                const updated = {
+                ...mockGenerators.{{returnType}}(),
+                ...args[0],
+                updatedAt: new Date().toISOString(),
+                };
+                const mockKey = `get-${args[0].id || args[0]}`;
+                this.mockData.set(mockKey, updated);
+                return { data: updated };
+        {{else if (eq method "DELETE")}}
+                // Delete item
+                const mockKey = `get-${args[0]}`;
+                this.mockData.delete(mockKey);
+                return { success: true };
+        {{else}}
+                // Generic response
+                return { data: {} };
+        {{/if}}
+            }
+    {{/each}}
+
+        // Test utilities
+        getCallHistory() {
+        return [...this.callHistory];
+        }
+
+        clearCallHistory() {
+        this.callHistory = [];
+        }
+
+        setMockData(method: string, key: string, data: any) {
+        this.mockData.set(`${method}-${key}`, data);
+        }
+
+        clearMockData() {
+        this.mockData.clear();
+        }
+        }
+{{/each}}
+
+    /**
+    * Mock {{serviceClassName}} client for testing
+    */
+    export class Mock{{serviceClassName}}Client {
+{{#each apiClasses}}
+        public {{camelCase name}}: Mock{{name}};
+{{/each}}
+
+    constructor() {
+{{#each apiClasses}}
+        this.{{camelCase name}} = new Mock{{name}}();
+{{/each}}
+    }
+
+    /**
+    * Reset all mock data and call history
+    */
+    reset() {
+{{#each apiClasses}}
+        this.{{camelCase name}}.clearCallHistory();
+        this.{{camelCase name}}.clearMockData();
+{{/each}}
+    }
+
+    /**
+    * Get aggregated call history from all APIs
+    */
+    getAllCallHistory() {
+    return {
+{{#each apiClasses}}
+    {{camelCase name}}: this.{{camelCase name}}.getCallHistory(),
+{{/each}}
+    };
+    }
+
+    /**
+    * Configure mock responses
+    */
+    configureMockResponse(api: string, method: string, key: string, response: any) {
+    switch (api) {
+{{#each apiClasses}}
+        case '{{name}}':
+        case '{{camelCase name}}':
+        this.{{camelCase name}}.setMockData(method, key, response);
+        break;
+{{/each}}
+    }
+    }
+    }
+
+    // Export mock generators for test usage
+    export { mockGenerators };
+
+    // Export a singleton mock client
+    export const mock{{camelCase serviceName}}Client = new Mock{{serviceClassName}}Client();

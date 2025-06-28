@@ -1,0 +1,137 @@
+{{!-- Unified client configuration --}}
+/* eslint-disable */
+import { EventEmitter } from 'events';
+{{#each services}}
+    import { {{name.className}}Client, {{name.className}}Config } from './{{name.name}}';
+{{/each}}
+
+export interface UnifiedClientConfig {
+{{#each services}}
+    {{camelCase name.name}}?: {{name.className}}Config;
+{{/each}}
+global?: {
+timeout?: number;
+headers?: Record<string, string>;
+onError?: (error: Error, service: string) => void;
+onRequest?: (config: any, service: string) => void;
+};
+}
+
+/**
+* Unified configuration manager for all API services
+*/
+export class UnifiedClientManager extends EventEmitter {
+private services: Map<string, any> = new Map();
+private config: UnifiedClientConfig;
+
+constructor(config: UnifiedClientConfig = {}) {
+super();
+this.config = config;
+this.initializeServices();
+}
+
+private initializeServices(): void {
+{{#each services}}
+    const {{camelCase name.name}}Config = {
+    ...this.config.global,
+    ...this.config.{{camelCase name.name}},
+    };
+    this.services.set('{{name.name}}', new {{name.className}}Client({{camelCase name.name}}Config));
+{{/each}}
+}
+
+/**
+* Get a specific service client
+*/
+public getService<T>(serviceName: string): T {
+    const service = this.services.get(serviceName);
+    if (!service) {
+    throw new Error(`Service ${serviceName} not found`);
+    }
+    return service as T;
+    }
+
+    /**
+    * Update configuration for a specific service
+    */
+    public updateServiceConfig(serviceName: string, config: any): void {
+    const service = this.services.get(serviceName);
+    if (service && typeof service.setBaseURL === 'function' && config.baseURL) {
+    service.setBaseURL(config.baseURL);
+    }
+    {{#if hasAuth}}
+        if (service && typeof service.setAuth === 'function' && config.auth) {
+        service.setAuth(config.auth);
+        }
+    {{/if}}
+    this.emit('configUpdated', { service: serviceName, config });
+    }
+
+    /**
+    * Update global configuration
+    */
+    public updateGlobalConfig(config: UnifiedClientConfig['global']): void {
+    this.config.global = { ...this.config.global, ...config };
+    this.reinitializeServices();
+    }
+
+    /**
+    * Health check for all services
+    */
+    public async healthCheck(): Promise<Record<string, boolean>> {
+    const results: Record<string, boolean> = {};
+
+    for (const [name, service] of this.services) {
+    try {
+    // Attempt a simple request to check service availability
+    // This assumes services have a health or status endpoint
+    if (typeof service.getAxiosInstance === 'function') {
+    await service.getAxiosInstance().get('/health', { timeout: 5000 });
+    results[name] = true;
+    } else {
+    results[name] = false;
+    }
+    } catch (error) {
+    results[name] = false;
+    this.emit('healthCheckFailed', { service: name, error });
+    }
+    }
+
+    return results;
+    }
+
+    /**
+    * Enable/disable a service
+    */
+    public setServiceEnabled(serviceName: string, enabled: boolean): void {
+    if (enabled && !this.services.has(serviceName)) {
+    // Re-initialize the service
+    this.initializeService(serviceName);
+    } else if (!enabled && this.services.has(serviceName)) {
+    this.services.delete(serviceName);
+    }
+    this.emit('serviceToggled', { service: serviceName, enabled });
+    }
+
+    private initializeService(serviceName: string): void {
+    switch (serviceName) {
+    {{#each services}}
+        case '{{name.name}}':
+        const {{camelCase name.name}}Config = {
+        ...this.config.global,
+        ...this.config.{{camelCase name.name}},
+        };
+        this.services.set('{{name.name}}', new {{name.className}}Client({{camelCase name.name}}Config));
+        break;
+    {{/each}}
+    }
+    }
+
+    private reinitializeServices(): void {
+    this.services.clear();
+    this.initializeServices();
+    }
+    }
+
+    // Export singleton instance
+    export const clientManager = new UnifiedClientManager();

@@ -188,11 +188,26 @@ class SwaggerLoader {
 
         // Extract UI hints and theme preferences
         const themeHints = this.extractThemeHints(resolved);
-        if (Object.keys(themeHints).length > 0) {
+        if (this.hasThemeHints(themeHints)) {
             resolved.themeHints = themeHints;
         }
 
         return resolved;
+    }
+
+    /**
+     * Check if theme hints object has any actual content
+     * @param {Object} hints - Theme hints object
+     * @returns {boolean} True if there are actual theme hints
+     */
+    hasThemeHints(hints) {
+        return !!(
+            hints.defaultTheme ||
+            (hints.availableThemes && hints.availableThemes.length > 0) ||
+            (hints.components && Object.keys(hints.components).length > 0) ||
+            (hints.layouts && Object.keys(hints.layouts).length > 0) ||
+            (hints.features && Object.keys(hints.features).length > 0)
+        );
     }
 
     /**

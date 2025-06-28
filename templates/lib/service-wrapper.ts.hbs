@@ -1,0 +1,154 @@
+{{!-- Service wrapper for {{serviceName}} --}}
+/* eslint-disable */
+import axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
+{{#each apiClasses}}
+    import { {{name}} } from './api/{{file}}';
+{{/each}}
+{{#if useToast}}
+    import { toast } from '@/lib/toast';
+{{/if}}
+
+/**
+* Configuration for {{serviceClassName}} client
+*/
+export interface {{serviceClassName}}Config {
+baseURL?: string;
+timeout?: number;
+headers?: Record<string, string>;
+{{#if hasAuth}}
+    auth?: {
+    {{#each securitySchemes}}
+        {{@key}}?: string;
+    {{/each}}
+    };
+{{/if}}
+}
+
+/**
+* {{serviceClassName}} API Client
+*/
+export class {{serviceClassName}}Client {
+private axiosInstance: AxiosInstance;
+{{#each apiClasses}}
+    public {{camelCase name}}: {{name}};
+{{/each}}
+
+constructor(config: {{serviceClassName}}Config = {}) {
+const baseURL = config.baseURL || process.env.NEXT_PUBLIC_{{upperCase serviceName}}_API_URL || '{{baseUrl}}';
+
+this.axiosInstance = axios.create({
+baseURL,
+timeout: config.timeout || 30000,
+headers: {
+'Content-Type': 'application/json',
+...config.headers,
+},
+});
+
+// Setup request interceptor for authentication
+{{#if hasAuth}}
+    this.axiosInstance.interceptors.request.use((request) => {
+    {{#each securitySchemes}}
+        {{#if (eq type "apiKey")}}
+            if (config.auth?.{{@key}}) {
+            {{#if (eq in "header")}}
+                request.headers['{{name}}'] = config.auth.{{@key}};
+            {{else if (eq in "query")}}
+                request.params = { ...request.params, {{name}}: config.auth.{{@key}} };
+            {{/if}}
+            }
+        {{else if (eq type "http")}}
+            if (config.auth?.{{@key}}) {
+            request.headers.Authorization = `{{scheme}} ` + config.auth.{{@key}};
+            }
+        {{else if (eq type "oauth2")}}
+            if (config.auth?.{{@key}}) {
+            request.headers.Authorization = 'Bearer ' + config.auth.{{@key}};
+            }
+        {{/if}}
+    {{/each}}
+    return request;
+    });
+{{/if}}
+
+// Setup response interceptor for error handling
+this.axiosInstance.interceptors.response.use(
+(response) => response,
+(error) => {
+{{#if useToast}}
+    if (error.response) {
+    const message = error.response.data?.message || error.message;
+    toast.error(message);
+    } else if (error.request) {
+    toast.error('Network error - please check your connection');
+    } else {
+    toast.error('An unexpected error occurred');
+    }
+{{/if}}
+return Promise.reject(error);
+}
+);
+
+// Initialize API classes
+{{#each apiClasses}}
+    this.{{camelCase name}} = new {{name}}(undefined, baseURL, this.axiosInstance);
+{{/each}}
+}
+
+/**
+* Update the base URL for all API classes
+*/
+public setBaseURL(baseURL: string): void {
+this.axiosInstance.defaults.baseURL = baseURL;
+{{#each apiClasses}}
+    this.{{camelCase name}} = new {{name}}(undefined, baseURL, this.axiosInstance);
+{{/each}}
+}
+
+/**
+* Update authentication configuration
+*/
+{{#if hasAuth}}
+    public setAuth(auth: {{serviceClassName}}Config['auth']): void {
+    // Auth will be applied via request interceptor
+    this.axiosInstance.interceptors.request.clear();
+    this.axiosInstance.interceptors.request.use((request) => {
+    {{#each securitySchemes}}
+        {{#if (eq type "apiKey")}}
+            if (auth?.{{@key}}) {
+            {{#if (eq in "header")}}
+                request.headers['{{name}}'] = auth.{{@key}};
+            {{else if (eq in "query")}}
+                request.params = { ...request.params, {{name}}: auth.{{@key}} };
+            {{/if}}
+            }
+        {{else if (eq type "http")}}
+            if (auth?.{{@key}}) {
+            request.headers.Authorization = `{{scheme}} ` + auth.{{@key}};
+            }
+        {{else if (eq type "oauth2")}}
+            if (auth?.{{@key}}) {
+            request.headers.Authorization = 'Bearer ' + auth.{{@key}};
+            }
+        {{/if}}
+    {{/each}}
+    return request;
+    });
+    }
+{{/if}}
+
+/**
+* Get the axios instance for advanced usage
+*/
+public getAxiosInstance(): AxiosInstance {
+return this.axiosInstance;
+}
+}
+
+// Export a singleton instance
+export const {{camelCase serviceName}}Client = new {{serviceClassName}}Client();
+
+// Export individual API classes for direct usage
+{{#each apiClasses}}
+    export { {{name}} } from './api/{{file}}';
+{{/each}}

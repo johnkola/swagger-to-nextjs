@@ -29,18 +29,29 @@
  *
  * ============================================================================
  */
+
 /**
  * SchemaUtils.js - Utility module for OpenAPI schema processing
  * Converts schemas to TypeScript types and extracts UI hints for DaisyUI
  * Uses ES Module named exports as required by generators
  */
+
+// Note: Import toPascalCase from StringUtils.js
+// For this file to work, ensure StringUtils.js has the correct toPascalCase implementation
 import { toPascalCase, toHumanReadable } from './StringUtils.js';
+
 /**
  * Convert OpenAPI schema to TypeScript type string
  * Main function used by TypeGenerator
  */
 export function convertSchemaToTypeScript(schema, options = {}) {
     if (!schema) return 'any';
+
+    // Handle empty object specially
+    if (typeof schema === 'object' && Object.keys(schema).length === 0) {
+        return 'Record<string, any>';
+    }
+
     // Handle references
     if (schema.$ref) {
         const refName = schema.$ref.split('/').pop();
@@ -102,6 +113,9 @@ export function convertSchemaToTypeScript(schema, options = {}) {
  * Map OpenAPI types to TypeScript types
  */
 export function mapOpenAPITypeToTypeScript(type, format) {
+    // Handle null/undefined type parameter
+    if (!type) return 'any';
+
     const typeMap = {
         'string': 'string',
         'number': 'number',
@@ -235,22 +249,21 @@ export function determineInputType(schema, fieldName = '') {
         }
     }
 
-    // Number inputs
-    if (schema.type === 'number' || schema.type === 'integer') {
-        return 'number';
-    }
-
     // Color picker
     if (schema.type === 'string' && (schema.format === 'color' || (fieldName && fieldName.toLowerCase().includes('color')))) {
         return 'color';
     }
 
-    // Range slider for numbers with min/max
+    // Range slider for numbers with min/max - MOVED BEFORE generic number check
     if ((schema.type === 'number' || schema.type === 'integer') &&
         schema.minimum !== undefined &&
-        schema.maximum !== undefined &&
-        (schema.maximum - schema.minimum) <= 100) {
+        schema.maximum !== undefined) {
         return 'range';
+    }
+
+    // Number inputs
+    if (schema.type === 'number' || schema.type === 'integer') {
+        return 'number';
     }
 
     // Default to text

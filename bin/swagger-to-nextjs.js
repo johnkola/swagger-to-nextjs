@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+
 /**
  * ============================================================================
  * SWAGGER-TO-NEXTJS GENERATOR - AI PROMPT
@@ -23,116 +24,62 @@
  * ============================================================================
  */
 
-import chalk from 'chalk';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-// Get current directory
+import { pathToFileURL } from 'url';
+
+// Get the directory of the current module
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-// Store cleanup handlers
-let isExiting = false;
 
-/**
- * Handle uncaught errors with user-friendly messages
- */
-process.on('uncaughtException', (error) => {
-    if (!isExiting) {
-        console.error(chalk.red('\n❌ An unexpected error occurred:'));
-        console.error(chalk.red(`   ${error.message}`));
+// Function to handle errors with user-friendly messages
+function handleError(error) {
+    const isDebug = process.env.DEBUG === '1' || process.argv.includes('--debug');
 
-        if (process.env.DEBUG) {
-            console.error(chalk.gray('\nStack trace:'));
-            console.error(chalk.gray(error.stack));
-        } else {
-            console.error(chalk.gray('\n   Run with DEBUG=1 for detailed error information.'));
-        }
-
-        process.exit(1);
+    if (isDebug) {
+        console.error('❌ Detailed error information:');
+        console.error(error);
+    } else {
+        console.error(`❌ Failed to start swagger-to-nextjs:`);
+        console.error(`   ${error.message}`);
+        console.error('   Run with DEBUG=1 for detailed error information.');
     }
-});
 
-/**
- * Handle unhandled promise rejections
- */
-process.on('unhandledRejection', (reason, promise) => {
-    if (!isExiting) {
-        console.error(chalk.red('\n❌ Unhandled promise rejection:'));
-        console.error(chalk.red(`   ${reason}`));
-
-        if (process.env.DEBUG) {
-            console.error(chalk.gray('\nRejected promise:'), promise);
-        }
-
-        process.exit(1);
-    }
-});
-
-/**
- * Handle SIGINT (Ctrl+C) for clean interruption
- */
-process.on('SIGINT', () => {
-    if (!isExiting) {
-        isExiting = true;
-        console.log(chalk.yellow('\n\n⚠️  Operation cancelled by user.'));
-        process.exit(0);
-    }
-});
-
-/**
- * Handle SIGTERM for graceful shutdown
- */
-process.on('SIGTERM', () => {
-    if (!isExiting) {
-        isExiting = true;
-        console.log(chalk.yellow('\n\n⚠️  Received termination signal, shutting down...'));
-        process.exit(0);
-    }
-});
-
-/**
- * Main execution
- */
-async function main() {
-    try {
-        // Import and run the CLI
-        const { default: cli } = await import(join(__dirname, '../src/cli.js'));
-
-        // Execute the CLI function
-        await cli();
-
-    } catch (error) {
-        // Handle errors that occur during CLI initialization
-        console.error(chalk.red('\n❌ Failed to start swagger-to-nextjs:'));
-        console.error(chalk.red(`   ${error.message}`));
-
-        // Provide helpful error messages based on error type
-        if (error.code === 'MODULE_NOT_FOUND') {
-            console.error(chalk.yellow('\n💡 Missing dependencies detected.'));
-            console.error(chalk.yellow('   Please run: npm install'));
-        } else if (error.code === 'EACCES') {
-            console.error(chalk.yellow('\n💡 Permission denied.'));
-            console.error(chalk.yellow('   You may need to run with elevated privileges.'));
-        } else if (error.code === 'ENOENT') {
-            console.error(chalk.yellow('\n💡 Required file not found.'));
-            console.error(chalk.yellow('   Please ensure you are running from the correct directory.'));
-        } else if (error.message.includes('Not valid JSON or YAML')) {
-            console.error(chalk.yellow('\n💡 The specification file could not be parsed.'));
-            console.error(chalk.yellow('   Please ensure it is valid JSON or YAML format.'));
-        } else if (error.message.includes('Missing version field')) {
-            console.error(chalk.yellow('\n💡 The specification is missing required fields.'));
-            console.error(chalk.yellow('   Ensure your OpenAPI spec includes version and required fields.'));
-        }
-
-        if (process.env.DEBUG) {
-            console.error(chalk.gray('\nStack trace:'));
-            console.error(chalk.gray(error.stack));
-        } else {
-            console.error(chalk.gray('\n   Run with DEBUG=1 for detailed error information.'));
-        }
-
-        process.exit(1);
-    }
+    process.exit(1);
 }
 
-// Execute main function
-main();
+// Handle SIGINT (Ctrl+C) gracefully
+process.on('SIGINT', () => {
+    console.log('\n👋 Operation cancelled by user');
+    process.exit(0);
+});
+
+// Handle uncaught exceptions
+process.on('uncaughtException', (error) => {
+    handleError(error);
+});
+
+// Handle unhandled promise rejections
+process.on('unhandledRejection', (error) => {
+    handleError(error);
+});
+
+// Main execution
+try {
+    // Construct the path to cli.js and convert to file URL for Windows compatibility
+    const cliPath = join(__dirname, '..', 'src', 'cli.js');
+    const cliUrl = pathToFileURL(cliPath).href;
+
+    // Dynamically import the CLI module
+    const { default: runCli } = await import(cliUrl);
+
+    // Run the CLI
+    if (typeof runCli === 'function') {
+        await runCli();
+    } else {
+        // If no default export, try to import and run directly
+        await import(cliUrl);
+    }
+} catch (error) {
+    handleError(error);
+}

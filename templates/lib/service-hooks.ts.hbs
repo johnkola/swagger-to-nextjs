@@ -1,0 +1,177 @@
+{{!-- React hooks for {{serviceName}} API --}}
+/* eslint-disable */
+{{#if (eq hookLibrary "react-query")}}
+    import { useQuery, useMutation, useQueryClient, UseQueryOptions, UseMutationOptions } from '@tanstack/react-query';
+{{else if (eq hookLibrary "swr")}}
+    import useSWR, { SWRConfiguration, mutate } from 'swr';
+{{else}}
+    import { useState, useEffect, useCallback } from 'react';
+{{/if}}
+import { {{camelCase serviceName}}Client } from './client';
+{{#if useToast}}
+    import { toast } from '@/lib/toast';
+{{/if}}
+
+{{#each operations}}
+    {{#if isQuery}}
+        /**
+        * Hook for {{operationId}} operation
+        */
+        {{#if (eq ../hookLibrary "react-query")}}
+            export function use{{pascalCase operationId}}(
+            {{#if parameters}}params: Parameters<typeof {{camelCase ../serviceName}}Client.{{camelCase className}}.{{operationId}}>[0],{{/if}}
+                options?: UseQueryOptions<Awaited<ReturnType<typeof {{camelCase ../serviceName}}Client.{{camelCase className}}.{{operationId}}>>>
+                ) {
+                return useQuery({
+                queryKey: ['{{../serviceName}}', '{{className}}', '{{operationId}}'{{#if parameters}}, params{{/if}}],
+                queryFn: () => {{camelCase ../serviceName}}Client.{{camelCase className}}.{{operationId}}({{#if parameters}}params{{/if}}),
+                ...options,
+                });
+                }
+        {{else if (eq ../hookLibrary "swr")}}
+                export function use{{pascalCase operationId}}(
+            {{#if parameters}}params: Parameters<typeof {{camelCase ../serviceName}}Client.{{camelCase className}}.{{operationId}}>[0],{{/if}}
+                config?: SWRConfiguration
+                ) {
+                return useSWR(
+                ['{{../serviceName}}', '{{className}}', '{{operationId}}'{{#if parameters}}, params{{/if}}],
+                () => {{camelCase ../serviceName}}Client.{{camelCase className}}.{{operationId}}({{#if parameters}}params{{/if}}),
+                config
+                );
+                }
+        {{else}}
+                export function use{{pascalCase operationId}}({{#if parameters}}params: Parameters<typeof {{camelCase ../serviceName}}Client.{{camelCase className}}.{{operationId}}>[0]{{/if}}) {
+                const [data, setData] = useState<Awaited<ReturnType<typeof {{camelCase ../serviceName}}Client.{{camelCase className}}.{{operationId}}>>>();
+                const [error, setError] = useState<Error>();
+                const [loading, setLoading] = useState(true);
+
+                useEffect(() => {
+                let cancelled = false;
+
+                const fetchData = async () => {
+                try {
+                setLoading(true);
+                const result = await {{camelCase ../serviceName}}Client.{{camelCase className}}.{{operationId}}({{#if parameters}}params{{/if}});
+                if (!cancelled) {
+                setData(result);
+                setError(undefined);
+                }
+                } catch (err) {
+                if (!cancelled) {
+                setError(err as Error);
+                }
+                } finally {
+                if (!cancelled) {
+                setLoading(false);
+                }
+                }
+                };
+
+                fetchData();
+
+                return () => {
+                cancelled = true;
+                };
+                }, [{{#if parameters}}JSON.stringify(params){{/if}}]);
+
+                return { data, error, loading };
+                }
+        {{/if}}
+    {{/if}}
+
+    {{#if isMutation}}
+            /**
+            * Hook for {{operationId}} operation
+            */
+        {{#if (eq ../hookLibrary "react-query")}}
+                export function use{{pascalCase operationId}}(
+                options?: UseMutationOptions
+                Awaited<ReturnType<typeof {{camelCase ../serviceName}}Client.{{camelCase className}}.{{operationId}}>>,
+                Error,
+                Parameters<typeof {{camelCase ../serviceName}}Client.{{camelCase className}}.{{operationId}}>[0]
+                >
+                ) {
+                const queryClient = useQueryClient();
+
+                return useMutation({
+                mutationFn: (params) => {{camelCase ../serviceName}}Client.{{camelCase className}}.{{operationId}}(params),
+                onSuccess: (data, variables, context) => {
+            {{#if ../useToast}}
+                    toast.success('{{humanize operationId}} successful');
+            {{/if}}
+                // Invalidate related queries
+                queryClient.invalidateQueries({ queryKey: ['{{../serviceName}}', '{{className}}'] });
+                options?.onSuccess?.(data, variables, context);
+                },
+                onError: (error, variables, context) => {
+            {{#if ../useToast}}
+                    toast.error(`Failed to {{humanize operationId}}`);
+            {{/if}}
+                options?.onError?.(error, variables, context);
+                },
+                ...options,
+                });
+                }
+        {{else if (eq ../hookLibrary "swr")}}
+                export function use{{pascalCase operationId}}() {
+                const [loading, setLoading] = useState(false);
+                const [error, setError] = useState<Error>();
+
+                const mutate = useCallback(async (params: Parameters<typeof {{camelCase ../serviceName}}Client.{{camelCase className}}.{{operationId}}>[0]) => {
+                try {
+                setLoading(true);
+                setError(undefined);
+                const result = await {{camelCase ../serviceName}}Client.{{camelCase className}}.{{operationId}}(params);
+            {{#if ../useToast}}
+                    toast.success('{{humanize operationId}} successful');
+            {{/if}}
+                // Revalidate related data
+                mutate(['{{../serviceName}}', '{{className}}']);
+                return result;
+                } catch (err) {
+                const error = err as Error;
+                setError(error);
+            {{#if ../useToast}}
+                    toast.error(`Failed to {{humanize operationId}}`);
+            {{/if}}
+                throw error;
+                } finally {
+                setLoading(false);
+                }
+                }, []);
+
+                return { mutate, loading, error };
+                }
+        {{else}}
+                export function use{{pascalCase operationId}}() {
+                const [loading, setLoading] = useState(false);
+                const [error, setError] = useState<Error>();
+                const [data, setData] = useState<Awaited<ReturnType<typeof {{camelCase ../serviceName}}Client.{{camelCase className}}.{{operationId}}>>>();
+
+                    const execute = useCallback(async (params: Parameters<typeof {{camelCase ../serviceName}}Client.{{camelCase className}}.{{operationId}}>[0]) => {
+                        try {
+                        setLoading(true);
+                        setError(undefined);
+                        const result = await {{camelCase ../serviceName}}Client.{{camelCase className}}.{{operationId}}(params);
+                        setData(result);
+                        {{#if ../useToast}}
+                            toast.success('{{humanize operationId}} successful');
+                        {{/if}}
+                        return result;
+                        } catch (err) {
+                        const error = err as Error;
+                        setError(error);
+                        {{#if ../useToast}}
+                            toast.error(`Failed to {{humanize operationId}}`);
+                        {{/if}}
+                        throw error;
+                        } finally {
+                        setLoading(false);
+                        }
+                        }, []);
+
+                        return { execute, data, loading, error };
+                        }
+        {{/if}}
+    {{/if}}
+{{/each}}

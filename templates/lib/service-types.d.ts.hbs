@@ -1,0 +1,95 @@
+{{!-- TypeScript type definitions for {{serviceName}} --}}
+/* eslint-disable */
+
+declare module '@/lib/api-client/{{serviceName}}' {
+// Utility types for API responses
+export interface PaginatedResponse<T> {
+    data: T[];
+    total: number;
+    page: number;
+    pageSize: number;
+    hasNext: boolean;
+    hasPrevious: boolean;
+    }
+
+    export interface ApiResponse<T> {
+        success: boolean;
+        data?: T;
+        error?: {
+        code: string;
+        message: string;
+        details?: any;
+        };
+        timestamp: string;
+        }
+
+        export interface ApiError extends Error {
+        code: string;
+        status: number;
+        details?: any;
+        }
+
+        // Form state types for UI integration
+        export interface FormState<T> {
+            values: T;
+            errors: Partial<Record<keyof T, string>>;
+                touched: Partial<Record<keyof T, boolean>>;
+                    isSubmitting: boolean;
+                    isValid: boolean;
+                    }
+
+                    // Request configuration types
+                    export interface RequestConfig {
+                    signal?: AbortSignal;
+                    onUploadProgress?: (progressEvent: ProgressEvent) => void;
+                    onDownloadProgress?: (progressEvent: ProgressEvent) => void;
+                    }
+
+                    {{#if hasAuth}}
+                        // Authentication types
+                        export interface AuthState {
+                        isAuthenticated: boolean;
+                        token?: string;
+                        expiresAt?: Date;
+                        refreshToken?: string;
+                        }
+
+                        export interface AuthConfig {
+                        {{#each operations}}
+                            {{#if requiresAuth}}
+                                {{operationId}}: boolean;
+                            {{/if}}
+                        {{/each}}
+                        }
+                    {{/if}}
+
+                    // Service-specific augmentations
+                    export interface {{serviceClassName}}ClientOptions {
+                    interceptors?: {
+                    request?: (config: any) => any;
+                    response?: (response: any) => any;
+                    error?: (error: any) => any;
+                    };
+                    retry?: {
+                    maxAttempts?: number;
+                    delay?: number;
+                    shouldRetry?: (error: any) => boolean;
+                    };
+                    }
+                    }
+
+                    // Global type augmentations
+                    declare global {
+                    namespace NodeJS {
+                    interface ProcessEnv {
+                    NEXT_PUBLIC_{{upperCase serviceName}}_API_URL?: string;
+                    {{#if hasAuth}}
+                        {{upperCase serviceName}}_API_KEY?: string;
+                        {{upperCase serviceName}}_CLIENT_ID?: string;
+                        {{upperCase serviceName}}_CLIENT_SECRET?: string;
+                    {{/if}}
+                    }
+                    }
+                    }
+
+                    export {};

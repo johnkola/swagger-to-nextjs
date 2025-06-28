@@ -1,50 +1,33 @@
 /**
- * ============================================================================
- * SWAGGER-TO-NEXTJS GENERATOR - AI PROMPT
- * ============================================================================
- * FILE: src/index.js
- * VERSION: 2025-06-17 21:42:10
- * PHASE: Phase 1: Foundation & Core Infrastructure
- * ============================================================================
- *
- * AI GENERATION PROMPT:
- *
- * Create the main orchestrator class using ES Module syntax for a code
- * generator that coordinates the entire generation process from OpenAPI
- * spec to Next.js application with DaisyUI components. Use ES Module
- * imports for all dependencies. This class should accept configuration
- * options in its constructor including theme preferences, have a main
- * generate() method that sequentially runs all generation steps, coordinate
- * loading the spec, validating it, and running various generators (types,
- * API routes, client, pages with DaisyUI components, project files
- * including Tailwind config). It should emit events for progress tracking
- * using EventEmitter, handle errors gracefully with helpful messages, track
- * DaisyUI theme configuration throughout the process, and return a summary
- * of generated files. Export the class as the default export. The class
- * should support both CLI usage and programmatic usage as a library.
- *
- * ============================================================================
- */
-/**
  * index.js - Main orchestrator for swagger-to-nextjs
- * Updated to use actual Phase 6 generators
+ * Includes template testing functionality and service generation
  */
 import { EventEmitter } from 'node:events';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import yaml from 'js-yaml';
+import chalk from 'chalk';
+import { fileURLToPath } from 'node:url';
 
 // Core components
 import SwaggerLoader from './core/SwaggerLoader.js';
 import SwaggerValidator from './core/SwaggerValidator.js';
 import FileWriter from './core/FileWriter.js';
 
-// Phase 6 Generators
+// Generators
 import TypeGenerator from './generators/TypeGenerator.js';
 import ApiRouteGenerator from './generators/ApiRouteGenerator.js';
 import ClientGenerator from './generators/ClientGenerator.js';
+import ServiceGenerator from './generators/ServiceGenerator.js';
 import PageGenerator from './generators/PageGenerator.js';
 import ProjectGenerator from './generators/ProjectGenerator.js';
+
+// Template System
+import TemplateEngine from './templates/TemplateEngine.js';
+import TemplateTester from './TemplateTester.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 export default class SwaggerToNextjs extends EventEmitter {
     constructor(options = {}) {
@@ -54,11 +37,17 @@ export default class SwaggerToNextjs extends EventEmitter {
             outputDir: './generated',
             typescript: true,
             generateClient: true,
+            generateServices: true, // New option for service generation
+            generateRoutes: true,
             generatePages: true,
+            useTimestamp: true,
             force: false,
             dryRun: false,
             verbose: false,
             silent: false,
+            testTemplates: true,
+            serviceName: 'api', // Default service name
+            generateSharedUtils: true, // Generate shared utilities like logger
             // DaisyUI options
             daisyui: true,
             theme: 'light',
@@ -79,7 +68,13 @@ export default class SwaggerToNextjs extends EventEmitter {
         // Initialize core components
         this.loader = new SwaggerLoader();
         this.validator = new SwaggerValidator();
-        this.fileWriter = new FileWriter(this.options);
+        this.fileWriter = new FileWriter({
+            force: this.options.force,
+            dryRun: this.options.dryRun,
+            interactive: this.options.interactive,
+            useTimestamp: this.options.useTimestamp,
+            onProgress: (progress) => this.emit('file:progress', progress)
+        });
 
         // Generators will be initialized after spec is loaded
         this.generators = {};
@@ -92,7 +87,6 @@ export default class SwaggerToNextjs extends EventEmitter {
 
     toDirectory(dir) {
         this.options.outputDir = dir;
-        this.fileWriter.options.outputDir = dir;
         return this;
     }
 
@@ -121,7 +115,13 @@ export default class SwaggerToNextjs extends EventEmitter {
             }
 
             // Update FileWriter options
-            this.fileWriter = new FileWriter(this.options);
+            this.fileWriter = new FileWriter({
+                force: this.options.force,
+                dryRun: this.options.dryRun,
+                interactive: this.options.interactive,
+                useTimestamp: this.options.useTimestamp,
+                onProgress: (progress) => this.emit('file:progress', progress)
+            });
 
             this.emit('initialize:complete', { options: this.options });
             return this;
@@ -131,20 +131,74 @@ export default class SwaggerToNextjs extends EventEmitter {
         }
     }
 
-    initializeGenerators() {
-        // Initialize generators with loaded spec and options
+    /**
+     * Test all templates before generation
+     */
+    async testTemplates() {
+        this.emit('progress', { step: 'test-templates', message: 'Testing all templates...' });
+
+        const tester = new TemplateTester({
+            verbose: this.options.verbose,
+            silent: this.options.silent,
+            debug: this.options.debug
+        });
+
+        // If spec is loaded, add it to test data
+        if (this.spec) {
+            tester.setTestData({
+                apiInfo: this.spec.info || {},
+                servers: this.spec.servers || [],
+                serviceName: this.options.serviceName || 'api',
+                resourceName: 'example'
+            });
+        }
+
+        const result = await tester.testAll();
+
+        if (result.failed > 0) {
+            this.emit('progress', {
+                step: 'test-templates',
+                message: `Template testing completed with ${result.failed} errors`,
+                completed: true,
+                error: true
+            });
+
+            if (!this.options.force) {
+                throw new Error(`Template testing failed: ${result.failed} templates have errors. Use --force to continue anyway.`);
+            } else {
+                this.warnings.push(`Template testing: ${result.failed} templates have errors but continuing due to --force flag`);
+            }
+        } else {
+            this.emit('progress', {
+                step: 'test-templates',
+                message: `All ${result.passed} templates tested successfully`,
+                completed: true
+            });
+        }
+
+        // Return result with file list
+        return result;
+    }
+
+    initializeGenerators(actualOutputDir) {
+        // Initialize generators with loaded spec and actual output directory
         const generatorOptions = {
             ...this.options,
-            output: this.options.outputDir,
+            output: actualOutputDir,
+            outputDir: actualOutputDir,
             dryRun: this.options.dryRun,
             force: this.options.force,
-            noDaisyui: !this.options.daisyui
+            noDaisyui: !this.options.daisyui,
+            fileWriter: this.fileWriter,
+            serviceName: this.options.serviceName || 'api',
+            generateSharedUtils: this.options.generateSharedUtils
         };
 
         this.generators = {
             types: this.options.typescript ? new TypeGenerator(this.spec, generatorOptions) : null,
-            routes: new ApiRouteGenerator(this.spec, generatorOptions),
             client: this.options.generateClient ? new ClientGenerator(this.spec, generatorOptions) : null,
+            services: this.options.generateServices ? new ServiceGenerator(this.spec, generatorOptions) : null,
+            routes: this.options.generateRoutes ? new ApiRouteGenerator(this.spec, generatorOptions) : null,
             pages: this.options.generatePages ? new PageGenerator(this.spec, generatorOptions) : null,
             project: new ProjectGenerator(this.spec, generatorOptions)
         };
@@ -214,19 +268,66 @@ export default class SwaggerToNextjs extends EventEmitter {
                 }
             }
 
-            // Step 3: Initialize generators with the loaded spec
-            this.initializeGenerators();
+            // Step 3: Test templates if enabled
+            if (this.options.testTemplates) {
+                if (!this.options.silent) {
+                    console.log('\n🧪 Testing templates before generation...');
+                }
+                const templateTestResult = await this.testTemplates();
 
-            // Step 4: Prepare output directory
-            if (!this.options.dryRun) {
-                this.emit('progress', { step: 'prepare', message: 'Preparing output directory...' });
-                await fs.mkdir(this.options.outputDir, { recursive: true });
+                if (!this.options.silent) {
+                    if (templateTestResult.tested === 0) {
+                        console.log(chalk.yellow(`⚠️  No templates found to test`));
+                        if (templateTestResult.templatesDir) {
+                            console.log(chalk.gray(`    Searched in: ${templateTestResult.templatesDir}`));
+                        }
+                    } else {
+                        console.log(`✅ Template testing completed: ${templateTestResult.passed}/${templateTestResult.tested} passed`);
+
+                        // Show template list if verbose
+                        if (this.options.verbose && templateTestResult.files) {
+                            console.log(chalk.gray('\nTested templates:'));
+                            templateTestResult.files.forEach(file => {
+                                const passed = !templateTestResult.errors.find(e => e.template === file);
+                                const icon = passed ? chalk.green('✓') : chalk.red('✗');
+                                console.log(`  ${icon} ${file}`);
+                            });
+                        }
+                    }
+                    console.log('');
+                }
+            } else if (this.options.verbose && !this.options.silent) {
+                console.log('\n⏩ Skipping template testing (disabled)');
             }
 
-            // Step 5: Run generators in sequence
+            // Step 4: Initialize output directory with timestamp support
+            this.emit('progress', { step: 'prepare', message: 'Preparing output directory...' });
+
+            // Initialize the actual output directory (with timestamp if enabled)
+            const actualOutputDir = this.fileWriter.initializeOutputDirectory(this.options.outputDir);
+
+            // Log the directories for debugging
+            if (this.options.verbose) {
+                console.log(`\nOutput directories:`);
+                console.log(`  Requested: ${this.options.outputDir}`);
+                console.log(`  Actual: ${actualOutputDir}`);
+                if (this.fileWriter.timestamp) {
+                    console.log(`  Timestamp: ${this.fileWriter.timestamp}`);
+                }
+            }
+
+            // Step 5: Initialize generators with the actual output directory
+            this.initializeGenerators(actualOutputDir);
+
+            // Step 6: Create output directory
+            if (!this.options.dryRun) {
+                await fs.mkdir(actualOutputDir, { recursive: true });
+            }
+
+            // Step 7: Run generators in sequence (order matters!)
             const results = {};
 
-            // Generate TypeScript types
+            // Generate TypeScript types first
             if (this.generators.types) {
                 const typeResult = await this.generators.types.generate();
                 results.types = typeResult;
@@ -237,22 +338,35 @@ export default class SwaggerToNextjs extends EventEmitter {
                 });
             }
 
-            // Generate API routes
-            const routeResult = await this.generators.routes.generate();
-            results.routes = routeResult;
-            this.emit('progress', {
-                step: 'routes',
-                message: `Generated ${routeResult.totalRoutes} API routes`,
-                completed: true
-            });
-
-            // Generate API client
+            // Generate API client (must be before services)
             if (this.generators.client) {
                 const clientResult = await this.generators.client.generate();
                 results.client = clientResult;
                 this.emit('progress', {
                     step: 'client',
                     message: `Generated API client with ${clientResult.operations} operations`,
+                    completed: true
+                });
+            }
+
+            // Generate service wrappers (must be before routes)
+            if (this.generators.services) {
+                const serviceResult = await this.generators.services.generate();
+                results.services = serviceResult;
+                this.emit('progress', {
+                    step: 'services',
+                    message: `Generated ${serviceResult.totalFiles} service files`,
+                    completed: true
+                });
+            }
+
+            // Generate API routes (depends on services)
+            if (this.generators.routes) {
+                const routeResult = await this.generators.routes.generate();
+                results.routes = routeResult;
+                this.emit('progress', {
+                    step: 'routes',
+                    message: `Generated ${routeResult.totalRoutes} API routes`,
                     completed: true
                 });
             }
@@ -274,7 +388,7 @@ export default class SwaggerToNextjs extends EventEmitter {
                 });
             }
 
-            // Generate project files
+            // Generate project files last
             const projectResult = await this.generators.project.generate();
             results.project = projectResult;
             this.emit('progress', {
@@ -285,6 +399,9 @@ export default class SwaggerToNextjs extends EventEmitter {
 
             // Collect all generated files
             this.collectGeneratedFiles(results);
+
+            // Get the FileWriter summary
+            const fileWriterSummary = this.fileWriter.getSummary();
 
             // Show dry run summary if applicable
             if (this.options.dryRun) {
@@ -298,6 +415,8 @@ export default class SwaggerToNextjs extends EventEmitter {
             const result = {
                 success: true,
                 duration,
+                outputDirectory: actualOutputDir,
+                timestamp: this.fileWriter.timestamp,
                 files: this.generatedFiles,
                 errors: this.errors,
                 warnings: this.warnings,
@@ -305,8 +424,11 @@ export default class SwaggerToNextjs extends EventEmitter {
                 themes: this.options.themes,
                 stats: {
                     totalFiles: this.generatedFiles.length,
+                    writtenFiles: fileWriterSummary.written,
+                    skippedFiles: fileWriterSummary.skipped,
                     types: results.types?.types || 0,
                     routes: results.routes?.totalRoutes || 0,
+                    services: results.services?.totalFiles || 0,
                     pages: results.pages?.files.length || 0,
                     duration
                 }
@@ -338,6 +460,17 @@ export default class SwaggerToNextjs extends EventEmitter {
                 });
             }
         });
+
+        // Also get files from FileWriter
+        const fileWriterSummary = this.fileWriter.getSummary();
+        fileWriterSummary.files.written.forEach(path => {
+            if (!this.generatedFiles.find(f => f.path === path)) {
+                this.generatedFiles.push({
+                    path,
+                    type: 'written'
+                });
+            }
+        });
     }
 
     async cleanup() {
@@ -358,6 +491,9 @@ export default class SwaggerToNextjs extends EventEmitter {
         this.errors = [];
         this.warnings = [];
         this.daisyuiComponents.clear();
+
+        // Reset FileWriter
+        this.fileWriter.reset();
 
         this.emit('cleanup:complete');
     }

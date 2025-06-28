@@ -23,7 +23,7 @@
  * (path to custom DaisyUI theme file). Import and use ora for progress
  * spinner and chalk for colored messages using ES Module imports. Display
  * colored success/error messages and provide helpful next steps after
- * generation including how to switch themes. Include proper version
+ *  generation, including how to switch themes. Include proper version
  * handling by reading package.json using fs.readFileSync and JSON.parse,
  * and comprehensive help text. Export the CLI setup as the default export.
  *
@@ -38,6 +38,7 @@ import chalk from 'chalk';
 import ora from 'ora';
 import path from 'node:path';
 import fs from 'node:fs/promises';
+import yaml from 'js-yaml';
 import { fileURLToPath } from 'node:url';
 
 // Get current directory
@@ -92,6 +93,8 @@ export async function cli() {
         .option('--silent', 'suppress all output except errors', false)
         .option('--docker', 'generate Docker configuration files', false)
         .option('--cicd', 'generate CI/CD configuration files', false)
+        .option('--test-templates', 'test all templates before generation (default: true)')
+        .option('--no-test-templates', 'skip template testing')
         .action(async (spec, output = './generated', options) => {
             const spinner = options.silent ? null : ora();
 
@@ -125,6 +128,7 @@ export async function cli() {
                         console.log(`  ${chalk.bold('Theme:')} ${chalk.yellow(options.theme)}`);
                         console.log(`  ${chalk.bold('Themes:')} ${chalk.yellow(options.themes.join(', '))}`);
                     }
+                    console.log(`  ${chalk.bold('Test Templates:')} ${chalk.yellow(options.testTemplates !== false ? 'Yes' : 'No')}`);
                     console.log(`  ${chalk.bold('Mode:')} ${chalk.yellow(options.dryRun ? 'Dry Run' : 'Normal')}`);
                     console.log(chalk.gray('─'.repeat(50)));
                     console.log('');
@@ -151,7 +155,9 @@ export async function cli() {
                     verbose: options.verbose,
                     silent: options.silent,
                     docker: options.docker,
-                    cicd: options.cicd
+                    cicd: options.cicd,
+                    testTemplates: options.testTemplates !== false,
+                    configFile: options.config
                 });
 
                 // Initialize with config if provided
@@ -203,6 +209,210 @@ export async function cli() {
             }
         });
 
+    // Add generate-from-config command
+    program
+        .command('generate-from-config <config-file> [output]')
+        .description('Generate Next.js application using OpenAPI Generator config file')
+        .option('--typescript', 'generate TypeScript code (default: true)')
+        .option('--no-typescript', 'generate JavaScript code')
+        .option('--pages', 'generate UI components (default: true)')
+        .option('--no-pages', 'skip UI components generation')
+        .option('-f, --force', 'overwrite existing files without asking', false)
+        .option('-d, --dry-run', 'preview what would be generated without writing files', false)
+        .option('--theme <theme>', 'DaisyUI theme selection (default: "light")', 'light')
+        .option('--themes <themes...>', 'list of DaisyUI themes to include (default: ["light", "dark", "cupcake", "corporate"])')
+        .option('--no-daisyui', 'generate without DaisyUI, use plain CSS')
+        .option('--verbose', 'show detailed output', false)
+        .option('--silent', 'suppress all output except errors', false)
+        .option('--docker', 'generate Docker configuration files', false)
+        .option('--cicd', 'generate CI/CD configuration files', false)
+        .action(async (configFile, output, options) => {
+            const spinner = options.silent ? null : ora();
+
+            try {
+                // Show banner unless silent
+                if (!options.silent) {
+                    console.log('');
+                    console.log(chalk.cyan('═══════════════════════════════════════════════════════════════'));
+                    console.log(chalk.cyan.bold('  🚀 Swagger to Next.js Generator with DaisyUI'));
+                    console.log(chalk.cyan(`  Version: ${version}`));
+                    console.log(chalk.cyan('═══════════════════════════════════════════════════════════════'));
+                    console.log('');
+                }
+
+                // Load the config file
+                if (spinner) spinner.start('Loading configuration file...');
+
+                let config;
+                try {
+                    const configContent = await fs.readFile(configFile, 'utf-8');
+                    config = yaml.load(configContent);
+
+                    if (!config.inputSpec) {
+                        throw new Error('Config file must contain "inputSpec" field');
+                    }
+
+                    if (spinner) spinner.succeed('Configuration loaded');
+                } catch (error) {
+                    if (spinner) spinner.fail('Failed to load configuration');
+                    throw new Error(`Failed to load config file: ${error.message}`);
+                }
+
+                // Extract spec URL from config
+                const spec = config.inputSpec;
+
+                // Use outputDir from config if not specified
+                if (!output && config.outputDir) {
+                    output = config.outputDir;
+                } else if (!output) {
+                    output = './generated';
+                }
+
+                // Set default themes if not provided
+                if (!options.themes) {
+                    options.themes = ['light', 'dark', 'cupcake', 'corporate'];
+                }
+
+                // Log configuration
+                if (!options.silent) {
+                    console.log(chalk.cyan('📋 Generation Configuration:'));
+                    console.log(chalk.gray('─'.repeat(50)));
+                    console.log(`  ${chalk.bold('Config File:')} ${chalk.yellow(configFile)}`);
+                    console.log(`  ${chalk.bold('Source:')} ${chalk.yellow(spec)}`);
+                    console.log(`  ${chalk.bold('Output:')} ${chalk.yellow(path.resolve(output))}`);
+                    console.log(`  ${chalk.bold('Generator:')} ${chalk.yellow(config.generatorName || 'typescript-axios')}`);
+                    console.log(`  ${chalk.bold('TypeScript:')} ${chalk.yellow(options.typescript !== false ? 'Yes' : 'No')}`);
+                    console.log(`  ${chalk.bold('API Client:')} ${chalk.yellow('Yes (using OpenAPI Generator)')}`);
+                    console.log(`  ${chalk.bold('UI Pages:')} ${chalk.yellow(options.pages !== false ? 'Yes' : 'No')}`);
+                    console.log(`  ${chalk.bold('DaisyUI:')} ${chalk.yellow(options.daisyui !== false ? 'Yes' : 'No')}`);
+                    if (options.daisyui !== false) {
+                        console.log(`  ${chalk.bold('Theme:')} ${chalk.yellow(options.theme)}`);
+                        console.log(`  ${chalk.bold('Themes:')} ${chalk.yellow(options.themes.join(', '))}`);
+                    }
+                    console.log(`  ${chalk.bold('Mode:')} ${chalk.yellow(options.dryRun ? 'Dry Run' : 'Normal')}`);
+                    console.log(chalk.gray('─'.repeat(50)));
+                    console.log('');
+                }
+
+                // Create generator instance
+                if (spinner) spinner.start('Initializing generator...');
+
+                const generator = new SwaggerToNextjs({
+                    outputDir: output,
+                    typescript: options.typescript !== false,
+                    generateClient: true, // Always true when using config
+                    generatePages: options.pages !== false,
+                    force: options.force,
+                    dryRun: options.dryRun,
+                    daisyui: options.daisyui !== false,
+                    theme: options.theme,
+                    themes: options.themes,
+                    verbose: options.verbose,
+                    silent: options.silent,
+                    docker: options.docker,
+                    cicd: options.cicd,
+                    // Pass the config file path
+                    configFile: configFile,
+                    useOpenApiGenerator: true
+                });
+
+                await generator.initialize();
+
+                if (spinner) spinner.succeed('Generator initialized');
+
+                // Generate the application
+                if (spinner) spinner.start('Generating Next.js application...');
+
+                // Update spinner text based on progress
+                if (spinner) {
+                    generator.on('progress', (event) => {
+                        if (event.message) {
+                            spinner.text = event.message;
+                        }
+                    });
+                }
+
+                const result = await generator
+                    .withSwagger(spec)
+                    .toDirectory(output)
+                    .generate();
+
+                if (spinner) spinner.succeed('Generation completed successfully!');
+
+                // Show summary
+                if (!options.silent) {
+                    showSummary(result, output, options);
+                }
+
+                // Show next steps
+                if (!options.silent && !options.dryRun) {
+                    showNextSteps(output, options);
+                }
+
+                // Cleanup
+                await generator.cleanup();
+
+            } catch (error) {
+                if (spinner) spinner.fail('Generation failed');
+                handleError(error);
+                process.exit(1);
+            }
+        });
+
+    // Add test-templates command
+    program
+        .command('test-templates')
+        .description('Test all template files for errors')
+        .option('--verbose', 'show detailed output', false)
+        .option('--list', 'list templates without testing', false)
+        .action(async (options) => {
+            const spinner = ora();
+
+            try {
+                const { default: TemplateTester } = await import('./TemplateTester.js');
+
+                const tester = new TemplateTester({
+                    verbose: options.verbose,
+                    silent: false
+                });
+
+                if (options.list) {
+                    // Just list templates
+                    spinner.start('Finding templates...');
+                    const result = await tester.listTemplates();
+                    spinner.succeed(`Found ${result.total} templates`);
+
+                    console.log('\n📋 Template Files:\n');
+                    Object.keys(result.grouped).sort().forEach(dir => {
+                        console.log(chalk.blue(`${dir}/`));
+                        result.grouped[dir].forEach(file => {
+                            console.log(`  → ${file}`);
+                        });
+                    });
+                } else {
+                    // Test templates
+                    spinner.start('Testing templates...');
+                    const result = await tester.testAll();
+
+                    if (result.failed > 0) {
+                        spinner.fail(`Template testing failed: ${result.failed}/${result.tested} templates have errors`);
+
+                        if (!options.verbose) {
+                            console.log('\nRun with --verbose to see detailed errors');
+                        }
+
+                        process.exit(1);
+                    } else {
+                        spinner.succeed(`All ${result.tested} templates passed!`);
+                    }
+                }
+            } catch (error) {
+                spinner.fail('Template testing failed');
+                console.error(chalk.red('Error:'), error.message);
+                process.exit(1);
+            }
+        });
+
     // Add help text
     program.addHelpText('after', `
 Examples:
@@ -212,12 +422,28 @@ Examples:
   $ swagger-to-nextjs generate api.json output --dry-run
   $ swagger-to-nextjs generate api.yaml my-app --theme dark --themes light dark synthwave
   $ swagger-to-nextjs generate spec.json --no-daisyui
+  
+  # Using OpenAPI Generator config file:
+  $ swagger-to-nextjs generate-from-config openapi-config.yaml
+  $ swagger-to-nextjs generate-from-config openapi-config-typelist-service.yaml ./my-app
+  $ swagger-to-nextjs generate-from-config config.yaml --theme dark --no-pages
+  
+  $ swagger-to-nextjs test-templates
+  $ swagger-to-nextjs test-templates --verbose
+  $ swagger-to-nextjs test-templates --list
 
 Theme Options:
   Available DaisyUI themes include: light, dark, cupcake, bumblebee, emerald, corporate,
   synthwave, retro, cyberpunk, valentine, halloween, garden, forest, aqua, lofi, pastel,
   fantasy, wireframe, black, luxury, dracula, cmyk, autumn, business, acid, lemonade,
   night, coffee, winter, dim, nord, sunset
+
+Config File Format:
+  When using generate-from-config, your YAML file should include:
+    inputSpec: <URL or path to OpenAPI spec>
+    outputDir: <optional output directory>
+    generatorName: <OpenAPI generator to use>
+    additionalProperties: <generator-specific options>
 
 For more information, visit: https://github.com/yourusername/swagger-to-nextjs`);
 

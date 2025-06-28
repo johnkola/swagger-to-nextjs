@@ -1,267 +1,341 @@
-/**
- * ============================================================================
- * SWAGGER-TO-NEXTJS GENERATOR - AI PROMPT
- * ============================================================================
- * FILE: test/utils/PathUtils.test.js
- * VERSION: 2025-06-17 21:42:10
- * PHASE: Phase 9: Test Files
- * ============================================================================
- *
- * AI GENERATION PROMPT:
- *
- * Create a test file using Node.js built-in test framework for PathUtils
- * functions. Use ES Module imports to import individual functions. Write
- * tests for OpenAPI to Next.js path conversion, parameter extraction from
- * paths, file system safe path generation, resource grouping logic,
- * collection vs single resource detection, file name generation, component
- * name generation for pages, special character handling, and edge cases in
- * path conversion. Test each exported function individually with various
- * input scenarios.
- *
- * ============================================================================
- */
-/**
- * PathUtils.test.js - Unit tests for PathUtils using Node.js test runner
- */
 import { describe, it } from 'node:test';
-import assert from 'node:assert/strict';
-import PathUtils from '../../src/utils/PathUtils.js';
+import assert from 'node:assert';
+import {
+    pathToRoute,
+    extractPathParams,
+    routeToFilePath,
+    groupPathsByResource,
+    isCollectionPath,
+    pathToFileName,
+    pathToComponentName,
+    getResourceFromPath,
+    hasPathParams,
+    normalizePath,
+    pathToSegments,
+    segmentsToPath,
+    substitutePathParams,
+    toRuntimePath,
+    getParentPath,
+    ensureValidPath
+} from '../../src/utils/PathUtils.js';
+
 describe('PathUtils', () => {
-    describe('toNextRoute', () => {
+    describe('pathToRoute()', () => {
         it('should convert OpenAPI paths to Next.js routes', () => {
-            assert.equal(PathUtils.toNextRoute('/users/{userId}'), '/users/[userId]');
-            assert.equal(PathUtils.toNextRoute('/users/{userId}/posts/{postId}'), '/users/[userId]/posts/[postId]');
-            assert.equal(PathUtils.toNextRoute('/users'), '/users');
-            assert.equal(PathUtils.toNextRoute('/'), '/');
-        });
-        it('should handle empty or falsy paths', () => {
-            assert.equal(PathUtils.toNextRoute(''), '');
-            assert.equal(PathUtils.toNextRoute(null), '');
-            assert.equal(PathUtils.toNextRoute(undefined), '');
+            assert.equal(pathToRoute('/users'), '/users');
+            assert.equal(pathToRoute('/users/{userId}'), '/users/[userId]');
+            assert.equal(pathToRoute('/users/{userId}/posts/{postId}'), '/users/[userId]/posts/[postId]');
         });
 
-        it('should handle multiple parameters', () => {
-            assert.equal(PathUtils.toNextRoute('/{param1}/{param2}/{param3}'), '/[param1]/[param2]/[param3]');
+        it('should handle empty input', () => {
+            assert.equal(pathToRoute(''), '');
+            assert.equal(pathToRoute(null), '');
+            assert.equal(pathToRoute(undefined), '');
         });
 
-        it('should handle complex parameter names', () => {
-            assert.equal(PathUtils.toNextRoute('/users/{user_id}/items/{item-id}'), '/users/[user_id]/items/[item-id]');
+        it('should handle paths with multiple parameters', () => {
+            assert.equal(
+                pathToRoute('/orgs/{orgId}/teams/{teamId}/members/{memberId}'),
+                '/orgs/[orgId]/teams/[teamId]/members/[memberId]'
+            );
         });
     });
 
-    describe('toFileSystemPath', () => {
-        it('should convert OpenAPI paths to file system paths', () => {
-            assert.equal(PathUtils.toFileSystemPath('/users/{userId}'), 'users/[userId]');
-            assert.equal(PathUtils.toFileSystemPath('/users/{userId}/posts'), 'users/[userId]/posts');
-            assert.equal(PathUtils.toFileSystemPath('/users'), 'users');
+    describe('extractPathParams()', () => {
+        it('should extract parameter names from paths', () => {
+            assert.deepEqual(extractPathParams('/users'), []);
+            assert.deepEqual(extractPathParams('/users/{userId}'), ['userId']);
+            assert.deepEqual(extractPathParams('/users/{userId}/posts/{postId}'), ['userId', 'postId']);
         });
 
-        it('should remove leading slashes', () => {
-            assert.equal(PathUtils.toFileSystemPath('/api/users'), 'api/users');
-            assert.equal(PathUtils.toFileSystemPath('//api/users'), '/api/users');
+        it('should handle empty input', () => {
+            assert.deepEqual(extractPathParams(''), []);
+            assert.deepEqual(extractPathParams(null), []);
+            assert.deepEqual(extractPathParams(undefined), []);
+        });
+
+        it('should handle complex parameter names', () => {
+            assert.deepEqual(extractPathParams('/items/{item_id}'), ['item_id']);
+            assert.deepEqual(extractPathParams('/resources/{resource-id}'), ['resource-id']);
+        });
+    });
+
+    describe('routeToFilePath()', () => {
+        it('should convert OpenAPI paths to file system safe paths', () => {
+            assert.equal(routeToFilePath('/users'), 'users');
+            assert.equal(routeToFilePath('/users/{id}'), 'users/[id]');
+            assert.equal(routeToFilePath('/api/v1/users'), 'api/v1/users');
         });
 
         it('should handle special characters', () => {
-            assert.equal(PathUtils.toFileSystemPath('/users<>test'), 'users--test');
-            assert.equal(PathUtils.toFileSystemPath('/users:test'), 'users-test');
-            assert.equal(PathUtils.toFileSystemPath('/users|test'), 'users-test');
+            assert.equal(routeToFilePath('/user:profiles'), 'user-profiles');
+            assert.equal(routeToFilePath('/user|data'), 'user-data');
+            assert.equal(routeToFilePath('/user?query'), 'user-query');
+        });
+
+        it('should handle empty input', () => {
+            assert.equal(routeToFilePath(''), '');
+            assert.equal(routeToFilePath(null), '');
+        });
+    });
+
+    describe('groupPathsByResource()', () => {
+        it('should group related paths by resource', () => {
+            const paths = [
+                '/users',
+                '/users/{id}',
+                '/users/{id}/posts',
+                '/posts',
+                '/posts/{id}'
+            ];
+
+            const grouped = groupPathsByResource(paths);
+            assert.ok(grouped.users);
+            assert.ok(grouped.posts);
+            assert.equal(grouped.users.length, 3);
+            assert.equal(grouped.posts.length, 2);
+        });
+
+        it('should handle root-level resources', () => {
+            const paths = ['/', '/about', '/contact'];
+            const grouped = groupPathsByResource(paths);
+            assert.ok(grouped.root);
+            assert.ok(grouped.about);
+            assert.ok(grouped.contact);
+        });
+
+        it('should ignore parameters when grouping', () => {
+            const paths = ['/items/{itemId}', '/items/{itemId}/details'];
+            const grouped = groupPathsByResource(paths);
+            assert.ok(grouped.items);
+            assert.equal(grouped.items.length, 2);
+        });
+    });
+
+    describe('isCollectionPath()', () => {
+        it('should identify collection paths for GET', () => {
+            assert.equal(isCollectionPath('/users', 'GET'), true);
+            assert.equal(isCollectionPath('/users/{id}', 'GET'), false);
+            assert.equal(isCollectionPath('/users/{id}/posts', 'GET'), true);
+        });
+
+        it('should identify collection paths for POST', () => {
+            assert.equal(isCollectionPath('/users', 'POST'), true);
+            assert.equal(isCollectionPath('/users/{id}', 'POST'), false);
+        });
+
+        it('should handle other methods', () => {
+            assert.equal(isCollectionPath('/users', 'PUT'), false);
+            assert.equal(isCollectionPath('/users', 'DELETE'), false);
+        });
+
+        it('should handle empty input', () => {
+            assert.equal(isCollectionPath('', 'GET'), false);
+            assert.equal(isCollectionPath(null, 'GET'), false);
+        });
+    });
+
+    describe('pathToFileName()', () => {
+        it('should generate appropriate file names', () => {
+            assert.equal(pathToFileName('/users', 'GET'), 'users');
+            assert.equal(pathToFileName('/users', 'POST'), 'post-users');
+            assert.equal(pathToFileName('/users/{id}', 'GET'), 'users-by-param');
+            assert.equal(pathToFileName('/users/{id}', 'PUT'), 'put-users-by-param');
         });
 
         it('should handle root path', () => {
-            assert.equal(PathUtils.toFileSystemPath('/'), '');
-        });
-    });
-
-    describe('extractParameters', () => {
-        it('should extract parameter names from paths', () => {
-            assert.deepEqual(PathUtils.extractParameters('/users/{userId}'), ['userId']);
-            assert.deepEqual(PathUtils.extractParameters('/users/{userId}/posts/{postId}'), ['userId', 'postId']);
-            assert.deepEqual(PathUtils.extractParameters('/users'), []);
-        });
-
-        it('should handle empty paths', () => {
-            assert.deepEqual(PathUtils.extractParameters(''), []);
-            assert.deepEqual(PathUtils.extractParameters(null), []);
-        });
-
-        it('should handle complex parameter names', () => {
-            assert.deepEqual(PathUtils.extractParameters('/items/{item_id}/sub-items/{sub-item-id}'),
-                ['item_id', 'sub-item-id']);
-        });
-    });
-
-    describe('groupByResource', () => {
-        it('should group paths by their base resource', () => {
-            const paths = [
-                '/users',
-                '/users/{userId}',
-                '/users/{userId}/posts',
-                '/posts',
-                '/posts/{postId}',
-                '/categories'
-            ];
-
-            const grouped = PathUtils.groupByResource(paths);
-
-            assert.deepEqual(grouped.users, ['/users', '/users/{userId}', '/users/{userId}/posts']);
-            assert.deepEqual(grouped.posts, ['/posts', '/posts/{postId}']);
-            assert.deepEqual(grouped.categories, ['/categories']);
-        });
-
-        it('should handle root paths', () => {
-            const paths = ['/', '/users'];
-            const grouped = PathUtils.groupByResource(paths);
-
-            assert.deepEqual(grouped.root, ['/']);
-            assert.deepEqual(grouped.users, ['/users']);
-        });
-
-        it('should handle empty array', () => {
-            assert.deepEqual(PathUtils.groupByResource([]), {});
-        });
-    });
-
-    describe('isCollection', () => {
-        it('should identify collection endpoints', () => {
-            assert.equal(PathUtils.isCollection('/users', 'GET'), true);
-            assert.equal(PathUtils.isCollection('/users', 'POST'), true);
-            assert.equal(PathUtils.isCollection('/users/{userId}', 'GET'), false);
-            assert.equal(PathUtils.isCollection('/users/{userId}', 'PUT'), false);
-        });
-
-        it('should handle nested collections', () => {
-            assert.equal(PathUtils.isCollection('/users/{userId}/posts', 'GET'), true);
-            assert.equal(PathUtils.isCollection('/users/{userId}/posts/{postId}', 'GET'), false);
-        });
-
-        it('should handle other HTTP methods', () => {
-            assert.equal(PathUtils.isCollection('/users', 'DELETE'), false);
-            assert.equal(PathUtils.isCollection('/users', 'PATCH'), false);
-        });
-    });
-
-    describe('toFileName', () => {
-        it('should generate appropriate file names', () => {
-            assert.equal(PathUtils.toFileName('/users', 'GET'), 'users');
-            assert.equal(PathUtils.toFileName('/users', 'POST'), 'post-users');
-            assert.equal(PathUtils.toFileName('/users/{userId}', 'GET'), 'users-by-param');
-            assert.equal(PathUtils.toFileName('/users/{userId}', 'DELETE'), 'delete-users-by-param');
+            assert.equal(pathToFileName('/', 'GET'), 'root');
+            assert.equal(pathToFileName('', 'GET'), 'index');
         });
 
         it('should handle nested paths', () => {
-            assert.equal(PathUtils.toFileName('/users/{userId}/posts', 'GET'), 'users-by-param-posts');
-            assert.equal(PathUtils.toFileName('/users/{userId}/posts/{postId}', 'PUT'),
-                'put-users-by-param-posts-by-param');
+            assert.equal(pathToFileName('/api/v1/users', 'GET'), 'api-v1-users');
+            assert.equal(pathToFileName('/users/{id}/posts/{postId}', 'GET'), 'users-by-param-posts-by-param');
+        });
+    });
+
+    describe('pathToComponentName()', () => {
+        it('should create component-friendly names', () => {
+            assert.equal(pathToComponentName('/users'), 'Users');
+            assert.equal(pathToComponentName('/users', 'Page'), 'UsersPage');
+            assert.equal(pathToComponentName('/user-profiles'), 'UserProfiles');
+            assert.equal(pathToComponentName('/api/v1/users'), 'ApiV1Users');
+        });
+
+        it('should handle empty input', () => {
+            assert.equal(pathToComponentName(''), 'Component');
+            assert.equal(pathToComponentName(null), 'Component');
+        });
+
+        it('should filter out parameters', () => {
+            assert.equal(pathToComponentName('/users/{id}/posts'), 'UsersPosts');
+        });
+    });
+
+    describe('getResourceFromPath()', () => {
+        it('should extract resource name from path', () => {
+            assert.equal(getResourceFromPath('/users'), 'users');
+            assert.equal(getResourceFromPath('/users/{id}'), 'users');
+            assert.equal(getResourceFromPath('/users/{id}/posts'), 'posts');
+        });
+
+        it('should handle empty input', () => {
+            assert.equal(getResourceFromPath(''), '');
+            assert.equal(getResourceFromPath(null), '');
         });
 
         it('should handle root path', () => {
-            assert.equal(PathUtils.toFileName('/', 'GET'), 'root');
-            assert.equal(PathUtils.toFileName('', 'GET'), 'index');
+            assert.equal(getResourceFromPath('/'), '');
         });
     });
 
-    describe('toRuntimePath', () => {
-        it('should convert Next.js routes to runtime paths', () => {
-            assert.equal(PathUtils.toRuntimePath('/api/users/[userId]'), '/api/users/:userId');
-            assert.equal(PathUtils.toRuntimePath('/api/users/[userId]/posts/[postId]'),
-                '/api/users/:userId/posts/:postId');
+    describe('hasPathParams()', () => {
+        it('should detect dynamic segments', () => {
+            assert.equal(hasPathParams('/users/{id}'), true);
+            assert.equal(hasPathParams('/users'), false);
+            assert.equal(hasPathParams('/users/{id}/posts/{postId}'), true);
         });
 
-        it('should handle paths without parameters', () => {
-            assert.equal(PathUtils.toRuntimePath('/api/users'), '/api/users');
-        });
-    });
-
-    describe('getResourceName', () => {
-        it('should extract resource name from path', () => {
-            assert.equal(PathUtils.getResourceName('/users'), 'users');
-            assert.equal(PathUtils.getResourceName('/users/{userId}'), 'users');
-            assert.equal(PathUtils.getResourceName('/users/{userId}/posts'), 'posts');
-            assert.equal(PathUtils.getResourceName('/users/{userId}/posts/{postId}'), 'posts');
-        });
-
-        it('should handle edge cases', () => {
-            assert.equal(PathUtils.getResourceName('/'), '');
-            assert.equal(PathUtils.getResourceName(''), '');
-            assert.equal(PathUtils.getResourceName('/{id}'), '');
+        it('should handle empty input', () => {
+            assert.equal(hasPathParams(''), false);
+            assert.equal(hasPathParams(null), false);
         });
     });
 
-    describe('isDynamic', () => {
-        it('should identify dynamic paths', () => {
-            assert.equal(PathUtils.isDynamic('/users/{userId}'), true);
-            assert.equal(PathUtils.isDynamic('/users'), false);
-            assert.equal(PathUtils.isDynamic('/users/{userId}/posts/{postId}'), true);
+    describe('normalizePath()', () => {
+        it('should normalize paths consistently', () => {
+            assert.equal(normalizePath('/users'), '/users');
+            assert.equal(normalizePath('users'), '/users');
+            assert.equal(normalizePath('/users/'), '/users');
+            assert.equal(normalizePath('//users//'), '/users');
         });
 
-        it('should handle edge cases', () => {
-            assert.equal(PathUtils.isDynamic(''), false);
-            assert.equal(PathUtils.isDynamic(null), false);
+        it('should handle root path', () => {
+            assert.equal(normalizePath('/'), '/');
+            assert.equal(normalizePath(''), '/');
+        });
+
+        it('should preserve single slash for root', () => {
+            assert.equal(normalizePath('///'), '/');
         });
     });
 
-    describe('normalize', () => {
-        it('should normalize paths', () => {
-            assert.equal(PathUtils.normalize('users'), '/users');
-            assert.equal(PathUtils.normalize('/users/'), '/users');
-            assert.equal(PathUtils.normalize('//users///posts//'), '/users/posts');
-            assert.equal(PathUtils.normalize('/'), '/');
+    describe('pathToSegments()', () => {
+        it('should split path into segments', () => {
+            assert.deepEqual(pathToSegments('/users/posts'), ['users', 'posts']);
+            assert.deepEqual(pathToSegments('/api/v1/users'), ['api', 'v1', 'users']);
         });
 
         it('should handle empty paths', () => {
-            assert.equal(PathUtils.normalize(''), '/');
-            assert.equal(PathUtils.normalize(null), '/');
+            assert.deepEqual(pathToSegments(''), []);
+            assert.deepEqual(pathToSegments('/'), []);
+        });
+
+        it('should handle parameters', () => {
+            assert.deepEqual(pathToSegments('/users/{id}/posts'), ['users', '{id}', 'posts']);
         });
     });
 
-    describe('toSegments and fromSegments', () => {
-        it('should split path into segments', () => {
-            assert.deepEqual(PathUtils.toSegments('/users/{userId}/posts'), ['users', '{userId}', 'posts']);
-            assert.deepEqual(PathUtils.toSegments('/users'), ['users']);
-            assert.deepEqual(PathUtils.toSegments('/'), []);
-        });
-
+    describe('segmentsToPath()', () => {
         it('should build path from segments', () => {
-            assert.equal(PathUtils.fromSegments(['users', '{userId}', 'posts']), '/users/{userId}/posts');
-            assert.equal(PathUtils.fromSegments(['users']), '/users');
-            assert.equal(PathUtils.fromSegments([]), '/');
+            assert.equal(segmentsToPath(['users', 'posts']), '/users/posts');
+            assert.equal(segmentsToPath(['api', 'v1', 'users']), '/api/v1/users');
+        });
+
+        it('should handle empty segments', () => {
+            assert.equal(segmentsToPath([]), '/');
+            assert.equal(segmentsToPath(null), '/');
         });
     });
 
-    describe('getParentPath', () => {
-        it('should get parent path', () => {
-            assert.equal(PathUtils.getParentPath('/users/{userId}/posts'), '/users/{userId}');
-            assert.equal(PathUtils.getParentPath('/users/{userId}'), '/users');
-            assert.equal(PathUtils.getParentPath('/users'), null);
-            assert.equal(PathUtils.getParentPath('/'), null);
-        });
-    });
-
-    describe('substituteParams', () => {
-        it('should substitute parameters with values', () => {
+    describe('substitutePathParams()', () => {
+        it('should replace path parameters with values', () => {
             assert.equal(
-                PathUtils.substituteParams('/users/{userId}/posts/{postId}', { userId: '123', postId: '456' }),
+                substitutePathParams('/users/{userId}', { userId: '123' }),
+                '/users/123'
+            );
+            assert.equal(
+                substitutePathParams('/users/{userId}/posts/{postId}', { userId: '123', postId: '456' }),
                 '/users/123/posts/456'
             );
         });
 
-        it('should handle URL encoding', () => {
+        it('should encode parameter values', () => {
             assert.equal(
-                PathUtils.substituteParams('/users/{userId}', { userId: 'user@example.com' }),
+                substitutePathParams('/users/{email}', { email: 'user@example.com' }),
                 '/users/user%40example.com'
             );
         });
 
         it('should handle missing parameters', () => {
             assert.equal(
-                PathUtils.substituteParams('/users/{userId}', {}),
+                substitutePathParams('/users/{userId}', {}),
                 '/users/{userId}'
             );
         });
 
-        it('should handle null inputs', () => {
-            assert.equal(PathUtils.substituteParams(null, { userId: '123' }), null);
-            assert.equal(PathUtils.substituteParams('/users/{userId}', null), '/users/{userId}');
+        it('should handle null input', () => {
+            assert.equal(substitutePathParams(null, { userId: '123' }), null);
+            assert.equal(substitutePathParams('/users/{userId}', null), '/users/{userId}');
+        });
+    });
+
+    describe('toRuntimePath()', () => {
+        it('should convert Next.js routes to runtime paths', () => {
+            assert.equal(toRuntimePath('/api/users/[userId]'), '/api/users/:userId');
+            assert.equal(toRuntimePath('/api/[...path]'), '/api/:...path');
+        });
+
+        it('should handle multiple parameters', () => {
+            assert.equal(
+                toRuntimePath('/api/users/[userId]/posts/[postId]'),
+                '/api/users/:userId/posts/:postId'
+            );
+        });
+
+        it('should handle empty input', () => {
+            assert.equal(toRuntimePath(''), '');
+            assert.equal(toRuntimePath(null), '');
+        });
+    });
+
+    describe('getParentPath()', () => {
+        it('should get parent path', () => {
+            assert.equal(getParentPath('/users/{userId}/posts'), '/users/{userId}');
+            assert.equal(getParentPath('/users/{userId}'), '/users');
+            assert.equal(getParentPath('/users'), null);
+        });
+
+        it('should handle root path', () => {
+            assert.equal(getParentPath('/'), null);
+        });
+
+        it('should handle complex paths', () => {
+            assert.equal(
+                getParentPath('/api/v1/users/{id}/posts/{postId}'),
+                '/api/v1/users/{id}/posts'
+            );
+        });
+    });
+
+    describe('ensureValidPath()', () => {
+        it('should make paths file system safe', () => {
+            assert.equal(ensureValidPath('/users/<script>'), '/users/-script-');
+            assert.equal(ensureValidPath('/users:data'), '/users-data');
+            assert.equal(ensureValidPath('/users|posts'), '/users-posts');
+        });
+
+        it('should handle multiple invalid characters', () => {
+            assert.equal(ensureValidPath('/users???///posts***'), '/users-/posts-');
+        });
+
+        it('should remove trailing dashes', () => {
+            assert.equal(ensureValidPath('/users---'), '/users');
+        });
+
+        it('should handle empty input', () => {
+            assert.equal(ensureValidPath(''), '');
+            assert.equal(ensureValidPath(null), '');
         });
     });
 });

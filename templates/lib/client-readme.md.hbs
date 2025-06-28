@@ -1,0 +1,40 @@
+# {{projectName}} API Client Library
+
+This directory contains the generated API client library for interacting with the backend services.
+
+## Overview
+
+{{#if hasMultipleServices}}
+    This project includes multiple API services:
+
+    {{#each services}}
+        - **{{name}}** - {{className}}
+        - API URL: `{{apiUrl}}`
+        - Operations: {{operationCount}}
+        {{#if hasAuth}}
+            - Authentication: Required
+        {{/if}}
+    {{/each}}
+{{else}}
+    The API client provides type-safe methods for all backend operations.
+{{/if}}
+
+## Installation
+
+The API client is automatically included in your project. No additional installation is required.
+
+## Usage
+
+### Basic Usage
+
+```typescript
+import { apiClient } from '@/lib/api-client';
+
+// Use a specific service
+{{#if hasMultipleServices}}
+    {{#each services}}
+        const {{camelCase name}}Data = await apiClient.{{camelCase name}}.someOperation();
+    {{/each}}
+{{else}}
+    const data = await apiClient.someOperation();
+{{/if}}

@@ -97,8 +97,8 @@ swagger-to-nextjs/
 │       ├── package.json.hbs
 │       ├── tsconfig.json.hbs
 │       ├── next.config.js.hbs
-│       ├── tailwind.config.js.hbs
-│       ├── postcss.config.js.hbs
+│       ├── tailwind.config.mjs.hbs
+│       ├── postcss.config.mjs.hbs
 │       ├── globals.css.hbs
 │       ├── layout.tsx.hbs
 │       ├── .env.example.hbs
@@ -171,10 +171,10 @@ Write a comprehensive README for a CLI tool that generates Next.js applications 
 Create a Node.js executable file using ES Module syntax that serves as the entry point for a CLI tool. This file should have a shebang for Node.js, import and execute the main CLI module using ES Module import from '../src/cli.js', handle any uncaught errors gracefully with user-friendly messages, and exit with appropriate status codes. It should also handle SIGINT signals for clean interruption when users press Ctrl+C. The file should be minimal, focusing only on launching the CLI and basic error handling. Use top-level await if needed and ensure all imports use ES Module syntax.
 
 ### /src/cli.js
-Build a Commander.js CLI interface using ES Module syntax for a Next.js code generator from OpenAPI specs with DaisyUI styling options. Import Commander using ES Module syntax. The main command should be "generate <spec> [output]" where spec is a path to an OpenAPI file and output is the target directory. Include options for --typescript (default true), --client (generate API client, default true), --pages (generate UI components, default true), --force (overwrite without asking), --dry-run (preview without writing), --theme <theme> (DaisyUI theme selection, default "light"), --themes <themes...> (list of DaisyUI themes to include, default ["light", "dark", "cupcake", "corporate"]), --no-daisyui (generate without DaisyUI, use plain CSS), and --custom-theme <path> (path to custom DaisyUI theme file). Import and use ora for progress spinner and chalk for colored messages using ES Module imports. Display colored success/error messages and provide helpful next steps after generation including how to switch themes. Include proper version handling by reading package.json using fs.readFileSync and JSON.parse, and comprehensive help text. Export the CLI setup as the default export.
+Build a Commander.js CLI interface using ES Module syntax for a Next.js code generator from OpenAPI specs with DaisyUI styling options. Import Commander using ES Module syntax. The main command should be "generate <spec> [output]" where spec is a path to an OpenAPI file and output is the target directory. Include options for --typescript (default true), --client (generate API client, default true), --pages (generate UI components, default true), --force (overwrite without asking), --dry-run (preview without writing), --theme <theme> (DaisyUI theme selection, default "light"), --themes <themes...> (list of DaisyUI themes to include, default ["light", "dark", "cupcake", "corporate"]), --no-daisyui (generate without DaisyUI, use plain CSS), and --custom-theme <path> (path to custom DaisyUI theme file). Add --config <path> option for configuration file support. Add new command "generate-from-config <config-file> [output]" that uses OpenAPI Generator config files. Add "test-templates" command with --verbose and --list options for template validation. Import and use ora for progress spinner and chalk for colored messages using ES Module imports. Display colored success/error messages and provide helpful next steps after generation including how to switch themes. Include proper version handling by reading package.json using fs.readFileSync and JSON.parse, and comprehensive help text. Export the CLI setup as the default export.
 
 ### /src/index.js
-Create the main orchestrator class using ES Module syntax for a code generator that coordinates the entire generation process from OpenAPI spec to Next.js application with DaisyUI components. Use ES Module imports for all dependencies. This class should accept configuration options in its constructor including theme preferences, have a main generate() method that sequentially runs all generation steps, coordinate loading the spec, validating it, and running various generators (types, API routes, client, pages with DaisyUI components, project files including Tailwind config). It should emit events for progress tracking using EventEmitter, handle errors gracefully with helpful messages, track DaisyUI theme configuration throughout the process, and return a summary of generated files. Export the class as the default export. The class should support both CLI usage and programmatic usage as a library.
+Create the main orchestrator class using ES Module syntax for a code generator that coordinates the entire generation process from OpenAPI spec to Next.js application with DaisyUI components. Use ES Module imports for all dependencies. Import TemplateTester class for template validation. This class should accept configuration options in its constructor including theme preferences, have a main generate() method that sequentially runs all generation steps, coordinate loading the spec, validating it, running template tests via testTemplates() method if enabled, and running various generators (types, API routes, client, pages with DaisyUI components, project files including Tailwind config). Add initialize() method that supports loading configuration from files (JSON or YAML). It should emit events for progress tracking using EventEmitter, handle errors gracefully with helpful messages, track DaisyUI theme configuration throughout the process, emit progress events for template testing phase, and return a summary of generated files. Export the class as the default export. The class should support both CLI usage and programmatic usage as a library.
 
 ---
 
@@ -212,6 +212,9 @@ Create a template engine wrapper class using ES Module syntax around Handlebars 
 ### /src/templates/helpers.js
 Create a module using ES Module syntax that exports custom Handlebars helper functions specifically designed for code generation tasks with DaisyUI components. Import string utilities using ES Module imports. Export individual named helper functions for case conversion: pascalCase (convert any string to PascalCase for class names), camelCase (for variable names), kebabCase (for file names), and upperCase (for constants). Add helpers for type generation: typeString (convert OpenAPI schema to TypeScript type string), isRequired (check if a property is in the required array), and isNullable (determine if a type should be nullable). Include path helpers: pathToRoute (convert OpenAPI path to Next.js route), extractPathParams (get parameter names from path), and routeToFilePath (convert route to file system path). Add DaisyUI-specific helpers: daisyInputType (determine DaisyUI input class based on schema), daisyButtonVariant (select button variant based on operation type), daisyAlertType (map error types to alert variants), daisyTableClass (generate table classes with modifiers), formControlClass (generate form control classes based on validation state), and badgeColor (map status values to badge colors). Add utility helpers: hasBody (check if operation has request body), getSuccessStatus (determine success response code), jsonStringify (safely stringify objects for templates), and isLargeTextField (determine if textarea should be used). Export each helper as a named export.
 
+### /src/TemplateTester.js
+Create a class using ES Module syntax that validates all Handlebars templates before generation. Import Handlebars, fs-extra, and path using ES Module imports. The class should scan the templates directory recursively for .hbs files, attempt to compile each template with Handlebars, track compilation errors with file path and error details, support custom test data for template rendering tests, provide summary statistics (tested, passed, failed), emit progress events during testing, support verbose mode for detailed output, handle missing template directories gracefully, test both built-in and custom templates if provided, validate template helpers are available, check for common template issues (missing variables, invalid syntax), and return detailed results for error reporting. Export as default.
+
 ---
 
 ## Phase 5: Base Generator
@@ -230,13 +233,126 @@ Build a generator class using ES Module syntax extending BaseGenerator that crea
 Create a generator class using ES Module syntax that produces Next.js 14 App Router API route handlers by rendering the templates/api/[...route].ts.hbs template for each API path using TemplateEngine. Import BaseGenerator and utilities using ES Module imports. For each path in the OpenAPI spec, convert OpenAPI paths like /pets/{id} to file paths like app/api/pets/[id]/route.ts, prepare template context with all operations, methods, parameters, schemas, and error responses for that path, use TemplateEngine.render() with the [...route].ts.hbs template to generate the route handler code, write each rendered file to the appropriate app/api directory structure using FileWriter, let the template handle all Next.js route handler code generation including TypeScript types, request parsing, and error handling, and never write route handler code in JavaScript. Export as default.
 
 ### /src/generators/ClientGenerator.js
-Build a generator using ES Module syntax that creates a typed API client library by rendering templates/lib/api-client.ts.hbs and templates/lib/toast.ts.hbs using TemplateEngine. Import BaseGenerator and utilities using ES Module imports. Generate lib/api-client.ts by preparing context data with all operations grouped by tags or resources, passing full operation details including paths, methods, parameters, schemas, and auth requirements to the template, using TemplateEngine.render() to generate the complete client code where the template handles all TypeScript interfaces, fetch logic, and error handling. Also render toast.ts.hbs for DaisyUI toast utilities, never generate API client code directly in JavaScript - the templates contain all implementation logic, and ensure the context includes theme configuration for toast styling. Export as default.
 
+Build a generator using ES Module syntax that creates typed API client libraries for multiple services by using OpenAPI Generator CLI with configuration files. Import BaseGenerator, child_process (execSync), fs-extra, path, js-yaml, chalk for colored output, ora for progress spinners, and utilities using ES Module imports.
+
+The generator should extend BaseGenerator and implement the following functionality:
+
+1. **Constructor and initialization**:
+- Accept options including serviceName, configFile, configPattern, baseOutputDir, continueOnError, parallel, withMocks
+- Initialize service registry array to track all processed services
+- Set default base output directory to 'src/lib/api-client'
+- Validate OpenAPI Generator CLI availability in constructor
+
+2. **Main generate() method**:
+- Detect if single service or multiple services based on options
+- If configPattern provided, find all matching config files
+- Process each service sequentially or in parallel based on options
+- Track overall success/failure status
+- Generate unified client interface after all services processed
+- Emit progress events for UI updates
+
+3. **Service detection and processing**:
+- Implement `findConfigFiles(pattern)` to locate all config files
+- Implement `processService(configPath, serviceName)` for single service
+- Extract service name from multiple sources in priority order
+- Normalize service names to kebab-case for consistency
+- Validate no duplicate service names
+
+4. **OpenAPI Generator execution**:
+- Implement `checkPrerequisites()` to verify Java and OpenAPI Generator CLI
+- Build command with proper escaping for different OS
+- Show progress spinner with service-specific messages
+- Capture stdout/stderr for debugging
+- Handle exit codes and provide helpful error messages
+- Support dry-run mode that shows what would be executed
+
+5. **Post-processing per service**:
+- Create service-specific directory structure
+- Move generated files to proper locations
+- Update import paths to use Next.js aliases
+- Fix common ESLint issues in generated code
+- Ensure TypeScript compilation passes
+
+6. **Integration wrapper generation**:
+- Implement `generateServiceWrapper(serviceName, config)` method
+- Create index.ts that re-exports all API classes and interfaces
+- Generate client.ts with axios instance configuration
+- Add authentication interceptors based on security schemes
+- Integrate error handling with DaisyUI toast notifications
+- Create typed configuration interfaces
+
+7. **Unified client interface**:
+- Implement `generateUnifiedClient()` method
+- Create root index.ts that exports all services as namespaces
+- Generate unified client object with all service instances
+- Create TypeScript interface for the unified client
+- Add service discovery and health check utilities
+
+8. **React hooks generation**:
+- Implement `generateServiceHooks(serviceName)` method
+- Create hooks for common CRUD operations
+- Add SWR or React Query integration based on options
+- Include loading, error, and data states
+- Generate hooks with proper TypeScript generics
+
+9. **Environment and configuration**:
+- Implement `updateEnvironmentFiles(services)` method
+- Add service-specific environment variables
+- Update env.d.ts with TypeScript declarations
+- Create service configuration schema
+- Generate example environment values
+
+10. **Documentation generation**:
+- Implement `generateDocumentation(services)` method
+- Create comprehensive README with all services listed
+- Add usage examples for each service
+- Document authentication requirements
+- Include troubleshooting section
+
+11. **Error handling and recovery**:
+- Wrap each service processing in try-catch
+- Log errors with service context
+- Support --continue-on-error flag
+- Implement rollback for failed services
+- Create error report summary
+
+12. **Utility methods**:
+- `extractServiceName(configPath, config, options)` - determine service name
+- `normalizeServiceName(name)` - convert to safe directory name
+- `validateServiceUniqueness(name)` - check for conflicts
+- `createServiceRegistry()` - track all services
+- `generateMockClient(serviceName)` - create mock for testing
+
+13. **Service name extraction and normalization**:
+- Extract service name from (in priority order):
+   - CLI option `--service-name`
+   - Config file `serviceName` property
+   - OpenAPI spec `info.title` (converted to kebab-case)
+   - Filename of the config (e.g., `openapi-config-user-service.yaml` → `user-service`)
+- Convert service names to safe directory names (kebab-case)
+- Validate uniqueness to prevent overwriting
+
+14. **Support multiple API services**:
+- Accept service name from options or extract from OpenAPI spec info.title
+- Support generating multiple clients in a single project
+- Create separate directories for each service: `src/lib/api-client/[service-name]/`
+- Handle config files named by service: `openapi-config-[service].yaml`
+- Allow pattern matching for multiple configs: `openapi-config-*.yaml`
+
+Example usage flows:
+- Single service: `swagger-to-nextjs generate --config openapi-config-user.yaml --service-name user-service`
+- Multiple services: `swagger-to-nextjs generate --config "openapi-config-*.yaml"`
+- Service discovery: Auto-detect and generate all services in a directory
+
+The generator should maintain backward compatibility for single API projects while enabling multi-service architectures. Each service should be independently versioned and updatable. Handle both single-service and multi-service scenarios gracefully, provide clear console output with colors and spinners, emit events for progress tracking, support incremental updates, and maintain backward compatibility.
+
+Export the class as default export using ES Module syntax.
 ### /src/generators/PageGenerator.js
 Create a generator using ES Module syntax that produces React components for user interfaces by rendering templates/pages/list.tsx.hbs, templates/pages/detail.tsx.hbs, and templates/pages/form.tsx.hbs using TemplateEngine. Import BaseGenerator and utilities using ES Module imports. For each appropriate API operation, determine which template to use based on operation type (GET array → list, GET with ID → detail, POST/PUT → form), prepare template context with operation data, schemas, UI hints, and DaisyUI component configuration, use TemplateEngine.render() to generate the React component where the template handles all React code, hooks, state management, and DaisyUI component usage, write rendered components to appropriate directories like app/[resource]/page.tsx, never generate React code in JavaScript - templates contain all component logic including data fetching, error handling, and UI rendering, and pass theme configuration to templates for consistent styling. Export as default.
 
 ### /src/generators/ProjectGenerator.js
-Build a generator using ES Module syntax that creates all necessary project configuration files by rendering templates in templates/project/ directory using TemplateEngine and delegating to specialized configuration generators. Import BaseGenerator, all config generators, and TemplateEngine using ES Module imports. Generate project files by rendering templates/project/package.json.hbs with dependencies analyzed from API spec, templates/project/tsconfig.json.hbs for TypeScript configuration, templates/project/next.config.js.hbs for Next.js settings, templates/project/tailwind.config.js.hbs with DaisyUI themes, templates/project/postcss.config.js.hbs for CSS processing, templates/project/globals.css.hbs with Tailwind directives, templates/project/layout.tsx.hbs for root layout with theme setup, templates/project/.env.example.hbs with extracted environment variables, templates/project/.gitignore.hbs for Git configuration, and templates/project/README.md.hbs with project documentation, while also delegating to specialized generators for additional configs like Docker, CI/CD, linting, etc., ensuring all file content comes from templates not JavaScript code. Export as default.
+Build a generator using ES Module syntax that creates all necessary project configuration files by rendering templates in templates/project/ directory using TemplateEngine and delegating to specialized configuration generators. Import BaseGenerator, all config generators, and TemplateEngine using ES Module imports. Generate project files by rendering templates/project/package.json.hbs with dependencies analyzed from API spec, templates/project/tsconfig.json.hbs for TypeScript configuration, templates/project/next.config.js.hbs for Next.js settings, templates/project/tailwind.config.mjs.hbs with DaisyUI themes, templates/project/postcss.config.mjs.hbs for CSS processing, templates/project/globals.css.hbs with Tailwind directives, templates/project/layout.tsx.hbs for root layout with theme setup, templates/project/.env.example.hbs with extracted environment variables, templates/project/.gitignore.hbs for Git configuration, and templates/project/README.md.hbs with project documentation, while also delegating to specialized generators for additional configs like Docker, CI/CD, linting, etc., ensuring all file content comes from templates not JavaScript code. Export as default.
 
 ---
 
@@ -255,7 +371,7 @@ Create a specialized generator using ES Module syntax for Next.js configuration 
 Create a package configuration generator using ES Module syntax that generates package.json by rendering templates/project/package.json.hbs using TemplateEngine. Import BaseGenerator, helpers, and TemplateEngine using ES Module imports. Analyze OpenAPI spec to determine required dependencies including Next.js, React, TypeScript, Tailwind CSS, DaisyUI, and feature-specific packages, prepare template context with all package metadata, scripts, dependencies, and devDependencies, render the template which handles all JSON structure and formatting, never construct package.json content in JavaScript, ensure the template includes "type": "module" and proper Node.js version requirements. Export as default.
 
 ### /src/generators/config/TailwindConfigGenerator.js
-Create a Tailwind CSS configuration generator using ES Module syntax that sets up tailwind.config.js by rendering templates/project/tailwind.config.js.hbs using TemplateEngine. Import BaseGenerator, helpers, and TemplateEngine using ES Module imports. Prepare template context with content paths, DaisyUI plugin configuration, theme settings from CLI options, custom colors from API branding, and any additional Tailwind customizations, render the template which contains all Tailwind configuration code, never write config code in JavaScript - the template handles the complete module.exports structure, and ensure template receives all specified DaisyUI themes and customization options. Export as default.
+Create a Tailwind CSS configuration generator using ES Module syntax that sets up tailwind.config.mjs by rendering templates/project/tailwind.config.mjs.hbs using TemplateEngine. Import BaseGenerator, helpers, and TemplateEngine using ES Module imports. Prepare template context with content paths, DaisyUI plugin configuration, theme settings from CLI options, custom colors from API branding, and any additional Tailwind customizations, render the template which contains all Tailwind configuration code, never write config code in JavaScript - the template handles the complete module.exports structure, and ensure template receives all specified DaisyUI themes and customization options. Export as default.
 
 ### /src/generators/config/LintingConfigGenerator.js
 Create a comprehensive linting configuration generator using ES Module syntax that generates all linting config files by rendering templates using TemplateEngine. Import BaseGenerator, helpers, and TemplateEngine using ES Module imports. Generate multiple files by rendering templates/project/.eslintrc.json.hbs for ESLint with TypeScript and React rules, templates/project/.prettierrc.json.hbs for Prettier with Tailwind plugin, templates/project/.stylelintrc.json.hbs for CSS linting, and templates/project/.lintstagedrc.json.hbs for pre-commit hooks, prepare appropriate context for each template based on project analysis, never construct JSON configurations in JavaScript - all config structure must be in templates, and ensure templates include all necessary rules for ES Modules, TypeScript, React, and DaisyUI. Export as default.
@@ -331,10 +447,10 @@ Create a Handlebars template for TypeScript configuration suitable for Next.js 1
 #### /templates/project/next.config.js.hbs
 Create a Handlebars template for Next.js configuration that enables TypeScript, ESLint, and optimizes for DaisyUI. Set reactStrictMode to true, configure compiler options for removing console logs in production, enable SWC minification, set up environment variables including API_URL and theme preferences, configure image domains if the API includes image URLs, add basic security headers with CSP that allows DaisyUI styles, optimize CSS with proper PostCSS configuration, enable experimental features if needed, configure webpack for any custom requirements, and export configuration as an ES module compatible with Next.js 14. Include comments explaining each configuration option.
 
-#### /templates/project/tailwind.config.js.hbs
+#### /templates/project/tailwind.config.mjs.hbs
 Create a Handlebars template for Tailwind CSS configuration with DaisyUI plugin. Configure content paths including all app, components, and lib directories with TypeScript extensions, theme extend section for any custom colors or spacing from API branding, add DaisyUI plugin with configuration for themes array based on generator options, set darkTheme option for dark mode support, configure logs to false in production, enable styled option for component styling, set base option for base styles, configure utils for utility classes, set prefix if specified in options, add any custom color schemes extracted from OpenAPI spec as custom DaisyUI themes, ensure proper font family configuration, add custom animations if needed, and export as ES module format.
 
-#### /templates/project/postcss.config.js.hbs
+#### /templates/project/postcss.config.mjs.hbs
 Create a Handlebars template for PostCSS configuration required for Tailwind CSS. Include tailwindcss plugin, autoprefixer plugin with appropriate browser targets, add cssnano for production optimization with preset 'default', configure any additional PostCSS plugins needed for the project, ensure proper plugin ordering for optimal processing, and export configuration as ES module format. Include comments about the purpose of each plugin.
 
 #### /templates/project/globals.css.hbs
@@ -447,6 +563,27 @@ Create a Handlebars template for VS Code debug configuration. Set version "0.2.0
 #### /templates/project/.vscode/extensions.json.hbs
 Create a Handlebars template for VS Code recommended extensions. Include recommendations array with: dbaeumer.vscode-eslint for linting, esbenp.prettier-vscode for formatting, bradlc.vscode-tailwindcss for Tailwind IntelliSense, prisma.prisma for database (if used), ms-vscode.vscode-typescript-next for latest TypeScript features, formulahendry.auto-rename-tag for HTML/JSX editing, naumovs.color-highlight for CSS colors, usernamehw.errorlens for inline errors, and PKief.material-icon-theme for better file icons. Add unwantedRecommendations for conflicting extensions.
 
+### /templates/lib/service-wrapper.ts.hbs
+Create a Handlebars template that generates a TypeScript wrapper class around the generated OpenAPI client for a single service. The template should import all generated API classes from the OpenAPI Generator output, create a ServiceClient class that instantiates all API classes with shared configuration, accept service name and base URL from template context, implement configuration methods for updating base URL and auth tokens, create helper methods for common tasks like setting default headers, handle axios interceptors for request/response transformation, export both the wrapper class and individual API instances, include JSDoc comments explaining usage, support both bearer token and API key authentication based on security schemes, and provide typed configuration interfaces. The wrapper should make it easy to use the generated client with proper error handling and DaisyUI toast integration.
+
+### /templates/lib/service-hooks.ts.hbs
+Create a Handlebars template for generating React hooks for each API operation in a service. The template should accept hookLibrary option (react-query, swr, or vanilla), generate custom hooks for each operation with proper TypeScript typing, implement loading, error, and data states, support both automatic execution and manual triggers, handle pagination for list operations, include optimistic updates for mutations, integrate with DaisyUI toast for success/error notifications, generate separate hooks for queries (useGet*, useList*) and mutations (useCreate*, useUpdate*, useDelete*), support request cancellation, implement proper cache invalidation strategies, include refetch and retry functionality, and export all hooks with clear naming conventions based on operation IDs.
+
+### /templates/lib/unified-index.ts.hbs
+Create a Handlebars template for the root API client index file that combines multiple services. The template should import all service wrappers and types, create a unified client object with all services as properties, export individual service clients for direct access, export all types from each service with proper namespacing, create type definitions for the unified client, include initialization functions that configure all services at once, support dynamic service discovery if service list is provided, handle authentication configuration across all services, export utility types for common patterns (pagination, errors), and provide a clear API surface for consuming applications. Include comments explaining the structure and usage patterns.
+
+### /templates/lib/unified-client.ts.hbs
+Create a Handlebars template for unified client configuration and management across multiple services. Generate a configuration class that manages settings for all API services, implement methods for updating URLs for specific services, create authentication management that can differ per service, support environment-based configuration with validation, implement health check methods for all services, create event emitters for global API events (errors, auth failures), handle request queuing and rate limiting if needed, provide methods for enabling/disabling specific services, support middleware registration for all services, and export typed interfaces for configuration options. The client should support both runtime and build-time configuration.
+
+### /templates/lib/mock-client.ts.hbs
+Create a Handlebars template for generating mock implementations of API clients for testing. The template should create mock classes that match the real API client interfaces, implement all methods with configurable mock responses, support different response scenarios (success, error, timeout), allow response customization through mock data providers, implement realistic delays to simulate network calls, support request validation to ensure correct parameters, track method calls for test assertions, provide utilities for common testing scenarios, integrate with popular testing frameworks, and export both individual mocks and a unified mock client. Include helpers for generating mock data that matches the API schemas.
+
+### /templates/lib/service-types.d.ts.hbs
+Create a Handlebars template for TypeScript declaration files that augment the generated types. The template should declare module augmentations for the generated client, add utility types for common patterns (WithPagination, ApiResponse, etc.), declare global types for authentication tokens and configuration, extend generated interfaces with helper methods if needed, provide type guards for runtime type checking, declare environment variable types for each service, create branded types for IDs to prevent mixing between services, export helper types for React components using the client, and ensure all declarations are properly namespaced to avoid conflicts.
+
+### /templates/lib/service-config.ts.hbs
+Create a Handlebars template for service-specific configuration files. Generate a configuration schema for each service including base URL, authentication settings, retry configuration, timeout settings, and custom headers. Implement validation functions using the schema, create default configurations based on environment, support configuration merging for overrides, provide type-safe configuration builders, export configuration interfaces for TypeScript support, include configuration presets for common scenarios (development, staging, production), support configuration from multiple sources (env vars, files, runtime), implement configuration change listeners, and provide debugging utilities for configuration issues.
+
 ---
 
 ## Phase 9: Test Files
@@ -518,8 +655,8 @@ When implementing these files, follow this order to avoid dependency issues:
    - Loading: `loading loading-spinner`, `skeleton`
 
 2. **New configuration files**:
-   - `tailwind.config.js` with DaisyUI plugin
-   - `postcss.config.js` for CSS processing
+   - `tailwind.config.mjs` with DaisyUI plugin
+   - `postcss.config.mjs` for CSS processing
    - `globals.css` with Tailwind directives
    - Component templates for common patterns
 
@@ -566,3 +703,88 @@ When implementing these files, follow this order to avoid dependency issues:
 - Default themes: light, dark, cupcake, corporate
 - When regenerating a file, use the exact prompt for that file
 - Test each component after generation before moving to dependent files
+
+
+Updated Prompts for CODEGEN-PROMPTS.md
+Here are the prompts that need to be added or updated in your CODEGEN-PROMPTS.md document:
+
+Updates to Phase 4: Template System
+/src/templates/helpers.js (UPDATED PROMPT)
+Create a module using ES Module syntax that exports custom Handlebars helper functions specifically designed for code generation tasks with DaisyUI components. Import string utilities using ES Module imports. Export individual named helper functions for case conversion: pascalCase (convert any string to PascalCase for class names), camelCase (for variable names), kebabCase (for file names), and upperCase (for constants). Add helpers for type generation: typeString (convert OpenAPI schema to TypeScript type string), isRequired (check if a property is in the required array), and isNullable (determine if a type should be nullable). Include path helpers: pathToRoute (convert OpenAPI path to Next.js route), extractPathParams (get parameter names from path), and routeToFilePath (convert route to file system path). Add DaisyUI-specific helpers: daisyInputType (determine DaisyUI input class based on schema), daisyButtonVariant (select button variant based on operation type), daisyAlertType (map error types to alert variants), daisyTableClass (generate table classes with modifiers), formControlClass (generate form control classes based on validation state), and badgeColor (map status values to badge colors). Add utility helpers: hasBody (check if operation has request body), getSuccessStatus (determine success response code), jsonStringify (safely stringify objects for templates with enhanced type handling - must handle null, undefined, strings, numbers, booleans, dates, arrays, and objects properly), safeValue (helper for safe template value rendering), and isLargeTextField (determine if textarea should be used). Add logical helpers: eq (equality check), or (logical OR), uniqueParams (get unique parameters by type to prevent duplicates), hasSuccessResponse (check for 2xx responses), and hasPathParam (check for path parameters). Ensure no duplicate function declarations. Export each helper as a named export.
+
+Updates to Phase 6: Main Code Generators
+/src/generators/ApiRouteGenerator.js (UPDATED PROMPT)
+Create a generator class using ES Module syntax that produces Next.js 14 App Router API route handlers by rendering the templates/api/[...route].ts.hbs template for each API path using TemplateEngine. Import BaseGenerator and utilities using ES Module imports. Accept serviceName in constructor options. For each path in the OpenAPI spec, convert OpenAPI paths like /pets/{id} to file paths like app/api/pets/[id]/route.ts, prepare template context with all operations, methods, parameters, schemas, and error responses for that path. Implement enhanced processRequestBodyForTemplate method that handles missing schema names by checking for array types and inline schemas, with fallback schema name generation. Include extractParametersForTemplate method with deduplication logic using Set to prevent duplicate parameters. Add formatOperationId method to ensure proper camelCase formatting and remove method prefix duplication. Group paths by resource for better organization. Pass serviceName and resourceName to template context for service integration. Use TemplateEngine.render() with the [...route].ts.hbs template to generate the route handler code that integrates with authentication middleware and service wrappers. Write each rendered file to the appropriate app/api directory structure using FileWriter. Let the template handle all Next.js route handler code generation including TypeScript types, request parsing, authentication integration, and error handling. Never write route handler code in JavaScript. Export as default.
+/src/generators/ServiceGenerator.js (NEW PROMPT - Add to Phase 6)
+Create a service generator class using ES Module syntax extending BaseGenerator that generates service wrappers and API handler utilities for each resource. Import BaseGenerator, string utilities, and path using ES Module imports. Accept serviceName in constructor options. Implement extractResources method to identify unique resources from API paths. For each resource, generate two files: a service wrapper and an API handler. Create generateServiceFile method that renders templates/services/[resource]-service.ts.hbs with context including serviceName, resourceName, and apiUrl. Create generateHandlerFile method that renders templates/services/[resource]-api-handler.ts.hbs with authentication middleware and error handling utilities. Include generateSharedUtils method that creates a logger utility if it doesn't exist, with a simple console-based logger implementation supporting debug, info, warn, and error levels. The service wrapper should implement singleton pattern, session management with withSession method, and configuration management. The API handler should export withAuthenticationAsync middleware, createErrorResponseAsync for standardized errors, validateParams for request validation, and parsePaginationParams for pagination. Emit progress events during generation. Support dry-run mode. Generate files in app/api directory with naming pattern [resource]-service.ts and [resource]-api-handler.ts. Export as default.
+
+Updates to Phase 8: Template Files
+/templates/api/[...route].ts.hbs (UPDATED PROMPT)
+Create a Handlebars template for Next.js 14 App Router API route handlers that integrates with service wrappers and authentication middleware. The template should generate imports for NextRequest and NextResponse from 'next/server', StatusCodes from 'http-status-codes', authentication utilities (createErrorResponseAsync, withAuthenticationAsync) from '@/app/api/{{kebabCase resourceName}}-api-handler', service getter from '@/app/api/{{kebabCase resourceName}}-service', logger from '@/utils/logger', and necessary types from '@/lib/api-client'. For each HTTP method, wrap the entire implementation in withAuthenticationAsync middleware that provides auth context with sessionId and userInfo. Use the service getter pattern (get{{pascalCase resourceName}}Service) to obtain service instance. Create request configuration using service.withSession(auth.sessionId) for API calls. Implement proper query parameter extraction with type conversion for numbers and booleans. Handle request body parsing with fallback variable name when schema name is missing. Use the service's API client methods with proper parameter passing. Return standardized responses with success flag and data property. Implement comprehensive error handling using createErrorResponseAsync. Add detailed logging throughout with logger.debug and logger.error. Handle all HTTP methods (GET, POST, PUT, PATCH, DELETE) with method-specific logic. Ensure TypeScript typing throughout and follow Next.js App Router conventions for API routes.
+/templates/services/[resource]-service.ts.hbs (NEW TEMPLATE - Add to Phase 8)
+Create a Handlebars template that generates a service wrapper class for API client integration. Import the generated API client classes from '@/lib/api-client' and Configuration type. Create a singleton service instance variable. Define a service class named {{pascalCase resourceName}}Service that instantiates the API client with base configuration from environment variables. Implement withSession method that returns AxiosRequestConfig with session headers including X-Session-ID and Content-Type. Add updateConfig method for runtime configuration changes. Create a getter function get{{pascalCase resourceName}}Service that returns or creates the singleton instance. Add a reset function for testing purposes. Include proper TypeScript typing throughout. Export the service class and helper functions. The service should encapsulate all API client interactions and provide a clean interface for route handlers to use.
+/templates/services/[resource]-api-handler.ts.hbs (NEW TEMPLATE - Add to Phase 8)
+Create a Handlebars template for API handler utilities that provide authentication middleware and error handling. Import NextRequest, NextResponse from 'next/server', StatusCodes from 'http-status-codes', and logger from '@/utils/logger'. Define AuthInfo interface with sessionId, token, and optional userInfo containing id, email, and name. Implement withAuthenticationAsync function that extracts session from cookies or headers, validates authentication, and calls the provided handler with auth context. Return proper error responses for missing session or token. Create createErrorResponseAsync function that handles different error types: axios errors with response data, network errors, validation errors, and generic errors. Return standardized error responses with success: false, message, error code, and optional details. Implement validateParams helper for required field validation. Add parsePaginationParams helper that extracts and validates page, size, sortBy, and sortDir from search params with sensible defaults and limits. Export all functions and interfaces. Include comprehensive error logging throughout.
+
+Adding to Build Sequence
+Update the build sequence to include ServiceGenerator:
+6. **Phase 6**: Main generators including ServiceGenerator (can be parallel) - all extending ES Module base
+   - TypeGenerator
+   - ApiRouteGenerator (updated)
+   - ServiceGenerator (new)
+   - PageGenerator
+   - ClientGenerator
+   - ProjectGenerator
+
+Updates to Key Points Section
+Add to "Key Points for All Generators":
+
+Service-oriented architecture: API routes integrate with service wrappers for better separation of concerns
+Authentication middleware: All protected routes use withAuthenticationAsync for consistent auth handling
+Standardized error responses: All errors go through createErrorResponseAsync for uniform error structure
+Session management: Built into service layer with withSession method
+Resource extraction: Generators identify resources from paths for proper file organization
+
+Updated Prompts for CODEGEN-PROMPTS.md
+Here are the prompts that need to be added or updated in your CODEGEN-PROMPTS.md document:
+
+Updates to Phase 4: Template System
+/src/templates/helpers.js (UPDATED PROMPT)
+Create a module using ES Module syntax that exports custom Handlebars helper functions specifically designed for code generation tasks with DaisyUI components. Import string utilities using ES Module imports. Export individual named helper functions for case conversion: pascalCase (convert any string to PascalCase for class names), camelCase (for variable names), kebabCase (for file names), and upperCase (for constants). Add helpers for type generation: typeString (convert OpenAPI schema to TypeScript type string), isRequired (check if a property is in the required array), and isNullable (determine if a type should be nullable). Include path helpers: pathToRoute (convert OpenAPI path to Next.js route), extractPathParams (get parameter names from path), and routeToFilePath (convert route to file system path). Add DaisyUI-specific helpers: daisyInputType (determine DaisyUI input class based on schema), daisyButtonVariant (select button variant based on operation type), daisyAlertType (map error types to alert variants), daisyTableClass (generate table classes with modifiers), formControlClass (generate form control classes based on validation state), and badgeColor (map status values to badge colors). Add utility helpers: hasBody (check if operation has request body), getSuccessStatus (determine success response code), jsonStringify (safely stringify objects for templates with enhanced type handling - must handle null, undefined, strings, numbers, booleans, dates, arrays, and objects properly), safeValue (helper for safe template value rendering), and isLargeTextField (determine if textarea should be used). Add logical helpers: eq (equality check), or (logical OR), uniqueParams (get unique parameters by type to prevent duplicates), hasSuccessResponse (check for 2xx responses), and hasPathParam (check for path parameters). Ensure no duplicate function declarations. Export each helper as a named export.
+
+Updates to Phase 6: Main Code Generators
+/src/generators/ApiRouteGenerator.js (UPDATED PROMPT)
+Create a generator class using ES Module syntax that produces Next.js 14 App Router API route handlers by rendering the templates/api/[...route].ts.hbs template for each API path using TemplateEngine. Import BaseGenerator and utilities using ES Module imports. Accept serviceName in constructor options. For each path in the OpenAPI spec, convert OpenAPI paths like /pets/{id} to file paths like app/api/pets/[id]/route.ts, prepare template context with all operations, methods, parameters, schemas, and error responses for that path. Implement enhanced processRequestBodyForTemplate method that handles missing schema names by checking for array types and inline schemas, with fallback schema name generation. Include extractParametersForTemplate method with deduplication logic using Set to prevent duplicate parameters. Add formatOperationId method to ensure proper camelCase formatting and remove method prefix duplication. Group paths by resource for better organization. Pass serviceName and resourceName to template context for service integration. Use TemplateEngine.render() with the [...route].ts.hbs template to generate the route handler code that integrates with authentication middleware and service wrappers. Write each rendered file to the appropriate app/api directory structure using FileWriter. Let the template handle all Next.js route handler code generation including TypeScript types, request parsing, authentication integration, and error handling. Never write route handler code in JavaScript. Export as default.
+/src/generators/ServiceGenerator.js (NEW PROMPT - Add to Phase 6)
+Create a service generator class using ES Module syntax extending BaseGenerator that generates service wrappers and API handler utilities for each resource. Import BaseGenerator, string utilities, and path using ES Module imports. Accept serviceName in constructor options. Implement extractResources method to identify unique resources from API paths. For each resource, generate two files: a service wrapper and an API handler. Create generateServiceFile method that renders templates/services/[resource]-service.ts.hbs with context including serviceName, resourceName, and apiUrl. Create generateHandlerFile method that renders templates/services/[resource]-api-handler.ts.hbs with authentication middleware and error handling utilities. Include generateSharedUtils method that creates a logger utility if it doesn't exist, with a simple console-based logger implementation supporting debug, info, warn, and error levels. The service wrapper should implement singleton pattern, session management with withSession method, and configuration management. The API handler should export withAuthenticationAsync middleware, createErrorResponseAsync for standardized errors, validateParams for request validation, and parsePaginationParams for pagination. Emit progress events during generation. Support dry-run mode. Generate files in app/api directory with naming pattern [resource]-service.ts and [resource]-api-handler.ts. Export as default.
+
+Updates to Phase 8: Template Files
+/templates/api/[...route].ts.hbs (UPDATED PROMPT)
+Create a Handlebars template for Next.js 14 App Router API route handlers that integrates with service wrappers and authentication middleware. The template should generate imports for NextRequest and NextResponse from 'next/server', StatusCodes from 'http-status-codes', authentication utilities (createErrorResponseAsync, withAuthenticationAsync) from '@/app/api/{{kebabCase resourceName}}-api-handler', service getter from '@/app/api/{{kebabCase resourceName}}-service', logger from '@/utils/logger', and necessary types from '@/lib/api-client'. For each HTTP method, wrap the entire implementation in withAuthenticationAsync middleware that provides auth context with sessionId and userInfo. Use the service getter pattern (get{{pascalCase resourceName}}Service) to obtain service instance. Create request configuration using service.withSession(auth.sessionId) for API calls. Implement proper query parameter extraction with type conversion for numbers and booleans. Handle request body parsing with fallback variable name when schema name is missing. Use the service's API client methods with proper parameter passing. Return standardized responses with success flag and data property. Implement comprehensive error handling using createErrorResponseAsync. Add detailed logging throughout with logger.debug and logger.error. Handle all HTTP methods (GET, POST, PUT, PATCH, DELETE) with method-specific logic. Ensure TypeScript typing throughout and follow Next.js App Router conventions for API routes.
+/templates/services/[resource]-service.ts.hbs (NEW TEMPLATE - Add to Phase 8)
+Create a Handlebars template that generates a service wrapper class for API client integration. Import the generated API client classes from '@/lib/api-client' and Configuration type. Create a singleton service instance variable. Define a service class named {{pascalCase resourceName}}Service that instantiates the API client with base configuration from environment variables. Implement withSession method that returns AxiosRequestConfig with session headers including X-Session-ID and Content-Type. Add updateConfig method for runtime configuration changes. Create a getter function get{{pascalCase resourceName}}Service that returns or creates the singleton instance. Add a reset function for testing purposes. Include proper TypeScript typing throughout. Export the service class and helper functions. The service should encapsulate all API client interactions and provide a clean interface for route handlers to use.
+/templates/services/[resource]-api-handler.ts.hbs (NEW TEMPLATE - Add to Phase 8)
+Create a Handlebars template for API handler utilities that provide authentication middleware and error handling. Import NextRequest, NextResponse from 'next/server', StatusCodes from 'http-status-codes', and logger from '@/utils/logger'. Define AuthInfo interface with sessionId, token, and optional userInfo containing id, email, and name. Implement withAuthenticationAsync function that extracts session from cookies or headers, validates authentication, and calls the provided handler with auth context. Return proper error responses for missing session or token. Create createErrorResponseAsync function that handles different error types: axios errors with response data, network errors, validation errors, and generic errors. Return standardized error responses with success: false, message, error code, and optional details. Implement validateParams helper for required field validation. Add parsePaginationParams helper that extracts and validates page, size, sortBy, and sortDir from search params with sensible defaults and limits. Export all functions and interfaces. Include comprehensive error logging throughout.
+
+Adding to Build Sequence
+Update the build sequence to include ServiceGenerator:
+6. **Phase 6**: Main generators including ServiceGenerator (can be parallel) - all extending ES Module base
+   - TypeGenerator
+   - ApiRouteGenerator (updated)
+   - ServiceGenerator (new)
+   - PageGenerator
+   - ClientGenerator
+   - ProjectGenerator
+
+Updates to Key Points Section
+Add to "Key Points for All Generators":
+
+Service-oriented architecture: API routes integrate with service wrappers for better separation of concerns
+Authentication middleware: All protected routes use withAuthenticationAsync for consistent auth handling
+Standardized error responses: All errors go through createErrorResponseAsync for uniform error structure
+Session management: Built into service layer with withSession method
+Resource extraction: Generators identify resources from paths for proper file organization
+
+
+/templates/utils/logger.ts.hbs (NEW TEMPLATE)
+Create a Handlebars template for a logger utility that provides structured logging for the application. Accept projectName from context for documentation. Generate a TypeScript logger class with support for multiple log levels (debug, info, warn, error). Implement log level filtering based on environment (debug only in development). Include timestamp formatting with ISO string format. Create methods for each log level with proper TypeScript typing. Handle Error objects specially in the error method by extracting name, message, and stack trace. Add support for child loggers with context for structured logging. Export a singleton logger instance for application-wide use. Include JSDoc comments explaining usage and mentioning alternative logging libraries (winston, pino, bunyan). Add type exports for extending the logger. Consider test environment to suppress console output during testing. The logger should be simple enough to work out of the box but extensible for production needs.

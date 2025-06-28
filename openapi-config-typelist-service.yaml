@@ -1,5 +1,5 @@
 inputSpec: http://localhost:8090/v3/api-docs
-outputDir: ./src/lib/api-client
+outputDir: ./src/lib/typelist-service-client
 generatorName: typescript-axios
 skipValidateSpec: true
 additionalProperties:

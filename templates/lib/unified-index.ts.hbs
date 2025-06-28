@@ -1,0 +1,55 @@
+{{!-- Unified API client index --}}
+/* eslint-disable */
+{{#each services}}
+    import { {{className}}Client } from './{{name}}';
+{{/each}}
+
+{{#each services}}
+    // Re-export all types from {{name}} service
+    export * from './{{name}}/models';
+{{/each}}
+
+// Re-export service clients
+{{#each services}}
+    export { {{className}}Client } from './{{name}}';
+{{/each}}
+
+/**
+* Unified API client with all services
+*/
+export class UnifiedApiClient {
+{{#each services}}
+    public {{camelCase name}}: {{className}}Client;
+{{/each}}
+
+constructor(config?: {
+{{#each services}}
+    {{camelCase name}}?: ConstructorParameters<typeof {{className}}Client>[0];
+{{/each}}
+    }) {
+{{#each services}}
+        this.{{camelCase name}} = new {{className}}Client(config?.{{camelCase name}});
+{{/each}}
+    }
+
+    /**
+    * Update configuration for all services
+    */
+    public updateConfig(config: {
+    baseURL?: string;
+    timeout?: number;
+    headers?: Record<string, string>;
+    }): void {
+{{#each services}}
+        if (config.baseURL) {
+        this.{{camelCase name}}.setBaseURL(config.baseURL);
+        }
+{{/each}}
+    }
+    }
+
+    // Export singleton instance
+    export const apiClient = new UnifiedApiClient();
+
+    // Export default
+    export default apiClient;

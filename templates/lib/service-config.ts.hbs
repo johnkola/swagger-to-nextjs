@@ -1,0 +1,195 @@
+{{!-- Configuration for {{serviceName}} service --}}
+/* eslint-disable */
+
+export interface {{serviceClassName}}Configuration {
+baseURL: string;
+timeout?: number;
+headers?: Record<string, string>;
+{{#if hasAuth}}
+    auth?: {
+    {{#each securitySchemes}}
+        {{@key}}: {
+        type: '{{type}}';
+        {{#if (eq type "apiKey")}}
+            in: '{{in}}';
+            name: '{{name}}';
+        {{else if (eq type "http")}}
+            scheme: '{{scheme}}';
+        {{else if (eq type "oauth2")}}
+            flows: {
+            {{#each flows}}
+                {{@key}}: {
+                authorizationUrl?: string;
+                tokenUrl?: string;
+                scopes: Record<string, string>;
+                };
+            {{/each}}
+            };
+        {{/if}}
+        value?: string;
+        };
+    {{/each}}
+    };
+{{/if}}
+retry?: {
+maxAttempts: number;
+delay: number;
+backoff: 'linear' | 'exponential';
+};
+cache?: {
+enabled: boolean;
+ttl: number;
+storage: 'memory' | 'localStorage' | 'sessionStorage';
+};
+}
+
+/**
+* Default configuration for {{serviceClassName}}
+*/
+export const defaultConfig: {{serviceClassName}}Configuration = {
+baseURL: process.env.NEXT_PUBLIC_{{upperCase serviceName}}_API_URL || '{{baseUrl}}',
+timeout: 30000,
+headers: {
+'Content-Type': 'application/json',
+'Accept': 'application/json',
+},
+{{#if hasAuth}}
+    auth: {
+    {{#each securitySchemes}}
+        {{@key}}: {
+        type: '{{type}}',
+        {{#if (eq type "apiKey")}}
+            in: '{{in}}',
+            name: '{{name}}',
+        {{else if (eq type "http")}}
+            scheme: '{{scheme}}',
+        {{else if (eq type "oauth2")}}
+            flows: {
+            {{#each flows}}
+                {{@key}}: {
+                {{#if authorizationUrl}}authorizationUrl: '{{authorizationUrl}}',{{/if}}
+                {{#if tokenUrl}}tokenUrl: '{{tokenUrl}}',{{/if}}
+                scopes: {
+                {{#each scopes}}
+                    '{{@key}}': '{{this}}',
+                {{/each}}
+                },
+                },
+            {{/each}}
+            },
+        {{/if}}
+        value: process.env.{{upperCase ../serviceName}}_{{upperCase @key}} || undefined,
+        },
+    {{/each}}
+    },
+{{/if}}
+retry: {
+maxAttempts: 3,
+delay: 1000,
+backoff: 'exponential',
+},
+cache: {
+enabled: false,
+ttl: 300000, // 5 minutes
+storage: 'memory',
+},
+};
+
+/**
+* Environment-specific configurations
+*/
+export const configs: Record<string, Partial<{{serviceClassName}}Configuration>> = {
+    development: {
+    baseURL: 'http://localhost:3000/api',
+    timeout: 60000,
+    },
+    staging: {
+    baseURL: process.env.NEXT_PUBLIC_{{upperCase serviceName}}_STAGING_API_URL || '{{baseUrl}}',
+    timeout: 45000,
+    },
+    production: {
+    baseURL: process.env.NEXT_PUBLIC_{{upperCase serviceName}}_API_URL || '{{baseUrl}}',
+    timeout: 30000,
+    retry: {
+    maxAttempts: 5,
+    delay: 2000,
+    backoff: 'exponential',
+    },
+    },
+    };
+
+    /**
+    * Get configuration for current environment
+    */
+    export function getConfig(environment?: string): {{serviceClassName}}Configuration {
+    const env = environment || process.env.NODE_ENV || 'development';
+    return {
+    ...defaultConfig,
+    ...configs[env],
+    };
+    }
+
+    /**
+    * Validate configuration
+    */
+    export function validateConfig(config: Partial<{{serviceClassName}}Configuration>): string[] {
+        const errors: string[] = [];
+
+        if (!config.baseURL) {
+        errors.push('baseURL is required');
+        } else {
+        try {
+        new URL(config.baseURL);
+        } catch {
+        errors.push('baseURL must be a valid URL');
+        }
+        }
+
+        if (config.timeout && (config.timeout < 0 || config.timeout > 300000)) {
+        errors.push('timeout must be between 0 and 300000 ms');
+        }
+
+        {{#if hasAuth}}
+            if (config.auth) {
+            {{#each securitySchemes}}
+                if (config.auth.{{@key}} && !config.auth.{{@key}}.value) {
+                errors.push('auth.{{@key}}.value is required when auth.{{@key}} is provided');
+                }
+            {{/each}}
+            }
+        {{/if}}
+
+        return errors;
+        }
+
+        /**
+        * Merge configurations
+        */
+        export function mergeConfig(
+        base: {{serviceClassName}}Configuration,
+        override: Partial<{{serviceClassName}}Configuration>
+            ): {{serviceClassName}}Configuration {
+            return {
+            ...base,
+            ...override,
+            headers: {
+            ...base.headers,
+            ...override.headers,
+            },
+            {{#if hasAuth}}
+                auth: override.auth ? {
+                {{#each securitySchemes}}
+                    {{@key}}: override.auth.{{@key}} || base.auth?.{{@key}},
+                {{/each}}
+                } : base.auth,
+            {{/if}}
+            retry: {
+            ...base.retry,
+            ...override.retry,
+            },
+            cache: {
+            ...base.cache,
+            ...override.cache,
+            },
+            };
+            }

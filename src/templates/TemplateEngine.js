@@ -32,8 +32,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as helpers from './helpers.js';
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
 /**
  * Template Engine wrapper around Handlebars for code generation
  */
@@ -45,6 +47,7 @@ export default class TemplateEngine {
             debug: false,
             ...options
         };
+
         // Initialize Handlebars instance
         this.handlebars = Handlebars.create();
 
@@ -86,6 +89,23 @@ export default class TemplateEngine {
         this.handlebars.registerHelper('and', (a, b) => a && b);
         this.handlebars.registerHelper('or', (a, b) => a || b);
         this.handlebars.registerHelper('not', (a) => !a);
+
+        // Math helpers
+        this.handlebars.registerHelper('add', (a, b) => {
+            return parseInt(a) + parseInt(b);
+        });
+
+        this.handlebars.registerHelper('subtract', (a, b) => {
+            return parseInt(a) - parseInt(b);
+        });
+
+        this.handlebars.registerHelper('multiply', (a, b) => {
+            return parseInt(a) * parseInt(b);
+        });
+
+        this.handlebars.registerHelper('divide', (a, b) => {
+            return parseInt(a) / parseInt(b);
+        });
 
         // Array helpers
         this.handlebars.registerHelper('includes', (arr, value) => {
@@ -145,19 +165,34 @@ export default class TemplateEngine {
     }
 
     /**
+     * Ensure template path has .hbs extension
+     */
+    normalizeTemplatePath(templatePath) {
+        // If it already has .hbs extension, return as is
+        if (templatePath.endsWith('.hbs')) {
+            return templatePath;
+        }
+        // Otherwise, append .hbs
+        return templatePath + '.hbs';
+    }
+
+    /**
      * Find template file, checking override directories first
      */
     findTemplate(templatePath) {
+        // Normalize the template path to ensure .hbs extension
+        const normalizedPath = this.normalizeTemplatePath(templatePath);
+
         // Check override directories first
         for (const overrideDir of this.overrideDirs) {
-            const fullPath = path.join(overrideDir, templatePath);
+            const fullPath = path.join(overrideDir, normalizedPath);
             if (fs.existsSync(fullPath)) {
                 return fullPath;
             }
         }
 
         // Check default template directory
-        const defaultPath = path.join(this.options.baseDir, templatePath);
+        const defaultPath = path.join(this.options.baseDir, normalizedPath);
         if (fs.existsSync(defaultPath)) {
             return defaultPath;
         }
@@ -169,9 +204,12 @@ export default class TemplateEngine {
      * Load and compile a template
      */
     loadTemplate(templatePath) {
+        // Normalize the template path
+        const normalizedPath = this.normalizeTemplatePath(templatePath);
+
         // Check cache first
-        if (this.options.cacheTemplates && this.templateCache.has(templatePath)) {
-            return this.templateCache.get(templatePath);
+        if (this.options.cacheTemplates && this.templateCache.has(normalizedPath)) {
+            return this.templateCache.get(normalizedPath);
         }
 
         // Find template file
@@ -192,7 +230,7 @@ export default class TemplateEngine {
 
             // Cache if enabled
             if (this.options.cacheTemplates) {
-                this.templateCache.set(templatePath, compiled);
+                this.templateCache.set(normalizedPath, compiled);
             }
 
             return compiled;

@@ -25,11 +25,13 @@
  *
  * ============================================================================
  */
+
 /**
  * PathUtils.js - Utility module for path and route manipulation
  * Converts between OpenAPI paths and Next.js routing conventions
  * Uses ES Module named exports as required by generators
  */
+
 /**
  * Convert OpenAPI path to Next.js route format
  * /users/{userId}/posts/{postId} -> /users/[userId]/posts/[postId]
@@ -38,6 +40,7 @@ export function pathToRoute(openApiPath) {
     if (!openApiPath) return '';
     return openApiPath.replace(/{([^}]+)}/g, '[$1]');
 }
+
 /**
  * Extract parameter names from OpenAPI path
  * /users/{userId}/posts/{postId} -> ['userId', 'postId']
@@ -140,7 +143,13 @@ export function pathToComponentName(openApiPath, suffix = '') {
     const segments = openApiPath
         .split('/')
         .filter(s => s && !s.startsWith('{'))
-        .map(s => s.charAt(0).toUpperCase() + s.slice(1));
+        .map(segment => {
+            // Convert kebab-case or snake_case to PascalCase
+            return segment
+                .split(/[-_]/)
+                .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+                .join('');
+        });
 
     return segments.join('') + suffix;
 }
@@ -245,14 +254,20 @@ export function getParentPath(openApiPath) {
 export function ensureValidPath(path) {
     if (!path) return '';
 
-    // Replace invalid file system characters
+    // Replace invalid file system characters with dash
     let validPath = path.replace(/[<>:"|?*]/g, '-');
+
+    // Replace multiple slashes with single slash
+    validPath = validPath.replace(/\/+/g, '/');
 
     // Replace multiple dashes with single dash
     validPath = validPath.replace(/-+/g, '-');
 
-    // Remove trailing dashes
-    validPath = validPath.replace(/-+$/, '');
+    // Only remove trailing dashes if the original path ended with dashes
+    // This handles the '/users---' -> '/users' case
+    if (path.match(/-+$/)) {
+        validPath = validPath.replace(/-+$/, '');
+    }
 
     return validPath;
 }

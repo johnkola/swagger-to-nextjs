@@ -1,0 +1,61 @@
+import { {{pascalCase serviceName}}Api, Configuration } from '@/lib/api-client';
+import { AxiosRequestConfig } from 'axios';
+
+// Service instance singleton
+let {{camelCase resourceName}}Service: {{pascalCase resourceName}}Service | null = null;
+
+/**
+* Service wrapper for {{pascalCase resourceName}} API operations
+*/
+export class {{pascalCase resourceName}}Service {
+public {{camelCase resourceName}}: {{pascalCase serviceName}}Api;
+private baseConfig: Configuration;
+
+constructor(config?: Configuration) {
+this.baseConfig = config || new Configuration({
+basePath: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080',
+});
+
+this.{{camelCase resourceName}} = new {{pascalCase serviceName}}Api(this.baseConfig);
+}
+
+/**
+* Create request config with session headers
+*/
+withSession(sessionId: string): AxiosRequestConfig {
+return {
+headers: {
+'X-Session-ID': sessionId,
+'Content-Type': 'application/json',
+},
+};
+}
+
+/**
+* Update base configuration
+*/
+updateConfig(config: Partial<Configuration>) {
+    this.baseConfig = new Configuration({
+    ...this.baseConfig,
+    ...config,
+    });
+    this.{{camelCase resourceName}} = new {{pascalCase serviceName}}Api(this.baseConfig);
+    }
+    }
+
+    /**
+    * Get or create the {{pascalCase resourceName}} service instance
+    */
+    export function get{{pascalCase resourceName}}Service(): {{pascalCase resourceName}}Service {
+    if (!{{camelCase resourceName}}Service) {
+    {{camelCase resourceName}}Service = new {{pascalCase resourceName}}Service();
+    }
+    return {{camelCase resourceName}}Service;
+    }
+
+    /**
+    * Reset the service instance (useful for testing)
+    */
+    export function reset{{pascalCase resourceName}}Service(): void {
+    {{camelCase resourceName}}Service = null;
+    }

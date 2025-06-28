@@ -1,0 +1,146 @@
+# API Documentation
+
+{{#if info.description}}
+    {{info.description}}
+{{/if}}
+
+**Version:** {{info.version}}
+**Base URL:** {{#if servers}}{{servers.[0].url}}{{else}}/api{{/if}}
+
+## Table of Contents
+
+{{#each operationsByTag}}
+    - [{{@key}}](#{{kebabCase @key}})
+{{/each}}
+
+## Authentication
+
+{{#if securitySchemes}}
+    {{#each securitySchemes}}
+        ### {{@key}}
+
+        - **Type:** {{type}}
+        {{#if description}}
+            - **Description:** {{description}}
+        {{/if}}
+        {{#if scheme}}
+            - **Scheme:** {{scheme}}
+        {{/if}}
+        {{#if bearerFormat}}
+            - **Bearer Format:** {{bearerFormat}}
+        {{/if}}
+        {{#if flows}}
+            - **OAuth2 Flows:** Available
+        {{/if}}
+
+    {{/each}}
+{{else}}
+    This API does not require authentication.
+{{/if}}
+
+---
+
+{{#each operationsByTag}}
+    ## {{@key}}
+
+    {{#if this.[0].description}}
+        {{this.[0].description}}
+    {{/if}}
+
+    {{#each this}}
+        ### {{summary}}
+
+        **{{method}}** `{{path}}`
+
+        {{#if description}}
+            {{description}}
+        {{/if}}
+
+        {{#if operationId}}
+            **Operation ID:** `{{operationId}}`
+        {{/if}}
+
+        {{#if parameters}}
+            #### Parameters
+
+            | Name | In | Type | Required | Description |
+            |------|-----|------|----------|-------------|
+            {{#each parameters}}
+                | {{name}} | {{in}} | {{#if schema}}{{schema.type}}{{else}}string{{/if}} | {{#if required}}Yes{{else}}No{{/if}} | {{#if description}}{{description}}{{else}}-{{/if}} |
+            {{/each}}
+        {{/if}}
+
+        {{#if requestBody}}
+            #### Request Body
+
+            {{#if requestBody.description}}
+                {{requestBody.description}}
+            {{/if}}
+
+            {{#each requestBody.content}}
+                **Content-Type:** `{{@key}}`
+
+                {{#if this.schema}}
+                    ```json
+                    {
+                    // {{@key}} schema
+                    {{#if this.schema.$ref}}
+                        // See: {{this.schema.$ref}}
+                    {{else}}
+                        // Type: {{this.schema.type}}
+                    {{/if}}
+                    }
+                    ```
+                {{/if}}
+            {{/each}}
+        {{/if}}
+
+        #### Responses
+
+        {{#each responses}}
+            ##### {{@key}}{{#if this.description}} - {{this.description}}{{/if}}
+
+            {{#each this.content}}
+                **Content-Type:** `{{@key}}`
+
+                {{#if this.schema}}
+                    ```json
+                    {
+                    {{#if this.schema.$ref}}
+                        // See: {{this.schema.$ref}}
+                    {{else}}
+                        // Type: {{this.schema.type}}
+                    {{/if}}
+                    }
+                    ```
+                {{/if}}
+            {{/each}}
+        {{/each}}
+
+        ---
+
+    {{/each}}
+{{/each}}
+
+## Models
+
+{{#each schemas}}
+    ### {{@key}}
+
+    {{#if this.description}}
+        {{this.description}}
+    {{/if}}
+
+    {{#if this.properties}}
+        | Property | Type | Required | Description |
+        |----------|------|----------|-------------|
+        {{#each this.properties}}
+            | {{@key}} | {{#if type}}{{type}}{{else}}object{{/if}} | {{#if (includes ../required @key)}}Yes{{else}}No{{/if}} | {{#if description}}{{description}}{{else}}-{{/if}} |
+        {{/each}}
+    {{/if}}
+
+    {{#if this.enum}}
+        **Enum values:** {{#each this.enum}}`{{this}}`{{#unless @last}}, {{/unless}}{{/each}}
+    {{/if}}
+
+{{/each}}
